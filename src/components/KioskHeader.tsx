@@ -18,7 +18,7 @@ export function KioskHeader({ back, title }: { back?: string; title?: string }) 
       <div className="flex items-center gap-4">
         {back ? (
           <button
-            onClick={() => router.navigate({ to: back })}
+            onClick={() => router.navigate({ to: back as string })}
             className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card text-foreground transition hover:border-primary hover:bg-secondary active:scale-95"
             aria-label="Volver"
           >
