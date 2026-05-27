@@ -156,7 +156,7 @@ function Checkout() {
           <button
             disabled={!canSubmit}
             onClick={submit}
-            className="flex h-18 min-h-[4.5rem] w-full items-center justify-center gap-3 rounded-2xl bg-gradient-primary text-xl font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-[4.5rem] w-full items-center justify-center gap-3 rounded-2xl bg-gradient-primary text-xl font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Enviar pedido · {formatPrice(total)}
             <ChevronRight className="h-6 w-6" />
