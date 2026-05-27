@@ -9,38 +9,148 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as KitchenRouteImport } from './routes/kitchen'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as CategoriesRouteImport } from './routes/categories'
+import { Route as CartRouteImport } from './routes/cart'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MenuCategoryRouteImport } from './routes/menu.$category'
+import { Route as ConfirmationOrderIdRouteImport } from './routes/confirmation.$orderId'
 
+const KitchenRoute = KitchenRouteImport.update({
+  id: '/kitchen',
+  path: '/kitchen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CartRoute = CartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MenuCategoryRoute = MenuCategoryRouteImport.update({
+  id: '/menu/$category',
+  path: '/menu/$category',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmationOrderIdRoute = ConfirmationOrderIdRouteImport.update({
+  id: '/confirmation/$orderId',
+  path: '/confirmation/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cart': typeof CartRoute
+  '/categories': typeof CategoriesRoute
+  '/checkout': typeof CheckoutRoute
+  '/kitchen': typeof KitchenRoute
+  '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
+  '/menu/$category': typeof MenuCategoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cart': typeof CartRoute
+  '/categories': typeof CategoriesRoute
+  '/checkout': typeof CheckoutRoute
+  '/kitchen': typeof KitchenRoute
+  '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
+  '/menu/$category': typeof MenuCategoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cart': typeof CartRoute
+  '/categories': typeof CategoriesRoute
+  '/checkout': typeof CheckoutRoute
+  '/kitchen': typeof KitchenRoute
+  '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
+  '/menu/$category': typeof MenuCategoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/cart'
+    | '/categories'
+    | '/checkout'
+    | '/kitchen'
+    | '/confirmation/$orderId'
+    | '/menu/$category'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/cart'
+    | '/categories'
+    | '/checkout'
+    | '/kitchen'
+    | '/confirmation/$orderId'
+    | '/menu/$category'
+  id:
+    | '__root__'
+    | '/'
+    | '/cart'
+    | '/categories'
+    | '/checkout'
+    | '/kitchen'
+    | '/confirmation/$orderId'
+    | '/menu/$category'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CartRoute: typeof CartRoute
+  CategoriesRoute: typeof CategoriesRoute
+  CheckoutRoute: typeof CheckoutRoute
+  KitchenRoute: typeof KitchenRoute
+  ConfirmationOrderIdRoute: typeof ConfirmationOrderIdRoute
+  MenuCategoryRoute: typeof MenuCategoryRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/kitchen': {
+      id: '/kitchen'
+      path: '/kitchen'
+      fullPath: '/kitchen'
+      preLoaderRoute: typeof KitchenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +158,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/menu/$category': {
+      id: '/menu/$category'
+      path: '/menu/$category'
+      fullPath: '/menu/$category'
+      preLoaderRoute: typeof MenuCategoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirmation/$orderId': {
+      id: '/confirmation/$orderId'
+      path: '/confirmation/$orderId'
+      fullPath: '/confirmation/$orderId'
+      preLoaderRoute: typeof ConfirmationOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CartRoute: CartRoute,
+  CategoriesRoute: CategoriesRoute,
+  CheckoutRoute: CheckoutRoute,
+  KitchenRoute: KitchenRoute,
+  ConfirmationOrderIdRoute: ConfirmationOrderIdRoute,
+  MenuCategoryRoute: MenuCategoryRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
