@@ -14,13 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      businesses: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          business_id: string | null
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          business_id?: string | null
+          created_at?: string
+          id?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string | null
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_business_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
