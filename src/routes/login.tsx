@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, Loader2 } from "lucide-react";
+import { Flame, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -14,11 +14,20 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+function translateAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login") || m.includes("invalid credentials"))
+    return "Email o contraseña incorrectos.";
+  if (m.includes("email not confirmed")) return "Email no confirmado.";
+  if (m.includes("network")) return "Error de conexión. Reintentá.";
+  return "No se pudo iniciar sesión. Verificá tus datos.";
+}
+
 function LoginPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,21 +44,11 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/admin` },
-        });
-        if (error) throw error;
-        toast.success("Cuenta creada");
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error de autenticación";
-      toast.error(msg);
+      toast.error(translateAuthError(msg));
     } finally {
       setLoading(false);
     }
@@ -63,8 +62,8 @@ function LoginPage() {
             <Flame className="h-8 w-8 text-primary-foreground" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Panel Admin</h1>
-          <p className="text-sm text-muted-foreground">
-            {mode === "signin" ? "Iniciá sesión para gestionar tu negocio" : "Creá tu cuenta de administrador"}
+          <p className="text-sm text-muted-foreground text-center">
+            Iniciá sesión para gestionar tu negocio
           </p>
         </div>
 
@@ -75,6 +74,7 @@ function LoginPage() {
               id="email"
               type="email"
               required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@negocio.com"
@@ -83,30 +83,39 @@ function LoginPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Contraseña</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="h-12"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="h-12 pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              La contraseña debe tener al menos 12 caracteres, una mayúscula, una minúscula, un número y un símbolo.
+            </p>
           </div>
 
           <Button type="submit" disabled={loading} className="h-12 w-full text-base font-bold">
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : mode === "signin" ? "Ingresar" : "Crear cuenta"}
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Ingresar"}
           </Button>
         </form>
 
-        <button
-          type="button"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-6 w-full text-center text-sm text-muted-foreground hover:text-foreground"
-        >
-          {mode === "signin" ? "¿No tenés cuenta? Crear una" : "¿Ya tenés cuenta? Iniciar sesión"}
-        </button>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          ¿No tenés acceso? Contactá al administrador de la plataforma.
+        </p>
       </div>
     </div>
   );
