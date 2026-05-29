@@ -16,25 +16,40 @@ export type Database = {
     Tables: {
       businesses: {
         Row: {
+          active: boolean
+          address: string | null
           created_at: string
           id: string
           logo_url: string | null
           name: string
+          phone: string | null
+          primary_color: string | null
           slug: string
+          updated_at: string
         }
         Insert: {
+          active?: boolean
+          address?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
           name: string
+          phone?: string | null
+          primary_color?: string | null
           slug: string
+          updated_at?: string
         }
         Update: {
+          active?: boolean
+          address?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
           name?: string
+          phone?: string | null
+          primary_color?: string | null
           slug?: string
+          updated_at?: string
         }
         Relationships: []
       }
