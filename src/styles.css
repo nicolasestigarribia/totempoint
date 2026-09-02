@@ -40,7 +40,6 @@
   --gradient-primary: linear-gradient(135deg, oklch(0.55 0.22 25), oklch(0.42 0.20 22));
 }
 
-@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap");
 
 :root {
   --radius: 0.875rem;
