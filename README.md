@@ -18,7 +18,7 @@ Diseño moderno, estilo fast food premium
 
 Fondo atractivo con hamburguesas
 
-Pantalla de categorías
+Pantalla de categorías 
 Categorías:
 
 Hamburguesas
