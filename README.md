@@ -8,7 +8,7 @@ Necesito una demo funcional, moderna y visualmente atractiva.
 
 Pantallas necesarias:
 
-Pantalla de inicio
+Pantalla de inicio  
 
 Logo ficticio: “Burger Point”
 
