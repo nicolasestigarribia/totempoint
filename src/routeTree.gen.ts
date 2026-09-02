@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KitchenRouteImport } from './routes/kitchen'
 import { Route as CheckoutRouteImport } from './routes/checkout'
@@ -19,6 +20,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MenuCategoryRouteImport } from './routes/menu.$category'
 import { Route as ConfirmationOrderIdRouteImport } from './routes/confirmation.$orderId'
 
+const SuperadminRoute = SuperadminRouteImport.update({
+  id: '/superadmin',
+  path: '/superadmin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
+  '/superadmin': typeof SuperadminRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
+  '/superadmin': typeof SuperadminRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
+  '/superadmin': typeof SuperadminRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/kitchen'
     | '/login'
+    | '/superadmin'
     | '/confirmation/$orderId'
     | '/menu/$category'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/kitchen'
     | '/login'
+    | '/superadmin'
     | '/confirmation/$orderId'
     | '/menu/$category'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/kitchen'
     | '/login'
+    | '/superadmin'
     | '/confirmation/$orderId'
     | '/menu/$category'
   fileRoutesById: FileRoutesById
@@ -143,12 +155,20 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
+  SuperadminRoute: typeof SuperadminRoute
   ConfirmationOrderIdRoute: typeof ConfirmationOrderIdRoute
   MenuCategoryRoute: typeof MenuCategoryRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/superadmin': {
+      id: '/superadmin'
+      path: '/superadmin'
+      fullPath: '/superadmin'
+      preLoaderRoute: typeof SuperadminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
+  SuperadminRoute: SuperadminRoute,
   ConfirmationOrderIdRoute: ConfirmationOrderIdRoute,
   MenuCategoryRoute: MenuCategoryRoute,
 }
