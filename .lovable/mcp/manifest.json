@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "sdk_version": "1.0.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://ykdwreugpdvnyezkwcqe.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "burger-point-order",
+      "version": "0.1.0",
+      "title": "Burger Point Order"
+    },
+    "tools": [
+      {
+        "name": "get_current_user",
+        "title": "Current user",
+        "description": "Returns the authenticated user's id, email and role claims.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_businesses",
+        "title": "List businesses",
+        "description": "List the businesses the signed-in user can see. Superadmins see all businesses; business admins see only their assigned business.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_business",
+        "title": "Get business",
+        "description": "Get a single business by id or slug. The caller must be allowed to access it through RLS.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "description": "Business UUID. Either id or slug is required.",
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "slug": {
+              "description": "Business slug. Either id or slug is required.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_business",
+        "title": "Update business",
+        "description": "Update editable fields of a business. Superadmins can edit any business; business admins can edit only their own business and cannot change the active flag.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "Business UUID to update."
+            },
+            "name": {
+              "description": "Business name.",
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 80
+            },
+            "logo_url": {
+              "description": "Public URL of the business logo.",
+              "type": "string",
+              "format": "uri"
+            },
+            "primary_color": {
+              "description": "Hex primary color, e.g. #3B82F6.",
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "phone": {
+              "description": "Contact phone.",
+              "type": "string",
+              "maxLength": 40
+            },
+            "address": {
+              "description": "Business address.",
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "set_business_active",
+        "title": "Set business active state",
+        "description": "Activate or deactivate a business. Only superadmins can change the active flag.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "Business UUID."
+            },
+            "active": {
+              "type": "boolean",
+              "description": "Whether the business is active."
+            }
+          },
+          "required": [
+            "id",
+            "active"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

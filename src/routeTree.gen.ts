@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KitchenRouteImport } from './routes/kitchen'
 import { Route as CheckoutRouteImport } from './routes/checkout'
@@ -19,10 +20,16 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MenuCategoryRouteImport } from './routes/menu.$category'
 import { Route as ConfirmationOrderIdRouteImport } from './routes/confirmation.$orderId'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 
 const SuperadminRoute = SuperadminRouteImport.update({
   id: '/superadmin',
   path: '/superadmin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -70,6 +77,12 @@ const ConfirmationOrderIdRoute = ConfirmationOrderIdRouteImport.update({
   path: '/confirmation/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,7 +92,9 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/superadmin': typeof SuperadminRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -91,7 +106,9 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/superadmin': typeof SuperadminRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -104,7 +121,9 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/superadmin': typeof SuperadminRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -118,7 +137,9 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/kitchen'
     | '/login'
+    | '/mcp'
     | '/superadmin'
+    | '/.well-known/oauth-protected-resource'
     | '/confirmation/$orderId'
     | '/menu/$category'
   fileRoutesByTo: FileRoutesByTo
@@ -130,7 +151,9 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/kitchen'
     | '/login'
+    | '/mcp'
     | '/superadmin'
+    | '/.well-known/oauth-protected-resource'
     | '/confirmation/$orderId'
     | '/menu/$category'
   id:
@@ -142,7 +165,9 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/kitchen'
     | '/login'
+    | '/mcp'
     | '/superadmin'
+    | '/.well-known/oauth-protected-resource'
     | '/confirmation/$orderId'
     | '/menu/$category'
   fileRoutesById: FileRoutesById
@@ -155,7 +180,9 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
+  McpRoute: typeof McpRoute
   SuperadminRoute: typeof SuperadminRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   ConfirmationOrderIdRoute: typeof ConfirmationOrderIdRoute
   MenuCategoryRoute: typeof MenuCategoryRoute
 }
@@ -167,6 +194,13 @@ declare module '@tanstack/react-router' {
       path: '/superadmin'
       fullPath: '/superadmin'
       preLoaderRoute: typeof SuperadminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -232,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfirmationOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -243,7 +284,10 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
+  McpRoute: McpRoute,
   SuperadminRoute: SuperadminRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   ConfirmationOrderIdRoute: ConfirmationOrderIdRoute,
   MenuCategoryRoute: MenuCategoryRoute,
 }

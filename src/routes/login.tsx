@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [{ title: "Acceso administrador — Burger Point" }],
+  }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    next: typeof search.next === "string" ? search.next : undefined,
   }),
   component: LoginPage,
 });
@@ -23,8 +26,35 @@ function translateAuthError(message: string): string {
   return "No se pudo iniciar sesión. Verificá tus datos.";
 }
 
-function LoginPage() {
+function isSameOriginRelativePath(path: string): boolean {
+  try {
+    const url = new URL(path, window.location.origin);
+    return url.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function useRedirectAfterLogin() {
   const navigate = useNavigate();
+  return async (next?: string) => {
+    if (next && isSameOriginRelativePath(next)) {
+      const url = new URL(next, window.location.origin);
+      await navigate({ href: url.pathname + url.search + url.hash, replace: true });
+      return;
+    }
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (!session) return;
+    const { data: isSuper } = await supabase.rpc("is_superadmin", { _user_id: session.user.id });
+    await navigate({ to: isSuper ? "/superadmin" : "/admin", replace: true });
+  };
+}
+
+function LoginPage() {
+  const { next } = useSearch({ from: "/login" });
+  const navigate = useNavigate();
+  const redirectAfterLogin = useRedirectAfterLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -32,13 +62,13 @@ function LoginPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin", replace: true });
+      if (data.session) redirectAfterLogin(next);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) navigate({ to: "/admin", replace: true });
+      if (session) redirectAfterLogin(next);
     });
     return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+  }, [next, redirectAfterLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +76,7 @@ function LoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      await redirectAfterLogin(next);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error de autenticación";
       toast.error(translateAuthError(msg));
