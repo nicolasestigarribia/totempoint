@@ -1,30 +1,52 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Flame, ChevronRight, Clock, Sparkles } from "lucide-react";
-import heroImg from "@/assets/cat-burgers.jpg";
+import { Flame, Sparkles, ConciergeBell, ChefHat, ShieldCheck, ChevronRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Burger Point — Autoservicio" },
-      { name: "description", content: "Hacé tu pedido en segundos desde la pantalla." },
+      { title: "Burger Point — Acceso" },
+      { name: "description", content: "Seleccioná tu acceso: tótem, cocina o administración." },
     ],
   }),
   component: Home,
 });
 
+interface AccessCard {
+  to: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}
+
+const cards: AccessCard[] = [
+  {
+    to: "/totem",
+    label: "Totem",
+    description: "Tomá el pedido del cliente",
+    icon: ConciergeBell,
+  },
+  {
+    to: "/kitchen",
+    label: "Cocina",
+    description: "Panel de pedidos en preparación",
+    icon: ChefHat,
+  },
+  {
+    to: "/login",
+    label: "Administración",
+    description: "Ingresá con usuario y contraseña",
+    icon: ShieldCheck,
+  },
+];
+
 function Home() {
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-      <img
-        src={heroImg}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover opacity-50"
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/20" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-6 py-12">
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col items-center justify-between gap-10 px-6 py-10 text-center md:items-start md:px-12 md:py-16 md:text-left lg:flex-row lg:items-center">
-        <div className="flex flex-col items-center gap-8 md:items-start">
+      <div className="relative z-10 flex w-full max-w-6xl flex-col items-center gap-12">
+        <div className="flex flex-col items-center gap-6 text-center">
           <div className="flex items-center gap-3 rounded-full border border-border/70 bg-card/70 px-5 py-2 backdrop-blur">
             <Sparkles className="h-4 w-4 text-gold" />
             <span className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
@@ -32,51 +54,44 @@ function Home() {
             </span>
           </div>
 
-          <div className="flex flex-col items-center gap-6 md:items-start">
-            <div className="flex items-center gap-4">
-              <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-primary shadow-glow">
-                <Flame className="h-10 w-10 text-primary-foreground" />
-              </div>
-              <div className="text-left">
-                <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Premium Burgers</div>
-                <div className="font-display text-2xl tracking-wide md:text-3xl">Burger Point</div>
-              </div>
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-primary shadow-glow">
+              <Flame className="h-8 w-8 text-primary-foreground" />
             </div>
-
-            <h1 className="font-display text-balance text-7xl leading-[0.9] sm:text-8xl md:text-[8rem] lg:text-[10rem]">
-              BURGER
-              <br />
-              <span className="text-gold">POINT</span>
-            </h1>
-            <p className="max-w-xl text-balance text-lg text-muted-foreground md:text-xl">
-              Hamburguesas premium hechas al momento. Tocá la pantalla y armá tu pedido en segundos.
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
-              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
-                <Clock className="h-3.5 w-3.5 text-gold" /> Listo en 5 min
-              </div>
-              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
-                <Flame className="h-3.5 w-3.5 text-gold" /> Carne 100% premium
-              </div>
+            <div className="text-left">
+              <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Premium Burgers</div>
+              <div className="font-display text-3xl tracking-wide md:text-4xl">Burger Point</div>
             </div>
           </div>
+
+          <h1 className="font-display text-balance text-5xl leading-[0.95] sm:text-6xl md:text-7xl">
+            ¿Cómo querés <span className="text-gold">ingresar</span>?
+          </h1>
+          <p className="max-w-xl text-balance text-lg text-muted-foreground">
+            Seleccioná tu acceso para continuar.
+          </p>
         </div>
 
-        <div className="flex w-full max-w-xl flex-col gap-4 lg:max-w-md">
-          <Link
-            to="/categories"
-            className="group flex h-28 items-center justify-center gap-4 rounded-3xl bg-gradient-primary text-3xl font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition hover:scale-[1.02] active:scale-[0.98] md:h-32 md:text-4xl"
-          >
-            Empezar pedido
-            <ChevronRight className="h-9 w-9 transition group-hover:translate-x-1 md:h-10 md:w-10" />
-          </Link>
-          <Link
-            to="/kitchen"
-            className="flex h-14 items-center justify-center rounded-2xl border border-border/70 bg-card/60 text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground backdrop-blur transition hover:border-primary hover:text-foreground"
-          >
-            Panel de cocina →
-          </Link>
+        <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
+          {cards.map(({ to, label, description, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className="group relative flex flex-col items-center gap-5 overflow-hidden rounded-3xl border border-border/70 bg-card/70 p-8 text-center shadow-card backdrop-blur transition hover:scale-[1.03] hover:border-primary hover:shadow-glow active:scale-[0.98] md:p-10"
+            >
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-primary shadow-glow transition group-hover:scale-110">
+                <Icon className="h-12 w-12 text-primary-foreground" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <h2 className="font-display text-3xl tracking-wide md:text-4xl">{label}</h2>
+                <p className="text-sm text-muted-foreground">{description}</p>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-gold opacity-0 transition group-hover:opacity-100">
+                Ingresar
+                <ChevronRight className="h-4 w-4 transition group-hover:translate-x-1" />
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

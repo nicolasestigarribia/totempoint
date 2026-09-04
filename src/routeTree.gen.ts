@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TotemRouteImport } from './routes/totem'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KitchenRouteImport } from './routes/kitchen'
@@ -20,6 +21,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MenuCategoryRouteImport } from './routes/menu.$category'
 import { Route as ConfirmationOrderIdRouteImport } from './routes/confirmation.$orderId'
 
+const TotemRoute = TotemRouteImport.update({
+  id: '/totem',
+  path: '/totem',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SuperadminRoute = SuperadminRouteImport.update({
   id: '/superadmin',
   path: '/superadmin',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/totem': typeof TotemRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/totem': typeof TotemRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/totem': typeof TotemRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/totem'
     | '/confirmation/$orderId'
     | '/menu/$category'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/totem'
     | '/confirmation/$orderId'
     | '/menu/$category'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/totem'
     | '/confirmation/$orderId'
     | '/menu/$category'
   fileRoutesById: FileRoutesById
@@ -156,12 +168,20 @@ export interface RootRouteChildren {
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
+  TotemRoute: typeof TotemRoute
   ConfirmationOrderIdRoute: typeof ConfirmationOrderIdRoute
   MenuCategoryRoute: typeof MenuCategoryRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/totem': {
+      id: '/totem'
+      path: '/totem'
+      fullPath: '/totem'
+      preLoaderRoute: typeof TotemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/superadmin': {
       id: '/superadmin'
       path: '/superadmin'
@@ -244,6 +264,7 @@ const rootRouteChildren: RootRouteChildren = {
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
+  TotemRoute: TotemRoute,
   ConfirmationOrderIdRoute: ConfirmationOrderIdRoute,
   MenuCategoryRoute: MenuCategoryRoute,
 }

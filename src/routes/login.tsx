@@ -1,10 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, Loader2, Eye, EyeOff } from "lucide-react";
+import { Flame, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -55,7 +55,14 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+      <Link
+        to="/"
+        className="absolute left-6 top-6 z-20 flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground backdrop-blur transition hover:border-primary hover:text-foreground md:left-12 md:top-8"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Volver
+      </Link>
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-2xl">
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary shadow-glow">
