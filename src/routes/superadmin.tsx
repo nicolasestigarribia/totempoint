@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { me, logout } from "@/lib/api/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,8 @@ function SuperadminPage() {
   const fetchBusinesses = useServerFn(listBusinesses);
   const create = useServerFn(createBusiness);
   const toggleActive = useServerFn(setBusinessActive);
+  const doMe = useServerFn(me);
+  const doLogout = useServerFn(logout);
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<BusinessRow[]>([]);
@@ -58,12 +60,12 @@ function SuperadminPage() {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
+      const user = await doMe();
+      if (!user) {
         navigate({ to: "/login", replace: true });
         return;
       }
-      setEmail(userData.user.email ?? "");
+      setEmail(user.email);
       try {
         const data = await fetchBusinesses();
         if (mounted) setRows(data);
@@ -78,7 +80,7 @@ function SuperadminPage() {
     return () => {
       mounted = false;
     };
-  }, [navigate, fetchBusinesses]);
+  }, [navigate, fetchBusinesses, doMe]);
 
   const reload = async () => {
     try {
@@ -120,7 +122,7 @@ function SuperadminPage() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await doLogout();
     navigate({ to: "/login", replace: true });
   };
 

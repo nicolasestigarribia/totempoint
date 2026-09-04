@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Flame, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { login, me, type AuthUser } from "@/lib/api/auth.functions";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -14,41 +15,34 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-function translateAuthError(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("invalid login") || m.includes("invalid credentials"))
-    return "Email o contraseña incorrectos.";
-  if (m.includes("email not confirmed")) return "Email no confirmado.";
-  if (m.includes("network")) return "Error de conexión. Reintentá.";
-  return "No se pudo iniciar sesión. Verificá tus datos.";
+function destinationFor(user: AuthUser): string {
+  return user.roles.includes("superadmin") ? "/superadmin" : "/admin";
 }
 
 function LoginPage() {
   const navigate = useNavigate();
+  const doLogin = useServerFn(login);
+  const doMe = useServerFn(me);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin", replace: true });
+    doMe().then((user) => {
+      if (user) navigate({ to: destinationFor(user), replace: true });
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) navigate({ to: "/admin", replace: true });
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+  }, [doMe, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      const user = await doLogin({ data: { email, password } });
+      navigate({ to: destinationFor(user), replace: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error de autenticación";
-      toast.error(translateAuthError(msg));
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -110,9 +104,6 @@ function LoginPage() {
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              La contraseña debe tener al menos 12 caracteres, una mayúscula, una minúscula, un número y un símbolo.
-            </p>
           </div>
 
           <Button type="submit" disabled={loading} className="h-12 w-full text-base font-bold">

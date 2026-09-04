@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Flame, LogOut, Package, Loader2, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { me, logout } from "@/lib/api/auth.functions";
+import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -14,26 +16,19 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-interface Business {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-  primary_color: string | null;
-  phone: string | null;
-  address: string | null;
-  active: boolean;
-}
-
 function AdminPage() {
   const navigate = useNavigate();
+  const doMe = useServerFn(me);
+  const doLogout = useServerFn(logout);
+  const fetchBusiness = useServerFn(getMyBusiness);
+  const saveBusiness = useServerFn(updateMyBusiness);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [business, setBusiness] = useState<Business | null>(null);
+  const [business, setBusiness] = useState<MyBusiness | null>(null);
   const [noBusiness, setNoBusiness] = useState(false);
   const [email, setEmail] = useState<string>("");
 
-  // form fields
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#000000");
@@ -44,60 +39,39 @@ function AdminPage() {
     let mounted = true;
 
     const load = async () => {
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData.user) {
+      const user = await doMe();
+      if (!user) {
         navigate({ to: "/login", replace: true });
         return;
       }
       if (!mounted) return;
-      setEmail(userData.user.email ?? "");
+      setEmail(user.email);
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("business_id")
-        .eq("user_id", userData.user.id)
-        .maybeSingle();
-
-      if (!profile?.business_id) {
-        if (mounted) {
-          setNoBusiness(true);
-          setLoading(false);
-        }
+      const biz = await fetchBusiness();
+      if (!mounted) return;
+      if (!biz) {
+        setNoBusiness(true);
+        setLoading(false);
         return;
       }
 
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("id, name, slug, logo_url, primary_color, phone, address, active")
-        .eq("id", profile.business_id)
-        .maybeSingle();
-
-      if (mounted && biz) {
-        setBusiness(biz as Business);
-        setName(biz.name ?? "");
-        setLogoUrl(biz.logo_url ?? "");
-        setPrimaryColor(biz.primary_color ?? "#000000");
-        setPhone(biz.phone ?? "");
-        setAddress(biz.address ?? "");
-      } else if (mounted) {
-        setNoBusiness(true);
-      }
-      if (mounted) setLoading(false);
+      setBusiness(biz);
+      setName(biz.name ?? "");
+      setLogoUrl(biz.logo_url ?? "");
+      setPrimaryColor(biz.primary_color ?? "#000000");
+      setPhone(biz.phone ?? "");
+      setAddress(biz.address ?? "");
+      setLoading(false);
     };
 
     load();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!session) navigate({ to: "/login", replace: true });
-    });
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, doMe, fetchBusiness]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await doLogout();
     toast.success("Sesión cerrada");
     navigate({ to: "/login", replace: true });
   };
@@ -107,17 +81,9 @@ function AdminPage() {
     if (!business || !business.active) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("businesses")
-        .update({
-          name: name.trim(),
-          logo_url: logoUrl.trim() || null,
-          primary_color: primaryColor || null,
-          phone: phone.trim() || null,
-          address: address.trim() || null,
-        })
-        .eq("id", business.id);
-      if (error) throw error;
+      await saveBusiness({
+        data: { name, logoUrl, primaryColor, phone, address },
+      });
       toast.success("Datos del negocio actualizados");
       setBusiness({ ...business, name, logo_url: logoUrl, primary_color: primaryColor, phone, address });
     } catch (err: unknown) {
