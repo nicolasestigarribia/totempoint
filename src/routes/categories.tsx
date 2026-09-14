@@ -10,24 +10,24 @@ export const Route = createFileRoute("/categories")({
 
 function Categories() {
   return (
-    <div className="min-h-screen">
+    <div className="flex h-screen flex-col overflow-hidden">
       <KioskHeader title="¿Qué se te antoja?" />
-      <main className="mx-auto max-w-[1400px] px-6 py-10 md:px-12 md:py-14">
-        <div className="mb-12 text-center">
+      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-5 md:px-12 md:py-6">
+        <div className="mb-5 text-center">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-gold">Menú</div>
-          <h1 className="mt-3 font-display text-5xl md:text-7xl">Elegí una categoría</h1>
-          <p className="mt-3 text-base text-muted-foreground md:text-lg">
+          <h1 className="mt-2 font-display text-4xl md:text-6xl">Elegí una categoría</h1>
+          <p className="mt-1 text-sm text-muted-foreground md:text-base">
             Tocá una tarjeta para ver los productos
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {categories.map((c) => (
             <Link
               key={c.id}
               to="/menu/$category"
               params={{ category: c.id }}
-              className="group relative flex h-72 flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary md:h-80"
+              className="group relative flex min-h-0 flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary"
             >
               <img
                 src={c.image}

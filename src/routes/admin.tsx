@@ -1,11 +1,41 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import type { LucideIcon } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, LogOut, Package, Loader2, Save, AlertTriangle } from "lucide-react";
+import {
+  Flame,
+  LogOut,
+  Loader2,
+  Save,
+  AlertTriangle,
+  LayoutDashboard,
+  MapPin,
+  FolderTree,
+  Package,
+  Carrot,
+  Boxes,
+  Store,
+  Warehouse,
+  ScrollText,
+  Tags,
+  PanelLeft,
+  PanelLeftClose,
+} from "lucide-react";
 import { toast } from "sonner";
+import { me, logout } from "@/lib/api/auth.functions";
+import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
+import { LocalesSection } from "@/components/admin/LocalesSection";
+import { CategoriasSection } from "@/components/admin/CategoriasSection";
+import { ProductosSection } from "@/components/admin/ProductosSection";
+import { IngredientesSection } from "@/components/admin/IngredientesSection";
+import { CombosSection } from "@/components/admin/CombosSection";
+import { DisponibilidadSection } from "@/components/admin/DisponibilidadSection";
+import { StockSection } from "@/components/admin/StockSection";
+import { MovimientosSection } from "@/components/admin/MovimientosSection";
+import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -14,90 +44,114 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-interface Business {
-  id: string;
+type SectionId =
+  | "resumen"
+  | "locales"
+  | "categorias"
+  | "productos"
+  | "ingredientes"
+  | "combos"
+  | "disponibilidad"
+  | "stock"
+  | "movimientos"
+  | "codigos";
+
+interface SectionDef {
+  id: SectionId;
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+}
+
+const SECTIONS: SectionDef[] = [
+  { id: "resumen", label: "Resumen", icon: LayoutDashboard, desc: "Datos y marca de tu empresa" },
+  { id: "locales", label: "Locales", icon: MapPin, desc: "Sucursales de la empresa" },
+  { id: "categorias", label: "Categorías", icon: FolderTree, desc: "Categorías del menú" },
+  { id: "productos", label: "Productos", icon: Package, desc: "Productos y precios" },
+  { id: "combos", label: "Combos", icon: Boxes, desc: "Combos armados con productos" },
+  { id: "ingredientes", label: "Ingredientes", icon: Carrot, desc: "Ingredientes de tus productos" },
+  { id: "disponibilidad", label: "Disponibilidad", icon: Store, desc: "Qué se muestra en cada local" },
+  { id: "stock", label: "Stock", icon: Warehouse, desc: "Stock de ingredientes por local" },
+  { id: "movimientos", label: "Movimientos", icon: ScrollText, desc: "Historial de movimientos de la empresa" },
+  { id: "codigos", label: "Códigos de acción", icon: Tags, desc: "Motivos de ingresos y egresos" },
+];
+
+// Superficie elevada para separar paneles del fondo oscuro
+const PANEL = "rounded-3xl border border-white/10 bg-[oklch(0.17_0.015_20)] shadow-lg shadow-black/40";
+
+interface BrandingProps {
   name: string;
-  slug: string;
-  logo_url: string | null;
-  primary_color: string | null;
-  phone: string | null;
-  address: string | null;
-  active: boolean;
+  setName: (v: string) => void;
+  logoUrl: string;
+  setLogoUrl: (v: string) => void;
+  primaryColor: string;
+  setPrimaryColor: (v: string) => void;
+  saving: boolean;
+  onSave: (e: React.FormEvent) => void;
 }
 
 function AdminPage() {
   const navigate = useNavigate();
+  const doMe = useServerFn(me);
+  const doLogout = useServerFn(logout);
+  const fetchBusiness = useServerFn(getMyBusiness);
+  const saveBusiness = useServerFn(updateMyBusiness);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [business, setBusiness] = useState<Business | null>(null);
+  const [business, setBusiness] = useState<MyBusiness | null>(null);
   const [noBusiness, setNoBusiness] = useState(false);
-  const [email, setEmail] = useState<string>("");
+  const [email, setEmail] = useState("");
 
-  // form fields
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#000000");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+
+  const [section, setSection] = useState<SectionId>("resumen");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Auto-cierra el sidebar al achicar la ventana (< lg)
+  useEffect(() => {
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+    const onResize = () => {
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-
     const load = async () => {
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData.user) {
+      const user = await doMe();
+      if (!user) {
         navigate({ to: "/login", replace: true });
         return;
       }
       if (!mounted) return;
-      setEmail(userData.user.email ?? "");
+      setEmail(user.email);
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("business_id")
-        .eq("user_id", userData.user.id)
-        .maybeSingle();
-
-      if (!profile?.business_id) {
-        if (mounted) {
-          setNoBusiness(true);
-          setLoading(false);
-        }
+      const biz = await fetchBusiness();
+      if (!mounted) return;
+      if (!biz) {
+        setNoBusiness(true);
+        setLoading(false);
         return;
       }
-
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("id, name, slug, logo_url, primary_color, phone, address, active")
-        .eq("id", profile.business_id)
-        .maybeSingle();
-
-      if (mounted && biz) {
-        setBusiness(biz as Business);
-        setName(biz.name ?? "");
-        setLogoUrl(biz.logo_url ?? "");
-        setPrimaryColor(biz.primary_color ?? "#000000");
-        setPhone(biz.phone ?? "");
-        setAddress(biz.address ?? "");
-      } else if (mounted) {
-        setNoBusiness(true);
-      }
-      if (mounted) setLoading(false);
+      setBusiness(biz);
+      setName(biz.name ?? "");
+      setLogoUrl(biz.logo_url ?? "");
+      setPrimaryColor(biz.primary_color ?? "#000000");
+      setLoading(false);
     };
-
     load();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!session) navigate({ to: "/login", replace: true });
-    });
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, doMe, fetchBusiness]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await doLogout();
     toast.success("Sesión cerrada");
     navigate({ to: "/login", replace: true });
   };
@@ -107,22 +161,11 @@ function AdminPage() {
     if (!business || !business.active) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("businesses")
-        .update({
-          name: name.trim(),
-          logo_url: logoUrl.trim() || null,
-          primary_color: primaryColor || null,
-          phone: phone.trim() || null,
-          address: address.trim() || null,
-        })
-        .eq("id", business.id);
-      if (error) throw error;
-      toast.success("Datos del negocio actualizados");
-      setBusiness({ ...business, name, logo_url: logoUrl, primary_color: primaryColor, phone, address });
+      await saveBusiness({ data: { name, logoUrl, primaryColor } });
+      toast.success("Datos de la empresa actualizados");
+      setBusiness({ ...business, name, logo_url: logoUrl, primary_color: primaryColor });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "No se pudo guardar";
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar");
     } finally {
       setSaving(false);
     }
@@ -136,158 +179,241 @@ function AdminPage() {
     );
   }
 
+  if (noBusiness) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="max-w-md rounded-3xl border border-destructive/40 bg-destructive/10 p-8 text-center">
+          <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-destructive" />
+          <h2 className="text-2xl font-bold">Usuario sin empresa asignada</h2>
+          <p className="mt-2 text-muted-foreground">Contactá al administrador de la plataforma.</p>
+          <p className="mt-4 text-xs text-muted-foreground">Sesión: {email}</p>
+          <Button variant="outline" className="mt-6" onClick={handleLogout}>
+            Cerrar sesión
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (business && !business.active) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="max-w-md rounded-3xl border border-destructive/40 bg-destructive/10 p-8 text-center">
+          <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-destructive" />
+          <h2 className="text-2xl font-bold">Cuenta suspendida</h2>
+          <p className="mt-2 text-muted-foreground">Contactá al administrador.</p>
+          <Button variant="outline" className="mt-6" onClick={handleLogout}>
+            Cerrar sesión
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const branding: BrandingProps = {
+    name,
+    setName,
+    logoUrl,
+    setLogoUrl,
+    primaryColor,
+    setPrimaryColor,
+    saving,
+    onSave: handleSave,
+  };
+
+  const current = SECTIONS.find((s) => s.id === section)!;
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary shadow-glow">
-              <Flame className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">Burger Point</p>
-              <h1 className="text-lg font-bold leading-tight">Panel administrativo</h1>
-            </div>
+    <div className="relative min-h-screen bg-background lg:flex">
+      {/* Backdrop en pantallas chicas */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-card/40 backdrop-blur transition-transform duration-300 lg:static lg:z-auto lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:hidden"
+        }`}
+      >
+        <div className="flex items-center gap-3 border-b border-border px-5 py-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-primary shadow-glow">
+            <Flame className="h-6 w-6 text-primary-foreground" />
           </div>
-          <Button variant="outline" onClick={handleLogout} className="gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold">{business!.name}</p>
+            <p className="text-xs text-muted-foreground">Panel admin</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Cerrar menú"
+            onClick={() => setSidebarOpen(false)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:border-primary hover:text-foreground"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </button>
+        </div>
+        <nav className="flex-1 space-y-1 p-3">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => {
+                setSection(s.id);
+                if (window.innerWidth < 1024) setSidebarOpen(false);
+              }}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                section === s.id
+                  ? "bg-primary/15 text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              }`}
+            >
+              <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
+              {s.label}
+            </button>
+          ))}
+        </nav>
+        <div className="border-t border-border p-3">
+          <Button variant="outline" className="w-full gap-2" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
             Cerrar sesión
           </Button>
         </div>
-      </header>
+      </aside>
 
-      <main className="mx-auto max-w-5xl px-6 py-10 space-y-8">
-        {noBusiness && (
-          <div className="rounded-3xl border border-destructive/40 bg-destructive/10 p-8 text-center">
-            <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-destructive" />
-            <h2 className="text-2xl font-bold">Usuario sin negocio asignado</h2>
-            <p className="mt-2 text-muted-foreground">
-              Contactá al administrador de la plataforma.
-            </p>
-            <p className="mt-4 text-xs text-muted-foreground">Sesión: {email}</p>
+      <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
+        <div className="flex items-center gap-4 border-b border-border px-6 py-5 md:px-8">
+          {!sidebarOpen && (
+            <button
+              type="button"
+              aria-label="Abrir menú"
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground transition hover:border-primary hover:text-foreground"
+            >
+              <PanelLeft className="h-5 w-5" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{current.label}</h1>
+            <p className="text-sm text-muted-foreground">{current.desc}</p>
           </div>
-        )}
-
-        {business && !business.active && (
-          <div className="rounded-3xl border border-destructive/40 bg-destructive/10 p-8 text-center">
-            <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-destructive" />
-            <h2 className="text-2xl font-bold">Cuenta suspendida</h2>
-            <p className="mt-2 text-muted-foreground">Contactá al administrador.</p>
-          </div>
-        )}
-
-        {business && (
-          <div className="rounded-3xl border border-border bg-card p-8 shadow-lg">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-widest text-muted-foreground">Negocio</p>
-                <h2 className="mt-2 text-4xl font-bold tracking-tight">{business.name}</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Slug: <code className="rounded bg-muted px-2 py-0.5">{business.slug}</code>
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">Sesión: {email}</p>
-              </div>
-              <span
-                className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
-                  business.active
-                    ? "bg-green-500/15 text-green-500"
-                    : "bg-destructive/15 text-destructive"
-                }`}
-              >
-                {business.active ? "Activo" : "Suspendido"}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {business && business.active && (
-          <form
-            onSubmit={handleSave}
-            className="rounded-3xl border border-border bg-card p-8 shadow-lg space-y-6"
-          >
-            <div>
-              <h3 className="text-xl font-bold">Configuración del negocio</h3>
-              <p className="text-sm text-muted-foreground">
-                Datos visibles para tus clientes.
-              </p>
-            </div>
-
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="name">Nombre visible</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="h-11" />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="logo">Logo (URL)</Label>
-                <Input
-                  id="logo"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="h-11"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="color">Color principal</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="color"
-                    type="color"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="h-11 w-16 cursor-pointer p-1"
-                  />
-                  <Input
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    placeholder="#000000"
-                    className="h-11 flex-1"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono</Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+54 11 ..."
-                  className="h-11"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="address">Dirección</Label>
-                <Input
-                  id="address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Calle 123, Ciudad"
-                  className="h-11"
-                />
-              </div>
-            </div>
-
-            <Button type="submit" disabled={saving} className="h-12 gap-2 px-8 font-bold">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Guardar cambios
-            </Button>
-          </form>
-        )}
-
-        {business && business.active && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-6 opacity-60">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
-                <Package className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">Productos</h3>
-                <p className="text-sm text-muted-foreground">Próximamente</p>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
+        <div className="p-6 md:p-8">
+          <SectionContent section={section} business={business!} branding={branding} panelClass={PANEL} />
+        </div>
       </main>
+    </div>
+  );
+}
+
+// ---------- Contenido por sección ----------
+function SectionContent({
+  section,
+  business,
+  branding,
+  panelClass,
+}: {
+  section: SectionId;
+  business: MyBusiness;
+  branding: BrandingProps;
+  panelClass: string;
+}) {
+  switch (section) {
+    case "resumen":
+      return <BrandingForm business={business} branding={branding} panelClass={panelClass} />;
+    case "locales":
+      return <LocalesSection panelClass={panelClass} />;
+    case "categorias":
+      return <CategoriasSection panelClass={panelClass} />;
+    case "productos":
+      return <ProductosSection panelClass={panelClass} />;
+    case "combos":
+      return <CombosSection panelClass={panelClass} />;
+    case "ingredientes":
+      return <IngredientesSection panelClass={panelClass} />;
+    case "disponibilidad":
+      return <DisponibilidadSection panelClass={panelClass} />;
+    case "stock":
+      return <StockSection panelClass={panelClass} />;
+    case "movimientos":
+      return <MovimientosSection panelClass={panelClass} />;
+    case "codigos":
+      return <CodigosAccionSection panelClass={panelClass} />;
+  }
+}
+
+function BrandingForm({
+  business,
+  branding,
+  panelClass,
+}: {
+  business: MyBusiness;
+  branding: BrandingProps;
+  panelClass: string;
+}) {
+  const { name, setName, logoUrl, setLogoUrl, primaryColor, setPrimaryColor, saving, onSave } = branding;
+  return (
+    <div className="space-y-6">
+      <div className={`flex flex-wrap items-start justify-between gap-4 p-6 ${panelClass}`}>
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Empresa</p>
+          <h2 className="mt-1 text-3xl font-bold tracking-tight">{business.name}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Slug: <code className="rounded bg-white/10 px-2 py-0.5">{business.slug}</code>
+          </p>
+        </div>
+        <span className="rounded-full bg-green-500/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-green-500">
+          Activo
+        </span>
+      </div>
+
+      <form onSubmit={onSave} className={`space-y-6 p-6 ${panelClass}`}>
+        <div>
+          <h3 className="text-xl font-bold">Marca de la empresa</h3>
+          <p className="text-sm text-muted-foreground">Datos visibles para tus clientes.</p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="name">Nombre visible</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="h-11" />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="logo">Logo (URL)</Label>
+            <Input
+              id="logo"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              placeholder="https://..."
+              className="h-11"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="color">Color principal</Label>
+            <div className="flex gap-2">
+              <Input
+                id="color"
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="h-11 w-16 cursor-pointer p-1"
+              />
+              <Input
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#000000"
+                className="h-11 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+        <Button type="submit" disabled={saving} className="h-12 gap-2 px-8 font-bold">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Guardar cambios
+        </Button>
+      </form>
     </div>
   );
 }

@@ -1,167 +1,198 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { eq, or, ne, and, desc } from "drizzle-orm";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-type AuthedContext = {
-  supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> };
-  userId: string;
-};
-
-async function assertSuperadmin(context: AuthedContext) {
-  const { data, error } = await context.supabase.rpc("is_superadmin", {
-    _user_id: context.userId,
-  });
-  if (error || data !== true) {
-    throw new Error("No autorizado: se requiere rol superadmin");
-  }
-}
+import { db } from "@/db";
+import { companies, locations, users, userRoles } from "@/db/schema";
+import { requireSuperadmin } from "@/lib/auth/middleware";
+import { hashPassword } from "@/lib/auth/password";
 
 function slugify(name: string) {
   return name
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 50);
 }
 
+const usernameSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(60)
+  .regex(/^[a-zA-Z0-9_.-]+$/, "Usuario: solo letras, números, . _ -");
+
 export interface BusinessRow {
-  id: string;
+  id: number;
   name: string;
   slug: string;
   active: boolean;
   created_at: string;
+  admin_user_id: number | null;
   admin_email: string | null;
+  admin_username: string | null;
 }
 
 export const listBusinesses = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<BusinessRow[]> => {
-    await assertSuperadmin(context as unknown as AuthedContext);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  .middleware([requireSuperadmin])
+  .handler(async (): Promise<BusinessRow[]> => {
+    const rows = await db
+      .select()
+      .from(companies)
+      .orderBy(desc(companies.createdAt));
 
-    const { data: businesses, error } = await supabaseAdmin
-      .from("businesses")
-      .select("id, name, slug, active, created_at")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    const admins = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        companyId: users.companyId,
+      })
+      .from(users);
 
-    const { data: profiles } = await supabaseAdmin
-      .from("profiles")
-      .select("user_id, business_id")
-      .not("business_id", "is", null);
-
-    const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    const emailById = new Map((usersData?.users ?? []).map((u) => [u.id, u.email ?? null]));
-
-    const adminByBusiness = new Map<string, string | null>();
-    for (const p of profiles ?? []) {
-      if (p.business_id && !adminByBusiness.has(p.business_id)) {
-        adminByBusiness.set(p.business_id, emailById.get(p.user_id) ?? null);
+    const adminByCompany = new Map<number, { id: number; email: string; username: string | null }>();
+    for (const a of admins) {
+      if (a.companyId && !adminByCompany.has(a.companyId)) {
+        adminByCompany.set(a.companyId, { id: a.id, email: a.email, username: a.username });
       }
     }
 
-    return (businesses ?? []).map((b) => ({
-      ...b,
-      admin_email: adminByBusiness.get(b.id) ?? null,
-    }));
+    return rows.map((c) => {
+      const admin = adminByCompany.get(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        active: c.active,
+        created_at: c.createdAt.toISOString(),
+        admin_user_id: admin?.id ?? null,
+        admin_email: admin?.email ?? null,
+        admin_username: admin?.username ?? null,
+      };
+    });
   });
 
 export const createBusiness = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSuperadmin])
   .inputValidator(
     z.object({
       name: z.string().trim().min(2).max(80),
       adminEmail: z.string().trim().email(),
+      adminUsername: usernameSchema,
+      adminPassword: z.string().min(6).max(100),
     }),
   )
-  .handler(async ({ context, data }) => {
-    await assertSuperadmin(context as unknown as AuthedContext);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
+  .handler(async ({ data }) => {
     const email = data.adminEmail.toLowerCase();
-    const base = slugify(data.name) || "negocio";
+    const username = data.adminUsername.toLowerCase();
+
+    const [dup] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(or(eq(users.email, email), eq(users.username, username)))
+      .limit(1);
+    if (dup) throw new Error("Ese email o usuario ya está en uso");
+
+    // slug único
+    const base = slugify(data.name) || "empresa";
     let slug = base;
     for (let i = 2; i < 50; i++) {
-      const { data: exists } = await supabaseAdmin
-        .from("businesses")
-        .select("id")
-        .eq("slug", slug)
-        .maybeSingle();
+      const [exists] = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.slug, slug))
+        .limit(1);
       if (!exists) break;
       slug = `${base}-${i}`;
     }
 
-    const { data: business, error: bizErr } = await supabaseAdmin
-      .from("businesses")
-      .insert({ name: data.name.trim(), slug, active: true })
-      .select("id, name, slug, active, created_at")
-      .single();
-    if (bizErr || !business) throw new Error(bizErr?.message ?? "No se pudo crear el negocio");
+    const [{ id: companyId }] = await db
+      .insert(companies)
+      .values({ name: data.name.trim(), slug, active: true })
+      .$returningId();
 
-    // Buscar o crear el usuario administrador
-    const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-    let userId = (usersData?.users ?? []).find((u) => u.email?.toLowerCase() === email)?.id;
-    let tempPassword: string | null = null;
+    const [{ id: locationId }] = await db
+      .insert(locations)
+      .values({ companyId, name: "Local principal", active: true })
+      .$returningId();
 
-    if (!userId) {
-      tempPassword = `bp-${crypto.randomUUID().slice(0, 10)}`;
-      const { data: created, error: userErr } = await supabaseAdmin.auth.admin.createUser({
+    const [{ id: userId }] = await db
+      .insert(users)
+      .values({
         email,
-        password: tempPassword,
-        email_confirm: true,
-      });
-      if (userErr || !created.user) {
-        await supabaseAdmin.from("businesses").delete().eq("id", business.id);
-        throw new Error(userErr?.message ?? "No se pudo crear el usuario administrador");
-      }
-      userId = created.user.id;
-    }
+        username,
+        passwordHash: await hashPassword(data.adminPassword),
+        companyId,
+        locationId,
+      })
+      .$returningId();
+    await db.insert(userRoles).values({ userId, role: "admin" });
 
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id, business_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (existingProfile?.business_id) {
-      await supabaseAdmin.from("businesses").delete().eq("id", business.id);
-      throw new Error("Ese usuario ya administra otro negocio");
-    }
-
-    if (existingProfile) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({ business_id: business.id })
-        .eq("id", existingProfile.id);
-    } else {
-      await supabaseAdmin
-        .from("profiles")
-        .insert({ user_id: userId, business_id: business.id, role: "admin" });
-    }
-
-    await supabaseAdmin
-      .from("user_roles")
-      .upsert({ user_id: userId, role: "business_admin" }, { onConflict: "user_id,role" });
+    const [company] = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
 
     return {
-      business: { ...business, admin_email: email } as BusinessRow,
-      tempPassword,
+      business: {
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        active: company.active,
+        created_at: company.createdAt.toISOString(),
+        admin_user_id: userId,
+        admin_email: email,
+        admin_username: username,
+      } as BusinessRow,
     };
   });
 
+export const updateBusinessAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSuperadmin])
+  .inputValidator(
+    z.object({
+      userId: z.number().int(),
+      email: z.string().trim().email(),
+      username: usernameSchema,
+      password: z.string().min(6).max(100).optional().nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const email = data.email.toLowerCase();
+    const username = data.username.toLowerCase();
+
+    const [dup] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          ne(users.id, data.userId),
+          or(eq(users.email, email), eq(users.username, username)),
+        ),
+      )
+      .limit(1);
+    if (dup) throw new Error("Ese email o usuario ya está en uso por otra cuenta");
+
+    const set: { email: string; username: string; passwordHash?: string } = {
+      email,
+      username,
+    };
+    if (data.password) set.passwordHash = await hashPassword(data.password);
+
+    await db.update(users).set(set).where(eq(users.id, data.userId));
+    return { ok: true };
+  });
+
 export const setBusinessActive = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ id: z.string().uuid(), active: z.boolean() }))
-  .handler(async ({ context, data }) => {
-    await assertSuperadmin(context as unknown as AuthedContext);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("businesses")
-      .update({ active: data.active })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
+  .middleware([requireSuperadmin])
+  .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
+  .handler(async ({ data }) => {
+    await db
+      .update(companies)
+      .set({ active: data.active })
+      .where(eq(companies.id, data.id));
     return { ok: true };
   });
