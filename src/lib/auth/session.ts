@@ -8,13 +8,14 @@ const COOKIE_NAME = "session";
 const SESSION_DAYS = 30;
 
 export interface SessionUser {
-  id: string;
+  id: number;
   email: string;
-  businessId: string | null;
+  companyId: number | null;
+  locationId: number | null;
   roles: string[];
 }
 
-export async function createSession(userId: string): Promise<string> {
+export async function createSession(userId: number): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   await db.insert(sessions).values({ id: token, userId, expiresAt });
@@ -38,7 +39,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       expiresAt: sessions.expiresAt,
       userId: users.id,
       email: users.email,
-      businessId: users.businessId,
+      companyId: users.companyId,
+      locationId: users.locationId,
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
@@ -59,7 +61,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   return {
     id: row.userId,
     email: row.email,
-    businessId: row.businessId,
+    companyId: row.companyId,
+    locationId: row.locationId,
     roles: roles.map((r) => r.role),
   };
 }

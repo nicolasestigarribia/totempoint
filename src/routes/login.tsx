@@ -16,14 +16,16 @@ export const Route = createFileRoute("/login")({
 });
 
 function destinationFor(user: AuthUser): string {
-  return user.roles.includes("superadmin") ? "/superadmin" : "/admin";
+  if (user.roles.includes("superadmin")) return "/superadmin";
+  if (user.roles.includes("kitchen") && !user.roles.includes("admin")) return "/kitchen";
+  return "/admin";
 }
 
 function LoginPage() {
   const navigate = useNavigate();
   const doLogin = useServerFn(login);
   const doMe = useServerFn(me);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await doLogin({ data: { email, password } });
+      const user = await doLogin({ data: { identifier, password } });
       navigate({ to: destinationFor(user), replace: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error de autenticación";
@@ -70,15 +72,15 @@ function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="identifier">Email o usuario</Label>
             <Input
-              id="email"
-              type="email"
+              id="identifier"
+              type="text"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@negocio.com"
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="admin@negocio.com o usuario"
               className="h-12"
             />
           </div>

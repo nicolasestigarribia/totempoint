@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "./index";
 import { users, userRoles } from "./schema";
@@ -10,7 +9,7 @@ const password = process.env.SEED_PASSWORD ?? "Totem-Admin-2026";
 async function main() {
   const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
-  let userId: string;
+  let userId: number;
   if (existing) {
     userId = existing.id;
     await db
@@ -19,18 +18,20 @@ async function main() {
       .where(eq(users.id, userId));
     console.log(`Usuario ${email} ya existía — contraseña actualizada.`);
   } else {
-    userId = randomUUID();
-    await db.insert(users).values({
-      id: userId,
-      email,
-      passwordHash: await hashPassword(password),
-    });
+    const [inserted] = await db
+      .insert(users)
+      .values({
+        email,
+        passwordHash: await hashPassword(password),
+      })
+      .$returningId();
+    userId = inserted.id;
     console.log(`Usuario ${email} creado.`);
   }
 
   await db
     .insert(userRoles)
-    .values({ id: randomUUID(), userId, role: "superadmin" })
+    .values({ userId, role: "superadmin" })
     .onDuplicateKeyUpdate({ set: { role: "superadmin" } });
 
   console.log("Rol superadmin asignado.");

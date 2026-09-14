@@ -1,12 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, desc } from "drizzle-orm";
+import { eq, or, ne, and, desc } from "drizzle-orm";
 
 import { db } from "@/db";
-import { businesses, users, userRoles } from "@/db/schema";
+import { companies, locations, users, userRoles } from "@/db/schema";
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
-import { newId } from "@/lib/auth/session";
 
 function slugify(name: string) {
   return name
@@ -18,13 +17,22 @@ function slugify(name: string) {
     .slice(0, 50);
 }
 
+const usernameSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(60)
+  .regex(/^[a-zA-Z0-9_.-]+$/, "Usuario: solo letras, números, . _ -");
+
 export interface BusinessRow {
-  id: string;
+  id: number;
   name: string;
   slug: string;
   active: boolean;
   created_at: string;
+  admin_user_id: number | null;
   admin_email: string | null;
+  admin_username: string | null;
 }
 
 export const listBusinesses = createServerFn({ method: "GET" })
@@ -32,28 +40,38 @@ export const listBusinesses = createServerFn({ method: "GET" })
   .handler(async (): Promise<BusinessRow[]> => {
     const rows = await db
       .select()
-      .from(businesses)
-      .orderBy(desc(businesses.createdAt));
+      .from(companies)
+      .orderBy(desc(companies.createdAt));
 
     const admins = await db
-      .select({ email: users.email, businessId: users.businessId })
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        companyId: users.companyId,
+      })
       .from(users);
 
-    const adminByBusiness = new Map<string, string>();
+    const adminByCompany = new Map<number, { id: number; email: string; username: string | null }>();
     for (const a of admins) {
-      if (a.businessId && !adminByBusiness.has(a.businessId)) {
-        adminByBusiness.set(a.businessId, a.email);
+      if (a.companyId && !adminByCompany.has(a.companyId)) {
+        adminByCompany.set(a.companyId, { id: a.id, email: a.email, username: a.username });
       }
     }
 
-    return rows.map((b) => ({
-      id: b.id,
-      name: b.name,
-      slug: b.slug,
-      active: b.active,
-      created_at: b.createdAt.toISOString(),
-      admin_email: adminByBusiness.get(b.id) ?? null,
-    }));
+    return rows.map((c) => {
+      const admin = adminByCompany.get(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        active: c.active,
+        created_at: c.createdAt.toISOString(),
+        admin_user_id: admin?.id ?? null,
+        admin_email: admin?.email ?? null,
+        admin_username: admin?.username ?? null,
+      };
+    });
   });
 
 export const createBusiness = createServerFn({ method: "POST" })
@@ -62,91 +80,119 @@ export const createBusiness = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(2).max(80),
       adminEmail: z.string().trim().email(),
+      adminUsername: usernameSchema,
+      adminPassword: z.string().min(6).max(100),
     }),
   )
   .handler(async ({ data }) => {
     const email = data.adminEmail.toLowerCase();
+    const username = data.adminUsername.toLowerCase();
+
+    const [dup] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(or(eq(users.email, email), eq(users.username, username)))
+      .limit(1);
+    if (dup) throw new Error("Ese email o usuario ya está en uso");
 
     // slug único
-    const base = slugify(data.name) || "negocio";
+    const base = slugify(data.name) || "empresa";
     let slug = base;
     for (let i = 2; i < 50; i++) {
       const [exists] = await db
-        .select({ id: businesses.id })
-        .from(businesses)
-        .where(eq(businesses.slug, slug))
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.slug, slug))
         .limit(1);
       if (!exists) break;
       slug = `${base}-${i}`;
     }
 
-    const businessId = newId();
-    await db.insert(businesses).values({
-      id: businessId,
-      name: data.name.trim(),
-      slug,
-      active: true,
-    });
+    const [{ id: companyId }] = await db
+      .insert(companies)
+      .values({ name: data.name.trim(), slug, active: true })
+      .$returningId();
 
-    // buscar o crear usuario admin
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+    const [{ id: locationId }] = await db
+      .insert(locations)
+      .values({ companyId, name: "Local principal", active: true })
+      .$returningId();
 
-    let tempPassword: string | null = null;
-
-    if (existing) {
-      if (existing.businessId) {
-        await db.delete(businesses).where(eq(businesses.id, businessId));
-        throw new Error("Ese usuario ya administra otro negocio");
-      }
-      await db.update(users).set({ businessId }).where(eq(users.id, existing.id));
-      await db
-        .insert(userRoles)
-        .values({ id: newId(), userId: existing.id, role: "business_admin" })
-        .onDuplicateKeyUpdate({ set: { role: "business_admin" } });
-    } else {
-      tempPassword = `bp-${newId().slice(0, 10)}`;
-      const userId = newId();
-      await db.insert(users).values({
-        id: userId,
+    const [{ id: userId }] = await db
+      .insert(users)
+      .values({
         email,
-        passwordHash: await hashPassword(tempPassword),
-        businessId,
-      });
-      await db
-        .insert(userRoles)
-        .values({ id: newId(), userId, role: "business_admin" });
-    }
+        username,
+        passwordHash: await hashPassword(data.adminPassword),
+        companyId,
+        locationId,
+      })
+      .$returningId();
+    await db.insert(userRoles).values({ userId, role: "admin" });
 
-    const [business] = await db
+    const [company] = await db
       .select()
-      .from(businesses)
-      .where(eq(businesses.id, businessId))
+      .from(companies)
+      .where(eq(companies.id, companyId))
       .limit(1);
 
     return {
       business: {
-        id: business.id,
-        name: business.name,
-        slug: business.slug,
-        active: business.active,
-        created_at: business.createdAt.toISOString(),
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        active: company.active,
+        created_at: company.createdAt.toISOString(),
+        admin_user_id: userId,
         admin_email: email,
+        admin_username: username,
       } as BusinessRow,
-      tempPassword,
     };
+  });
+
+export const updateBusinessAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSuperadmin])
+  .inputValidator(
+    z.object({
+      userId: z.number().int(),
+      email: z.string().trim().email(),
+      username: usernameSchema,
+      password: z.string().min(6).max(100).optional().nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const email = data.email.toLowerCase();
+    const username = data.username.toLowerCase();
+
+    const [dup] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          ne(users.id, data.userId),
+          or(eq(users.email, email), eq(users.username, username)),
+        ),
+      )
+      .limit(1);
+    if (dup) throw new Error("Ese email o usuario ya está en uso por otra cuenta");
+
+    const set: { email: string; username: string; passwordHash?: string } = {
+      email,
+      username,
+    };
+    if (data.password) set.passwordHash = await hashPassword(data.password);
+
+    await db.update(users).set(set).where(eq(users.id, data.userId));
+    return { ok: true };
   });
 
 export const setBusinessActive = createServerFn({ method: "POST" })
   .middleware([requireSuperadmin])
-  .inputValidator(z.object({ id: z.string(), active: z.boolean() }))
+  .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ data }) => {
     await db
-      .update(businesses)
+      .update(companies)
       .set({ active: data.active })
-      .where(eq(businesses.id, data.id));
+      .where(eq(companies.id, data.id));
     return { ok: true };
   });
