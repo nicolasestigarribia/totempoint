@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, or, isNull, desc, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { movements, ingredients, locations, artistock, actionCodes } from "@/db/schema";
+import { movements, ingredients, products, locations, artistock, actionCodes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import type { ActionCode } from "@/lib/actionCodes";
@@ -30,6 +30,17 @@ async function assertIngredientUsable(ingredientId: number, companyId: number) {
   if (!ing) throw new Error("El ingrediente no es válido para tu empresa");
 }
 
+// Un producto de reventa (stockable) de la empresa.
+async function assertProductStockable(productId: number, companyId: number) {
+  const [p] = await db
+    .select({ id: products.id, stockable: products.stockable })
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.companyId, companyId)))
+    .limit(1);
+  if (!p) throw new Error("El producto no es válido para tu empresa");
+  if (!p.stockable) throw new Error("El producto no maneja stock (no es de reventa)");
+}
+
 export interface MovementListRow {
   id: number;
   createdAt: string;
@@ -38,6 +49,8 @@ export interface MovementListRow {
   type: "stock" | "caja";
   ingredientId: number | null;
   ingredientName: string | null;
+  productId: number | null;
+  productName: string | null;
   actionCode: string;
   amount: string;
   detail: string | null;
@@ -83,6 +96,7 @@ export const createMovement = createServerFn({ method: "POST" })
       locationId: z.number().int(),
       actionCode: z.string().trim().min(1).max(40),
       ingredientId: z.number().int().nullable().optional(),
+      productId: z.number().int().nullable().optional(),
       quantity: z.number().positive(),
       detail: z.string().trim().max(255).optional().nullable(),
     }),
@@ -111,11 +125,22 @@ export const createMovement = createServerFn({ method: "POST" })
 
     await assertLocationOwned(data.locationId, user.companyId);
 
+    // Movimiento de stock: apunta a un ingrediente O a un producto de reventa (exactamente uno).
     let ingredientId: number | null = null;
+    let productId: number | null = null;
     if (def.type === "stock") {
-      if (!data.ingredientId) throw new Error("Falta el ingrediente");
-      await assertIngredientUsable(data.ingredientId, user.companyId);
-      ingredientId = data.ingredientId;
+      if (data.ingredientId && data.productId) {
+        throw new Error("El movimiento de stock debe ser de un ingrediente o un producto, no ambos");
+      }
+      if (data.ingredientId) {
+        await assertIngredientUsable(data.ingredientId, user.companyId);
+        ingredientId = data.ingredientId;
+      } else if (data.productId) {
+        await assertProductStockable(data.productId, user.companyId);
+        productId = data.productId;
+      } else {
+        throw new Error("Falta el ingrediente o producto");
+      }
     }
 
     const isIngreso = def.direction === "ingreso";
@@ -127,19 +152,21 @@ export const createMovement = createServerFn({ method: "POST" })
       companyId: user.companyId,
       locationId: data.locationId,
       ingredientId,
+      productId,
       type: def.type,
       actionCode: data.actionCode,
       amount: amountSigned,
       detail: data.detail?.trim() || null,
     });
 
-    // Solo stock actualiza el acumulador artistock.
-    if (def.type === "stock" && ingredientId !== null) {
+    // Solo stock actualiza el acumulador artistock (por ingrediente o por producto).
+    if (def.type === "stock" && (ingredientId !== null || productId !== null)) {
       await db
         .insert(artistock)
         .values({
           companyId: user.companyId,
           ingredientId,
+          productId,
           locationId: data.locationId,
           ipLocal: isIngreso ? qty : "0",
           epLocal: isIngreso ? "0" : qty,
@@ -179,6 +206,8 @@ export const listMovements = createServerFn({ method: "GET" })
         type: movements.type,
         ingredientId: movements.ingredientId,
         ingredientName: ingredients.name,
+        productId: movements.productId,
+        productName: products.name,
         actionCode: movements.actionCode,
         amount: movements.amount,
         detail: movements.detail,
@@ -186,6 +215,7 @@ export const listMovements = createServerFn({ method: "GET" })
       .from(movements)
       .leftJoin(locations, eq(movements.locationId, locations.id))
       .leftJoin(ingredients, eq(movements.ingredientId, ingredients.id))
+      .leftJoin(products, eq(movements.productId, products.id))
       .where(and(...conds))
       .orderBy(desc(movements.createdAt))
       .limit(500);
@@ -198,6 +228,8 @@ export const listMovements = createServerFn({ method: "GET" })
       type: r.type,
       ingredientId: r.ingredientId,
       ingredientName: r.ingredientName,
+      productId: r.productId,
+      productName: r.productName,
       actionCode: r.actionCode,
       amount: r.amount,
       detail: r.detail,

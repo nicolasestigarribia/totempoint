@@ -63,6 +63,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
   const [unitsPerBulk, setUnitsPerBulk] = useState("1");
+  const [cost, setCost] = useState("");
   const [categoryId, setCategoryId] = useState<string>("none");
   const [saving, setSaving] = useState(false);
 
@@ -103,6 +104,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
     setName("");
     setUnit("");
     setUnitsPerBulk("1");
+    setCost("");
     setCategoryId("none");
     setFormOpen(true);
   };
@@ -112,6 +114,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
     setName(row.name);
     setUnit(row.unit ?? "");
     setUnitsPerBulk(row.unitsPerBulk ?? "1");
+    setCost(row.cost ?? "");
     setCategoryId(row.categoryId === null ? "none" : String(row.categoryId));
     setFormOpen(true);
   };
@@ -126,6 +129,8 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
     try {
       const bulk = Number(unitsPerBulk);
       const bulkVal = Number.isNaN(bulk) || bulk <= 0 ? 1 : bulk;
+      const costNum = Number(cost);
+      const costVal = cost.trim() === "" || Number.isNaN(costNum) ? null : costNum;
       const catId = categoryId === "none" ? null : Number(categoryId);
       if (editing) {
         await doUpdate({
@@ -134,6 +139,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
             name: name.trim(),
             unit: unit.trim() || undefined,
             unitsPerBulk: bulkVal,
+            cost: costVal,
             categoryId: catId,
           },
         });
@@ -144,6 +150,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
             name: name.trim(),
             unit: unit.trim() || undefined,
             unitsPerBulk: bulkVal,
+            cost: costVal,
             categoryId: catId,
           },
         });
@@ -243,6 +250,17 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
       cell: (r) => (
         <span className="text-muted-foreground">
           {Number(r.unitsPerBulk) > 1 ? r.unitsPerBulk : "—"}
+        </span>
+      ),
+    },
+    {
+      key: "cost",
+      header: "Costo",
+      sortable: true,
+      sortAccessor: (r) => (r.cost === null ? -1 : Number(r.cost)),
+      cell: (r) => (
+        <span className="text-muted-foreground">
+          {r.cost === null ? "—" : `$${r.cost}`}
         </span>
       ),
     },
@@ -457,6 +475,21 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
               />
               <p className="text-xs text-muted-foreground">
                 Cuántas unidades trae un bulto/caja. 1 = no viene en bulto (ej: caja de coca = 6).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ingredient-cost">Costo de compra</Label>
+              <Input
+                id="ingredient-cost"
+                type="number"
+                step="0.01"
+                min="0"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                placeholder="Opcional"
+              />
+              <p className="text-xs text-muted-foreground">
+                Costo unitario de compra. Sirve para costear recetas. No es precio de venta.
               </p>
             </div>
             <div className="flex justify-end gap-2">

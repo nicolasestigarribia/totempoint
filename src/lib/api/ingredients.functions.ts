@@ -11,6 +11,7 @@ export interface IngredientRow {
   name: string;
   unit: string | null;
   unitsPerBulk: string;
+  cost: string | null;
   categoryId: number | null;
   categoryName: string | null;
   scope: "global" | "private";
@@ -43,6 +44,7 @@ export const listIngredients = createServerFn({ method: "GET" })
         name: ingredients.name,
         unit: ingredients.unit,
         unitsPerBulk: ingredients.unitsPerBulk,
+        cost: ingredients.cost,
         categoryId: ingredients.categoryId,
         categoryName: ingredientCategories.name,
         companyId: ingredients.companyId,
@@ -62,6 +64,7 @@ export const listIngredients = createServerFn({ method: "GET" })
       name: r.name,
       unit: r.unit,
       unitsPerBulk: r.unitsPerBulk,
+      cost: r.cost,
       categoryId: r.categoryId,
       categoryName: r.categoryName,
       scope: r.companyId === null ? "global" : "private",
@@ -75,6 +78,7 @@ export const createIngredient = createServerFn({ method: "POST" })
       name: z.string().trim().min(1).max(120),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().optional(),
+      cost: z.number().nonnegative().nullable().optional(),
       categoryId: z.number().int().nullable().optional(),
     }),
   )
@@ -85,6 +89,7 @@ export const createIngredient = createServerFn({ method: "POST" })
     const name = data.name.trim();
     const unit = data.unit?.trim() ? data.unit.trim() : null;
     const unitsPerBulk = String(data.unitsPerBulk ?? 1);
+    const cost = data.cost == null ? null : String(data.cost);
     const categoryId = data.categoryId ?? null;
     if (categoryId !== null) await assertCategoryUsable(categoryId, user.companyId);
 
@@ -96,6 +101,7 @@ export const createIngredient = createServerFn({ method: "POST" })
         name,
         unit,
         unitsPerBulk,
+        cost,
         active: true,
       })
       .$returningId();
@@ -110,7 +116,7 @@ export const createIngredient = createServerFn({ method: "POST" })
       categoryName = c?.name ?? null;
     }
 
-    return { id, name, unit, unitsPerBulk, categoryId, categoryName, scope: "private" };
+    return { id, name, unit, unitsPerBulk, cost, categoryId, categoryName, scope: "private" };
   });
 
 export const updateIngredient = createServerFn({ method: "POST" })
@@ -121,6 +127,7 @@ export const updateIngredient = createServerFn({ method: "POST" })
       name: z.string().trim().min(1).max(120),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().optional(),
+      cost: z.number().nonnegative().nullable().optional(),
       categoryId: z.number().int().nullable().optional(),
     }),
   )
@@ -151,6 +158,7 @@ export const updateIngredient = createServerFn({ method: "POST" })
         name: data.name.trim(),
         unit: data.unit?.trim() ? data.unit.trim() : null,
         unitsPerBulk: String(data.unitsPerBulk ?? 1),
+        cost: data.cost == null ? null : String(data.cost),
         categoryId,
       })
       .where(and(eq(ingredients.id, data.id), ownScope));
@@ -197,6 +205,7 @@ export interface GlobalIngredientRow {
   name: string;
   unit: string | null;
   unitsPerBulk: string;
+  cost: string | null;
   categoryId: number | null;
   categoryName: string | null;
 }
@@ -220,6 +229,7 @@ export const listGlobalIngredients = createServerFn({ method: "GET" })
         name: ingredients.name,
         unit: ingredients.unit,
         unitsPerBulk: ingredients.unitsPerBulk,
+        cost: ingredients.cost,
         categoryId: ingredients.categoryId,
         categoryName: ingredientCategories.name,
       })
@@ -232,6 +242,7 @@ export const listGlobalIngredients = createServerFn({ method: "GET" })
       name: r.name,
       unit: r.unit,
       unitsPerBulk: r.unitsPerBulk,
+      cost: r.cost,
       categoryId: r.categoryId,
       categoryName: r.categoryName,
     }));
@@ -244,6 +255,7 @@ export const createGlobalIngredient = createServerFn({ method: "POST" })
       name: z.string().trim().min(1).max(120),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().optional(),
+      cost: z.number().nonnegative().nullable().optional(),
       categoryId: z.number().int().nullable().optional(),
     }),
   )
@@ -256,6 +268,7 @@ export const createGlobalIngredient = createServerFn({ method: "POST" })
       name: data.name.trim(),
       unit: data.unit?.trim() ? data.unit.trim() : null,
       unitsPerBulk: String(data.unitsPerBulk ?? 1),
+      cost: data.cost == null ? null : String(data.cost),
       active: true,
     });
     return { ok: true };
@@ -269,6 +282,7 @@ export const updateGlobalIngredient = createServerFn({ method: "POST" })
       name: z.string().trim().min(1).max(120),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().optional(),
+      cost: z.number().nonnegative().nullable().optional(),
       categoryId: z.number().int().nullable().optional(),
     }),
   )
@@ -289,6 +303,7 @@ export const updateGlobalIngredient = createServerFn({ method: "POST" })
         name: data.name.trim(),
         unit: data.unit?.trim() ? data.unit.trim() : null,
         unitsPerBulk: String(data.unitsPerBulk ?? 1),
+        cost: data.cost == null ? null : String(data.cost),
         categoryId,
       })
       .where(and(eq(ingredients.id, data.id), isNull(ingredients.companyId)));

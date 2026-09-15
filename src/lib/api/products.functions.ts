@@ -23,6 +23,9 @@ export interface ProductRow {
   photoUrl: string | null;
   active: boolean;
   sort: number;
+  stockable: boolean;
+  unit: string | null;
+  unitsPerBulk: string;
   ingredients: ProductIngredientRow[];
 }
 
@@ -100,6 +103,9 @@ async function loadProductRow(
       photoUrl: products.photoUrl,
       active: products.active,
       sort: products.sort,
+      stockable: products.stockable,
+      unit: products.unit,
+      unitsPerBulk: products.unitsPerBulk,
     })
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -148,6 +154,9 @@ export const listProducts = createServerFn({ method: "GET" })
         photoUrl: products.photoUrl,
         active: products.active,
         sort: products.sort,
+        stockable: products.stockable,
+        unit: products.unit,
+        unitsPerBulk: products.unitsPerBulk,
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -202,6 +211,9 @@ export const createProduct = createServerFn({ method: "POST" })
       categoryId: z.number().int().nullable().optional(),
       photoUrl: z.string().max(500).optional(),
       sort: z.number().int().optional(),
+      stockable: z.boolean().optional(),
+      unit: z.string().trim().max(20).optional(),
+      unitsPerBulk: z.number().positive().optional(),
       ingredients: z.array(ingredientInput).optional(),
     }),
   )
@@ -217,6 +229,9 @@ export const createProduct = createServerFn({ method: "POST" })
     const photoUrl = data.photoUrl?.trim() ? data.photoUrl.trim() : null;
     const price = String(data.price);
     const sort = data.sort ?? 0;
+    const stockable = data.stockable ?? false;
+    const unit = data.unit?.trim() ? data.unit.trim() : null;
+    const unitsPerBulk = String(data.unitsPerBulk ?? 1);
 
     const [{ id }] = await db
       .insert(products)
@@ -229,6 +244,9 @@ export const createProduct = createServerFn({ method: "POST" })
         photoUrl,
         active: true,
         sort,
+        stockable,
+        unit,
+        unitsPerBulk,
       })
       .$returningId();
 
@@ -257,6 +275,9 @@ export const updateProduct = createServerFn({ method: "POST" })
       photoUrl: z.string().max(500).optional(),
       active: z.boolean(),
       sort: z.number().int().optional(),
+      stockable: z.boolean().optional(),
+      unit: z.string().trim().max(20).optional(),
+      unitsPerBulk: z.number().positive().optional(),
       ingredients: z.array(ingredientInput).optional(),
     }),
   )
@@ -285,6 +306,9 @@ export const updateProduct = createServerFn({ method: "POST" })
         photoUrl: data.photoUrl?.trim() ? data.photoUrl.trim() : null,
         active: data.active,
         sort: data.sort ?? 0,
+        stockable: data.stockable ?? false,
+        unit: data.unit?.trim() ? data.unit.trim() : null,
+        unitsPerBulk: String(data.unitsPerBulk ?? 1),
       })
       .where(and(eq(products.id, data.id), eq(products.companyId, user.companyId)));
 

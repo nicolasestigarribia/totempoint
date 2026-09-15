@@ -46,6 +46,16 @@ function isLow(r: StockRow): boolean {
   return min > 0 && Number(r.stockActual) <= min;
 }
 
+// Clave única por fila: ingredientes y productos pueden compartir id numérico.
+function rowKey(r: Pick<StockRow, "kind" | "itemId">): string {
+  return `${r.kind}:${r.itemId}`;
+}
+
+// Payload del ítem para las server fns (ingrediente o producto de reventa).
+function itemRef(r: Pick<StockRow, "kind" | "itemId">) {
+  return r.kind === "product" ? { productId: r.itemId } : { ingredientId: r.itemId };
+}
+
 export function StockSection({ panelClass }: { panelClass: string }) {
   const fetchLocations = useServerFn(listLocations);
   const fetchStock = useServerFn(getLocationStock);
@@ -135,7 +145,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
     setHistory([]);
     if (locationId !== null) {
       try {
-        setHistory(await fetchMovements({ data: { locationId, ingredientId: r.ingredientId } }));
+        setHistory(await fetchMovements({ data: { locationId, ...itemRef(r) } }));
       } catch {
         /* historial opcional */
       }
@@ -156,7 +166,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
       await doRegister({
         data: {
           locationId,
-          ingredientId: movTarget.ingredientId,
+          ...itemRef(movTarget),
           actionCode: movCode,
           quantity: baseQty,
           detail: movDetail.trim() || null,
@@ -186,7 +196,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
     }
     setSavingMin(true);
     try {
-      await saveLimit({ data: { ingredientId: minTarget.ingredientId, minStock: v } });
+      await saveLimit({ data: { ...itemRef(minTarget), minStock: v } });
       toast.success("Mínimo actualizado");
       setMinTarget(null);
       await reload(locationId);
@@ -207,7 +217,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
     setNmOpen(true);
   };
 
-  const nmSelected = rows.find((r) => String(r.ingredientId) === nmIngredient) ?? null;
+  const nmSelected = rows.find((r) => rowKey(r) === nmIngredient) ?? null;
   const nmFiltered = (() => {
     const q = nmSearch.trim().toLowerCase();
     if (!q) return rows;
@@ -216,8 +226,8 @@ export function StockSection({ panelClass }: { panelClass: string }) {
 
   const handleNewMovement = async () => {
     if (locationId === null) return;
-    if (!nmIngredient) {
-      toast.error("Elegí un ingrediente");
+    if (!nmSelected) {
+      toast.error("Elegí un ítem");
       return;
     }
     if (!nmCode) {
@@ -229,14 +239,14 @@ export function StockSection({ panelClass }: { panelClass: string }) {
       toast.error("La cantidad debe ser mayor a 0");
       return;
     }
-    const upb = nmSelected ? Number(nmSelected.unitsPerBulk) || 1 : 1;
+    const upb = Number(nmSelected.unitsPerBulk) || 1;
     const baseQty = nmMode === "bulto" ? qty * upb : qty;
     setNmSaving(true);
     try {
       await doRegister({
         data: {
           locationId,
-          ingredientId: Number(nmIngredient),
+          ...itemRef(nmSelected),
           actionCode: nmCode,
           quantity: baseQty,
           detail: nmDetail.trim() || null,
@@ -255,12 +265,17 @@ export function StockSection({ panelClass }: { panelClass: string }) {
   const columns: Column<StockRow>[] = [
     {
       key: "name",
-      header: "Ingrediente",
+      header: "Ítem",
       sortable: true,
       sortAccessor: (r) => r.name.toLowerCase(),
       cell: (r) => (
         <div className="flex items-center gap-2">
           <span className="font-medium">{r.name}</span>
+          {r.kind === "product" && (
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-400">
+              Reventa
+            </span>
+          )}
           {isLow(r) && <AlertTriangle className="h-4 w-4 text-amber-400" />}
         </div>
       ),
@@ -408,12 +423,12 @@ export function StockSection({ panelClass }: { panelClass: string }) {
       <DataTable<StockRow>
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.ingredientId}
+        getRowId={(r) => rowKey(r)}
         panelClass={panelClass}
         loading={loadingData}
-        emptyMessage="No hay ingredientes."
+        emptyMessage="No hay ítems de stock."
         searchKeys={[(r) => r.name]}
-        searchPlaceholder="Buscar ingrediente..."
+        searchPlaceholder="Buscar ítem..."
         toolbar={
           <Select value={lowFilter} onValueChange={(v) => setLowFilter(v as typeof lowFilter)}>
             <SelectTrigger className="h-10 w-44">
@@ -588,12 +603,12 @@ export function StockSection({ panelClass }: { panelClass: string }) {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Ingrediente</Label>
+              <Label>Ítem (ingrediente o producto de reventa)</Label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={nmSearch}
-                  placeholder="Buscar ingrediente..."
+                  placeholder="Buscar ítem..."
                   className="h-10 pl-9"
                   onChange={(e) => setNmSearch(e.target.value)}
                 />
@@ -603,12 +618,12 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                   <p className="px-3 py-4 text-center text-xs text-muted-foreground">Sin resultados</p>
                 ) : (
                   nmFiltered.map((i) => {
-                    const selected = nmIngredient === String(i.ingredientId);
+                    const selected = nmIngredient === rowKey(i);
                     return (
                       <button
-                        key={i.ingredientId}
+                        key={rowKey(i)}
                         type="button"
-                        onClick={() => setNmIngredient(String(i.ingredientId))}
+                        onClick={() => setNmIngredient(rowKey(i))}
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-white/5 ${
                           selected ? "bg-primary/10 text-foreground" : ""
                         }`}
@@ -616,6 +631,11 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                         <span>
                           {i.name}
                           {i.unit ? <span className="ml-1 text-xs text-muted-foreground">({i.unit})</span> : null}
+                          {i.kind === "product" ? (
+                            <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-400">
+                              Reventa
+                            </span>
+                          ) : null}
                         </span>
                         {selected && <Check className="h-4 w-4 text-primary" />}
                       </button>

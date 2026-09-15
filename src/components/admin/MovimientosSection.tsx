@@ -220,10 +220,19 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
       },
       {
         key: "ingredient",
-        header: "Ingrediente",
+        header: "Ítem",
         sortable: true,
-        sortAccessor: (r) => r.ingredientName ?? "",
-        cell: (r) => <span className="text-muted-foreground">{r.ingredientName ?? "—"}</span>,
+        sortAccessor: (r) => r.ingredientName ?? r.productName ?? "",
+        cell: (r) => (
+          <span className="text-muted-foreground">
+            {r.ingredientName ?? r.productName ?? "—"}
+            {r.productName && !r.ingredientName ? (
+              <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-400">
+                Reventa
+              </span>
+            ) : null}
+          </span>
+        ),
       },
       {
         key: "code",
@@ -303,11 +312,12 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
         emptyIcon={<ScrollText className="h-8 w-8 opacity-40" />}
         searchKeys={[
           (r) => r.ingredientName ?? "",
+          (r) => r.productName ?? "",
           (r) => r.detail ?? "",
           (r) => actionLabel(codes, r.actionCode),
           (r) => r.locationName ?? "",
         ]}
-        searchPlaceholder="Buscar por ingrediente, motivo, detalle..."
+        searchPlaceholder="Buscar por ítem, motivo, detalle..."
         initialSort={{ key: "date", dir: "desc" }}
         pageSize={15}
       />

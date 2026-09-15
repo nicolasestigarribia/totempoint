@@ -44,6 +44,8 @@ interface DraftIngredient {
   quantity: string;
 }
 
+const UNITS = ["Grs", "Kg", "Mg", "Ml", "Lts", "Cc", "Cm", "Mm", "Mts", "Unidad"] as const;
+
 export function ProductosSection({ panelClass }: { panelClass: string }) {
   const list = useServerFn(listProducts);
   const create = useServerFn(createProduct);
@@ -66,6 +68,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   const [categoryId, setCategoryId] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [active, setActive] = useState(true);
+  const [stockable, setStockable] = useState(false);
+  const [unit, setUnit] = useState("");
+  const [unitsPerBulk, setUnitsPerBulk] = useState("1");
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [saving, setSaving] = useState(false);
@@ -134,6 +139,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setCategoryId("");
     setPhotoUrl("");
     setActive(true);
+    setStockable(false);
+    setUnit("");
+    setUnitsPerBulk("1");
     setDraftIngredients([]);
     setIngredientSearch("");
     setDialogOpen(true);
@@ -147,6 +155,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setCategoryId(row.categoryId === null ? "" : String(row.categoryId));
     setPhotoUrl(row.photoUrl ?? "");
     setActive(row.active);
+    setStockable(row.stockable);
+    setUnit(row.unit ?? "");
+    setUnitsPerBulk(row.unitsPerBulk ?? "1");
     setDraftIngredients(
       row.ingredients.map((i) => ({
         ingredientId: i.ingredientId,
@@ -190,18 +201,24 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       return;
     }
 
-    const ingredientsPayload = draftIngredients.map((d) => {
-      const q = d.quantity.trim();
-      const parsed = q === "" ? null : Number.parseFloat(q);
-      return {
-        ingredientId: d.ingredientId,
-        quantity: parsed === null || Number.isNaN(parsed) ? null : parsed,
-      };
-    });
+    // Producto de reventa (stockable) no tiene receta: su stock es propio.
+    const ingredientsPayload = stockable
+      ? []
+      : draftIngredients.map((d) => {
+          const q = d.quantity.trim();
+          const parsed = q === "" ? null : Number.parseFloat(q);
+          return {
+            ingredientId: d.ingredientId,
+            quantity: parsed === null || Number.isNaN(parsed) ? null : parsed,
+          };
+        });
 
     const parsedCategory = categoryId === "" ? null : Number.parseInt(categoryId, 10);
     const trimmedPhoto = photoUrl.trim();
     const trimmedDesc = description.trim();
+    const uxb = Number(unitsPerBulk);
+    const uxbVal = Number.isNaN(uxb) || uxb <= 0 ? 1 : uxb;
+    const unitVal = stockable && unit.trim() ? unit.trim() : undefined;
 
     setSaving(true);
     try {
@@ -216,6 +233,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             photoUrl: trimmedPhoto || undefined,
             active,
             sort: editing.sort,
+            stockable,
+            unit: unitVal,
+            unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
           },
         });
@@ -228,6 +248,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             price: priceValue,
             categoryId: parsedCategory,
             photoUrl: trimmedPhoto || undefined,
+            stockable,
+            unit: unitVal,
+            unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
           },
         });
@@ -298,6 +321,22 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       sortable: true,
       sortAccessor: (r) => Number(r.price),
       cell: (r) => <span className="text-muted-foreground">${r.price}</span>,
+    },
+    {
+      key: "tipo",
+      header: "Tipo",
+      sortable: true,
+      sortAccessor: (r) => (r.stockable ? 1 : 0),
+      cell: (r) =>
+        r.stockable ? (
+          <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-400">
+            Reventa
+          </span>
+        ) : (
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Preparado
+          </span>
+        ),
     },
     {
       key: "active",
@@ -466,6 +505,53 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                   onChange={(e) => setPrice(e.target.value)}
                 />
               </div>
+              <div className="flex items-center justify-between rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
+                <div>
+                  <Label htmlFor="product-stockable" className="cursor-pointer">
+                    Producto de reventa
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Maneja stock propio y se vende sin receta (ej: bebidas).
+                  </p>
+                </div>
+                <Switch
+                  id="product-stockable"
+                  checked={stockable}
+                  onCheckedChange={setStockable}
+                />
+              </div>
+              {stockable && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="product-unit">Unidad de stock</Label>
+                    <Select value={unit || "none"} onValueChange={(v) => setUnit(v === "none" ? "" : v)}>
+                      <SelectTrigger id="product-unit" className="h-11">
+                        <SelectValue placeholder="Sin unidad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin unidad</SelectItem>
+                        {UNITS.map((u) => (
+                          <SelectItem key={u} value={u}>
+                            {u}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="product-uxb">UxB</Label>
+                    <Input
+                      id="product-uxb"
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={unitsPerBulk}
+                      placeholder="1"
+                      onChange={(e) => setUnitsPerBulk(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="product-category">Categoría</Label>
                 <Select
@@ -511,11 +597,17 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
               )}
             </div>
 
-            {/* Ingredientes: buscador + seleccionados */}
+            {/* Ingredientes: buscador + seleccionados. Oculto para reventa (sin receta). */}
             <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Ingredientes
               </h4>
+              {stockable ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  Los productos de reventa no llevan receta. Su stock se gestiona en la sección Stock.
+                </p>
+              ) : (
+                <>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -602,6 +694,8 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                   </div>
                 )}
               </div>
+                </>
+              )}
             </div>
           </div>
 

@@ -53,6 +53,7 @@ export function GlobalIngredientsSection() {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
   const [unitsPerBulk, setUnitsPerBulk] = useState("1");
+  const [cost, setCost] = useState("");
   const [categoryId, setCategoryId] = useState("none");
   const [saving, setSaving] = useState(false);
 
@@ -81,6 +82,7 @@ export function GlobalIngredientsSection() {
     setName("");
     setUnit("");
     setUnitsPerBulk("1");
+    setCost("");
     setCategoryId("none");
     setFormOpen(true);
   };
@@ -90,6 +92,7 @@ export function GlobalIngredientsSection() {
     setName(r.name);
     setUnit(r.unit ?? "");
     setUnitsPerBulk(r.unitsPerBulk ?? "1");
+    setCost(r.cost ?? "");
     setCategoryId(r.categoryId === null ? "none" : String(r.categoryId));
     setFormOpen(true);
   };
@@ -101,17 +104,19 @@ export function GlobalIngredientsSection() {
     }
     const bulk = Number(unitsPerBulk);
     const bulkVal = Number.isNaN(bulk) || bulk <= 0 ? 1 : bulk;
+    const costNum = Number(cost);
+    const costVal = cost.trim() === "" || Number.isNaN(costNum) ? null : costNum;
     const catId = categoryId === "none" ? null : Number(categoryId);
     setSaving(true);
     try {
       if (editing) {
         await doUpdate({
-          data: { id: editing.id, name: name.trim(), unit: unit.trim() || undefined, unitsPerBulk: bulkVal, categoryId: catId },
+          data: { id: editing.id, name: name.trim(), unit: unit.trim() || undefined, unitsPerBulk: bulkVal, cost: costVal, categoryId: catId },
         });
         toast.success("Ingrediente actualizado");
       } else {
         await doCreate({
-          data: { name: name.trim(), unit: unit.trim() || undefined, unitsPerBulk: bulkVal, categoryId: catId },
+          data: { name: name.trim(), unit: unit.trim() || undefined, unitsPerBulk: bulkVal, cost: costVal, categoryId: catId },
         });
         toast.success("Ingrediente creado");
       }
@@ -171,6 +176,15 @@ export function GlobalIngredientsSection() {
           <span className="text-muted-foreground">
             {Number(r.unitsPerBulk) > 1 ? r.unitsPerBulk : "—"}
           </span>
+        ),
+      },
+      {
+        key: "cost",
+        header: "Costo",
+        sortable: true,
+        sortAccessor: (r) => (r.cost === null ? -1 : Number(r.cost)),
+        cell: (r) => (
+          <span className="text-muted-foreground">{r.cost === null ? "—" : `$${r.cost}`}</span>
         ),
       },
       {
@@ -303,6 +317,21 @@ export function GlobalIngredientsSection() {
               />
               <p className="text-xs text-muted-foreground">
                 Unidades por bulto. 1 = no viene en bulto.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gi-cost">Costo de compra</Label>
+              <Input
+                id="gi-cost"
+                type="number"
+                step="0.01"
+                min="0"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                placeholder="Opcional"
+              />
+              <p className="text-xs text-muted-foreground">
+                Costo unitario de compra. Para costear recetas. No es precio de venta.
               </p>
             </div>
           </div>

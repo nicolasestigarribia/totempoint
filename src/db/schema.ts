@@ -106,6 +106,12 @@ export const products = mysqlTable(
     description: text("description"),
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     photoUrl: varchar("photo_url", { length: 500 }),
+    // stockable = producto de reventa con stock propio (ej: bebidas). Se descuenta al vender.
+    // No stockable = preparado; su stock deriva de los ingredientes de la receta.
+    stockable: boolean("stockable").notNull().default(false),
+    // Unidad y unidades por bulto: sólo aplican a productos stockable (reventa).
+    unit: varchar("unit", { length: 20 }),
+    unitsPerBulk: decimal("units_per_bulk", { precision: 10, scale: 2 }).notNull().default("1"),
     active: boolean("active").notNull().default(true),
     sort: int("sort").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -137,6 +143,8 @@ export const ingredients = mysqlTable(
     unit: varchar("unit", { length: 20 }),
     // Unidades base por bulto/caja (ej: 1 caja de coca = 6). 1 = no viene en bulto.
     unitsPerBulk: decimal("units_per_bulk", { precision: 10, scale: 2 }).notNull().default("1"),
+    // Costo de compra unitario. Sirve para costear recetas. No tiene precio de venta (no se vende solo).
+    cost: decimal("cost", { precision: 10, scale: 2 }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
@@ -188,14 +196,15 @@ export const locationCategories = mysqlTable(
   ],
 );
 
-// Stock de cada ingrediente por local.
+// Stock por local de un ítem stockable: ingrediente O producto de reventa (exactamente uno).
 // stockActual = columna generada: ingresos - ventas - egresos.
 export const artistock = mysqlTable(
   "artistock",
   {
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
-    ingredientId: int("ingredient_id").notNull(),
+    ingredientId: int("ingredient_id"), // null si el stock es de un producto de reventa
+    productId: int("product_id"), // null si el stock es de un ingrediente
     locationId: int("location_id").notNull(),
     ipLocal: decimal("ip_local", { precision: 10, scale: 2 }).notNull().default("0"),
     vpLocal: decimal("vp_local", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -208,8 +217,10 @@ export const artistock = mysqlTable(
   },
   (t) => [
     unique("artistock_location_ingredient_uq").on(t.locationId, t.ingredientId),
+    unique("artistock_location_product_uq").on(t.locationId, t.productId),
     index("artistock_location_idx").on(t.locationId),
     index("artistock_ingredient_idx").on(t.ingredientId),
+    index("artistock_product_idx").on(t.productId),
     index("artistock_company_idx").on(t.companyId),
   ],
 );
@@ -240,7 +251,8 @@ export const movements = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
     locationId: int("location_id").notNull(),
-    ingredientId: int("ingredient_id"), // null para movimientos de caja
+    ingredientId: int("ingredient_id"), // null para caja o para stock de producto de reventa
+    productId: int("product_id"), // seteado para stock de producto de reventa
     type: mysqlEnum("type", ["stock", "caja"]).notNull().default("stock"),
     actionCode: varchar("action_code", { length: 40 }).notNull(),
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
@@ -251,6 +263,7 @@ export const movements = mysqlTable(
     index("movements_company_idx").on(t.companyId),
     index("movements_location_idx").on(t.locationId),
     index("movements_ingredient_idx").on(t.ingredientId),
+    index("movements_product_idx").on(t.productId),
     index("movements_type_idx").on(t.type),
   ],
 );
@@ -261,12 +274,14 @@ export const stockLimits = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
-    ingredientId: int("ingredient_id").notNull(),
+    ingredientId: int("ingredient_id"), // null si el límite es de un producto de reventa
+    productId: int("product_id"), // null si el límite es de un ingrediente
     minStock: decimal("min_stock", { precision: 10, scale: 2 }).notNull().default("0"),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [
     unique("stock_limits_company_ingredient_uq").on(t.companyId, t.ingredientId),
+    unique("stock_limits_company_product_uq").on(t.companyId, t.productId),
     index("stock_limits_company_idx").on(t.companyId),
   ],
 );
