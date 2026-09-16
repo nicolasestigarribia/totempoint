@@ -28,12 +28,35 @@ Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive
 
 `bunfig.toml` enforces a 24h supply-chain guard on new package versions (`minimumReleaseAge`). Don't add entries to `minimumReleaseAgeExcludes` without confirming with the user first.
 
+`.gitattributes` pins the repo to LF (Prettier's default). Before it existed, Windows checkouts rewrote files to CRLF and `bun run lint` reported ~15k phantom `Delete ␍` errors. About 321 real formatting errors remain in files nobody touched (`components/ui/*`, older admin sections); `bun run format` fixes them but rewrites half the repo, so coordinate that with the team rather than doing it inside an unrelated change.
+
 ## Architecture
 
-### Two parallel "menu" layers — don't conflate them
+### Two kiosk flows — the live one is `/k/$slug`, the old one is legacy
 
-- `src/lib/menu.ts` + `src/lib/store.ts` (zustand, `persist` to localStorage) is the **original mocked kiosk flow**: static product/category data and a client-only cart/orders state. The kiosk routes (`index`, `categories`, `menu.$category`, `cart`, `checkout`, `confirmation.$orderId`) still read/write this store — orders placed through the kiosk are *not* yet written to the `orders`/`order_items` DB tables.
-- `src/db/schema.ts` + `src/lib/api/*.functions.ts` is the **real DB-backed multi-tenant catalog** (companies, categories, products, combos, ingredients, stock) used by the admin panel (`admin.tsx`) and superadmin panel (`superadmin.tsx`). The `orders`/`order_items` tables exist in the schema and are read by `kitchen.tsx`-style panels' data model, but the kiosk checkout flow hasn't been wired to persist orders there — check current route code before assuming which side an order-related change belongs to.
+- **`/k/$slug/*` is the real, multi-tenant kiosk** and the only one to build on. Routes: `k.$slug.index` (cover), `k.$slug.categorias`, `k.$slug.menu.$category`, `k.$slug.carrito`, `k.$slug.checkout`, `k.$slug.listo.$orderId`. It reads the DB catalog through `src/lib/api/kiosk.functions.ts` and persists real orders.
+- **`src/lib/menu.ts` + `src/lib/store.ts` + the bare routes (`index`, `categories`, `menu.$category`, `cart`, `checkout`, `confirmation.$orderId`) are the legacy Burger Point demo**: static data, client-only cart, orders that never reach the DB. Nothing new should be wired to them; they are kept only because the old home page at `/` still renders them. Prefer deleting them over extending them.
+
+### The public kiosk layer (`src/lib/api/kiosk.functions.ts`)
+
+This is the **only file with server functions that have no auth middleware** — the totem runs without a session. Everything else in `src/lib/api/` requires `requireAuth`/`requireSuperadmin`, so keep authenticated helpers out of this file to avoid accidentally exposing them.
+
+- A business is resolved by `companies.slug` from the URL (`/k/primorosas`). The slug is generated from the name in `createBusiness` and is not editable from any panel.
+- `getKioskHome` (cover), `getKioskMenu` (catalog), `createKioskOrder`, `getKioskOrder`.
+- `createKioskOrder` receives only product ids and quantities; **prices and the total are recomputed server-side** from the DB. Never trust amounts sent by the client.
+- Products with no `categoryId` are grouped under a synthetic category with id `0` (`UNCATEGORIZED`, shown as "Otros") so they can't become invisible.
+- Order numbers are `MAX(order_number) + 1` per location inside a transaction, starting at 100. The totem only knows the company, so orders are attached to the company's first active location.
+- Per-location availability (`locationProducts`/`locationCategories`) is **not** applied by the kiosk yet — it reads the company-level catalog.
+
+### Totem cover and kiosk behaviour
+
+`kioskSettings` holds one row per company (template, hero image, eyebrow, title + accent, subtitle, CTA label, two badges, accent color) and is edited in the admin's "Portada" section, which renders a live scaled preview of the real `KioskHome` component. Three templates live in `src/components/kiosk/KioskHome.tsx`: `clasico`, `completo`, `split`.
+
+`useKioskIdleReset` sends the totem back to the cover and clears the cart after 90s without interaction, so one customer never inherits another's order. The cart (`src/lib/kiosk-cart.ts`) stores the slug it belongs to and empties itself if the tablet switches businesses.
+
+### Images are stored in MySQL, not in object storage
+
+There is deliberately **no S3/R2 integration**: the user rejected any vendor requiring a credit card. `ImageUploadField` resizes and re-encodes the file to WebP in the browser (max 1600px, quality 0.82 — a 550KB photo lands around 8KB), sends base64 to `uploadImage`, and the row goes into the `images` table. Files are served by `serveImage` in `src/lib/images.ts`, which `src/server.ts` intercepts at `/img/:id` **before the request reaches the router** — this is not a TanStack route. Ids are never reused, so responses are cached immutably. Old images are not garbage-collected when a cover is replaced.
 
 ### Server functions (`src/lib/api/*.functions.ts`)
 
@@ -63,6 +86,8 @@ Custom cookie-session auth (migrated off Supabase auth) in `src/lib/auth/`:
 
 Per-location overrides (`locationProducts`, `locationCategories`) flip availability off for a specific branch; absence of a row means "available" (inherits from `product.active`/`category.active`).
 
+`orders`/`order_items` are now written by the kiosk checkout and read by `kitchen.tsx` through `src/lib/api/orders.functions.ts` (scoped to the caller's company via its locations). `order_items` snapshots product name and unit price, so editing a product later never rewrites past orders.
+
 `movements` is an append-only ledger (`type`: `stock` | `caja`, `actionCode` from `action_codes`, signed `amount`) that is the source of truth for both stock and cash; `artistock.stockActual` is a MySQL *generated* column (`ip_local - vp_local - ep_local`) derived from aggregated movement totals — don't write to `stockActual` directly, write a `movements` row and let the aggregates (`ipLocal`/`vpLocal`/`epLocal`) follow.
 
 ### Routing (TanStack Start file-based)
@@ -84,6 +109,17 @@ Don't remove either layer when touching server entry code — they cover differe
 ### Deployment
 
 Built with the Dockerfile (bun for install/build → `node:22-slim` runtime running the nitro `node-server` preset output, `.output/server/index.mjs`) and deployed to **Railway** per `railway.json`. `DATABASE_URL` (Railway MySQL) is read from `.env.local` locally and from Railway env vars in production.
+
+## Known gaps (next steps)
+
+Verified working end to end: business signup → owner login → cover setup → image upload → catalog on the totem → cart → checkout → order in the DB → kitchen panel. What is still missing:
+
+- **Combos never reach the totem.** `getKioskMenu` returns categories and products only.
+- **The slug can't be edited** from any panel, and no screen shows the full totem URL. A "copy link + QR" block in the Portada section was proposed and not built — installing a new totem currently means typing a long Railway URL on a tablet.
+- **No kitchen users.** `createBusiness` only creates an `admin`; the `kitchen` role exists in `user_roles` but nothing creates users with it, so `/kitchen` is reached with the admin account.
+- **A logged-in session on the totem tablet is a hole**: `/k/$slug` has no way out, but if the owner logs in on that tablet and doesn't log out, anyone typing `/admin` gets the panel. Mitigated only by procedure (administer from a phone/PC, lock the tablet with the OS kiosk mode).
+- **Location is implicit.** Orders go to the company's first active location; a multi-branch business needs the totem to know which branch it is (device pairing was discussed as the eventual fix).
+- **`.env` is committed to the repo**, so its keys are in git history. Pre-existing, flagged to the user, untouched — removing it means rewriting history and rotating keys.
 
 ### Legacy Supabase remnants
 
