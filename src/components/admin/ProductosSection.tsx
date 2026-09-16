@@ -5,12 +5,7 @@ import { Plus, Pencil, Trash2, Loader2, Package, X, Search } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -29,14 +24,8 @@ import {
   setProductActive,
   type ProductRow,
 } from "@/lib/api/products.functions";
-import {
-  listCategories,
-  type CategoryRow,
-} from "@/lib/api/categories.functions";
-import {
-  listIngredients,
-  type IngredientRow,
-} from "@/lib/api/ingredients.functions";
+import { listCategories, type CategoryRow } from "@/lib/api/categories.functions";
+import { listIngredients, type IngredientRow } from "@/lib/api/ingredients.functions";
 
 interface DraftIngredient {
   ingredientId: number;
@@ -73,36 +62,26 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [categoryFilter, setCategoryFilter] = useState<string>("todas");
-  const [estadoFilter, setEstadoFilter] = useState<
-    "todos" | "activos" | "inactivos"
-  >("todos");
+  const [estadoFilter, setEstadoFilter] = useState<"todos" | "activos" | "inactivos">("todos");
 
   async function loadProductsOnly() {
     try {
       const data = await list();
       setRows(data);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudieron cargar los productos",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los productos");
     }
   }
 
   async function loadAll() {
     setLoading(true);
     try {
-      const [prods, cats, ings] = await Promise.all([
-        list(),
-        loadCategories(),
-        loadIngredients(),
-      ]);
+      const [prods, cats, ings] = await Promise.all([list(), loadCategories(), loadIngredients()]);
       setRows(prods);
       setCategories(cats);
       setIngredients(ings);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudieron cargar los datos",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los datos");
     } finally {
       setLoading(false);
     }
@@ -237,9 +216,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       setDialogOpen(false);
       await loadProductsOnly();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudo guardar el producto",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el producto");
     } finally {
       setSaving(false);
     }
@@ -253,9 +230,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       toast.success("Producto eliminado");
       await loadProductsOnly();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudo eliminar el producto",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el producto");
     } finally {
       setDeletingId(null);
     }
@@ -288,7 +263,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
         <span className="text-muted-foreground">
           {r.categoryName ??
             (r.categoryId !== null
-              ? categoryNameById.get(r.categoryId) ?? "Sin categoría"
+              ? (categoryNameById.get(r.categoryId) ?? "Sin categoría")
               : "Sin categoría")}
         </span>
       ),
@@ -324,12 +299,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       align: "right",
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => openEdit(row)}
-            aria-label="Editar"
-          >
+          <Button variant="ghost" size="icon" onClick={() => openEdit(row)} aria-label="Editar">
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
@@ -380,11 +350,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                 ? r.categoryId === null
                 : r.categoryId === Number(categoryFilter);
           const okEstado =
-            estadoFilter === "todos"
-              ? true
-              : estadoFilter === "activos"
-                ? r.active
-                : !r.active;
+            estadoFilter === "todos" ? true : estadoFilter === "activos" ? r.active : !r.active;
           return okCat && okEstado;
         }}
         toolbar={
@@ -405,9 +371,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             </Select>
             <Select
               value={estadoFilter}
-              onValueChange={(v) =>
-                setEstadoFilter(v as "todos" | "activos" | "inactivos")
-              }
+              onValueChange={(v) => setEstadoFilter(v as "todos" | "activos" | "inactivos")}
             >
               <SelectTrigger className="h-10 w-40">
                 <SelectValue />
@@ -425,9 +389,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>
-              {editing ? "Editar producto" : "Nuevo producto"}
-            </DialogTitle>
+            <DialogTitle>{editing ? "Editar producto" : "Nuevo producto"}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Datos generales */}
@@ -525,9 +487,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
               <div className="max-h-40 divide-y divide-white/5 overflow-auto rounded-md border border-white/10">
                 {availableIngredients.length === 0 ? (
                   <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-                    {ingredients.length === 0
-                      ? "No hay ingredientes cargados"
-                      : "Sin resultados"}
+                    {ingredients.length === 0 ? "No hay ingredientes cargados" : "Sin resultados"}
                   </p>
                 ) : (
                   availableIngredients.map((i) => (
@@ -540,9 +500,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                       <span>
                         {i.name}
                         {i.unit ? (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({i.unit})
-                          </span>
+                          <span className="ml-1 text-xs text-muted-foreground">({i.unit})</span>
                         ) : null}
                       </span>
                       <Plus className="h-4 w-4 text-primary" />
@@ -569,9 +527,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                         <span className="flex-1 text-sm font-medium">
                           {d.name}
                           {d.unit ? (
-                            <span className="ml-1 text-xs text-muted-foreground">
-                              ({d.unit})
-                            </span>
+                            <span className="ml-1 text-xs text-muted-foreground">({d.unit})</span>
                           ) : null}
                         </span>
                         {d.unit ? (
@@ -581,9 +537,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                             value={d.quantity}
                             placeholder="Cant."
                             className="h-9 w-24"
-                            onChange={(e) =>
-                              setDraftQuantity(d.ingredientId, e.target.value)
-                            }
+                            onChange={(e) => setDraftQuantity(d.ingredientId, e.target.value)}
                           />
                         ) : null}
                         <Button
@@ -603,11 +557,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button className="gap-2" onClick={handleSave} disabled={saving}>

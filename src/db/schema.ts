@@ -52,10 +52,7 @@ export const users = mysqlTable(
     locationId: int("location_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [
-    index("users_company_idx").on(t.companyId),
-    index("users_location_idx").on(t.locationId),
-  ],
+  (t) => [index("users_company_idx").on(t.companyId), index("users_location_idx").on(t.locationId)],
 );
 
 // Sesiones (cookie httpOnly). id = token secreto aleatorio, NO autoincrement.
@@ -105,9 +102,7 @@ export const kioskSettings = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
-    template: mysqlEnum("template", ["clasico", "completo", "split"])
-      .notNull()
-      .default("clasico"),
+    template: mysqlEnum("template", ["clasico", "completo", "split"]).notNull().default("clasico"),
     heroImageUrl: varchar("hero_image_url", { length: 500 }),
     eyebrow: varchar("eyebrow", { length: 60 }),
     title: varchar("title", { length: 60 }),

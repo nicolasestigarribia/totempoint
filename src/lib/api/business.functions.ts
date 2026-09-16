@@ -22,11 +22,7 @@ export const getMyBusiness = createServerFn({ method: "GET" })
     const user = context.user as SessionUser;
     if (!user.companyId) return null;
 
-    const [c] = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, user.companyId))
-      .limit(1);
+    const [c] = await db.select().from(companies).where(eq(companies.id, user.companyId)).limit(1);
 
     if (!c) return null;
     return {

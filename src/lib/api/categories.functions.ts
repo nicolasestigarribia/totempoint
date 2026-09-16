@@ -96,9 +96,7 @@ export const updateCategory = createServerFn({ method: "POST" })
         sort: data.sort,
         active: data.active,
       })
-      .where(
-        and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)),
-      );
+      .where(and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)));
 
     return { ok: true };
   });
@@ -125,9 +123,7 @@ export const deleteCategory = createServerFn({ method: "POST" })
 
     await db
       .delete(categories)
-      .where(
-        and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)),
-      );
+      .where(and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)));
 
     return { ok: true };
   });
