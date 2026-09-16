@@ -1,14 +1,14 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { ImageOff, Plus, Check } from "lucide-react";
-import { getKioskMenu } from "@/lib/api/kiosk.functions";
-import { KioskError } from "@/components/kiosk/KioskError";
-import { KioskTopBar } from "@/components/kiosk/KioskTopBar";
-import { useKioskCart, useCartForSlug, formatPrice } from "@/lib/kiosk-cart";
-import { useKioskIdleReset } from "@/lib/use-kiosk-idle";
+import { getTotemMenu } from "@/lib/api/totem.functions";
+import { TotemError } from "@/components/totem/TotemError";
+import { TotemTopBar } from "@/components/totem/TotemTopBar";
+import { useTotemCart, useCartForSlug, formatPrice } from "@/lib/totem-cart";
+import { useTotemIdleReset } from "@/lib/use-totem-idle";
 
-export const Route = createFileRoute("/k/$slug/menu/$category")({
+export const Route = createFileRoute("/t/$slug/menu/$category")({
   loader: async ({ params }) => {
-    const menu = await getKioskMenu({ data: { slug: params.slug } });
+    const menu = await getTotemMenu({ data: { slug: params.slug } });
     const categoryId = Number(params.category);
     const category = menu.categories.find((c) => c.id === categoryId);
     if (!category) throw notFound();
@@ -19,21 +19,21 @@ export const Route = createFileRoute("/k/$slug/menu/$category")({
       { title: loaderData ? `${loaderData.category.name} — ${loaderData.menu.name}` : "Menú" },
     ],
   }),
-  errorComponent: ({ error }) => <KioskError message={error.message} />,
-  notFoundComponent: () => <KioskError message="No encontramos esa categoría" />,
+  errorComponent: ({ error }) => <TotemError message={error.message} />,
+  notFoundComponent: () => <TotemError message="No encontramos esa categoría" />,
   component: MenuCategoryPage,
 });
 
 function MenuCategoryPage() {
   const { menu, category, items } = Route.useLoaderData();
   const accent = menu.accentColor || undefined;
-  const add = useKioskCart((s) => s.add);
+  const add = useTotemCart((s) => s.add);
   const cart = useCartForSlug(menu.slug);
-  useKioskIdleReset(menu.slug);
+  useTotemIdleReset(menu.slug);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <KioskTopBar
+      <TotemTopBar
         slug={menu.slug}
         name={menu.name}
         logoUrl={menu.logoUrl}

@@ -3,18 +3,18 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Store, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
-import { getKioskMenu, createKioskOrder } from "@/lib/api/kiosk.functions";
-import { KioskError } from "@/components/kiosk/KioskError";
-import { KioskTopBar } from "@/components/kiosk/KioskTopBar";
-import { useKioskCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/kiosk-cart";
-import { useKioskIdleReset } from "@/lib/use-kiosk-idle";
+import { getTotemMenu, createTotemOrder } from "@/lib/api/totem.functions";
+import { TotemError } from "@/components/totem/TotemError";
+import { TotemTopBar } from "@/components/totem/TotemTopBar";
+import { useTotemCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/totem-cart";
+import { useTotemIdleReset } from "@/lib/use-totem-idle";
 
-export const Route = createFileRoute("/k/$slug/checkout")({
-  loader: ({ params }) => getKioskMenu({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$slug/checkout")({
+  loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Confirmar — ${loaderData.name}` : "Confirmar" }],
   }),
-  errorComponent: ({ error }) => <KioskError message={error.message} />,
+  errorComponent: ({ error }) => <TotemError message={error.message} />,
   component: CheckoutPage,
 });
 
@@ -24,11 +24,11 @@ function CheckoutPage() {
   const menu = Route.useLoaderData();
   const navigate = useNavigate();
   const accent = menu.accentColor || undefined;
-  useKioskIdleReset(menu.slug);
+  useTotemIdleReset(menu.slug);
 
   const items = useCartForSlug(menu.slug);
-  const clear = useKioskCart((s) => s.clear);
-  const placeOrder = useServerFn(createKioskOrder);
+  const clear = useTotemCart((s) => s.clear);
+  const placeOrder = useServerFn(createTotemOrder);
 
   const [customerName, setCustomerName] = useState("");
   const [delivery, setDelivery] = useState<Delivery>("local");
@@ -56,7 +56,7 @@ function CheckoutPage() {
       });
       clear();
       navigate({
-        to: "/k/$slug/listo/$orderId",
+        to: "/t/$slug/listo/$orderId",
         params: { slug: menu.slug, orderId: String(orderId) },
         replace: true,
       });
@@ -73,7 +73,7 @@ function CheckoutPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <KioskTopBar
+      <TotemTopBar
         slug={menu.slug}
         name={menu.name}
         logoUrl={menu.logoUrl}

@@ -6,7 +6,7 @@ import { orders, orderItems, locations } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
-export type OrderStatus = "nuevo" | "preparacion" | "listo" | "entregado";
+export type OrderStatus = "recibido" | "preparacion" | "entregado";
 
 export interface KitchenOrderItem {
   productName: string;
@@ -89,7 +89,7 @@ export const setOrderStatus = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       orderId: z.number().int(),
-      status: z.enum(["nuevo", "preparacion", "listo", "entregado"]),
+      status: z.enum(["recibido", "preparacion", "entregado"]),
     }),
   )
   .handler(async ({ context, data }) => {

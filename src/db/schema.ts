@@ -97,8 +97,8 @@ export const images = mysqlTable(
 // Portada del tótem, una fila por empresa. Reemplaza lo que antes estaba
 // hardcodeado en la home: cada rubro (hamburguesería, discoteca, sanguchería)
 // carga su propia imagen, textos y plantilla desde el panel admin.
-export const kioskSettings = mysqlTable(
-  "kiosk_settings",
+export const totemSettings = mysqlTable(
+  "totem_settings",
   {
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
@@ -115,7 +115,7 @@ export const kioskSettings = mysqlTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
-  (t) => [unique("kiosk_settings_company_uq").on(t.companyId)],
+  (t) => [unique("totem_settings_company_uq").on(t.companyId)],
 );
 
 // Categorías del menú (a nivel empresa)
@@ -367,9 +367,9 @@ export const orders = mysqlTable(
     customerName: varchar("customer_name", { length: 120 }).notNull(),
     deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador"]).notNull(),
     comments: text("comments"),
-    status: mysqlEnum("status", ["nuevo", "preparacion", "listo", "entregado"])
+    status: mysqlEnum("status", ["recibido", "preparacion", "entregado"])
       .notNull()
-      .default("nuevo"),
+      .default("recibido"),
     total: decimal("total", { precision: 10, scale: 2 }).notNull(),
     paid: boolean("paid").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),

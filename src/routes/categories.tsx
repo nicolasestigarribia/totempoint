@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { KioskHeader } from "@/components/KioskHeader";
+import { TotemHeader } from "@/components/TotemHeader";
 import { categories } from "@/lib/menu";
 import { ChevronRight } from "lucide-react";
 
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/categories")({
 function Categories() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <KioskHeader title="¿Qué se te antoja?" />
+      <TotemHeader title="¿Qué se te antoja?" />
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-5 md:px-12 md:py-6">
         <div className="mb-5 text-center">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-gold">Menú</div>

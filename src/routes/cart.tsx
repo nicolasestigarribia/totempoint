@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { KioskHeader } from "@/components/KioskHeader";
+import { TotemHeader } from "@/components/TotemHeader";
 import { useStore, cartTotal } from "@/lib/store";
 import { formatPrice } from "@/lib/menu";
 import { Minus, Plus, Trash2, ShoppingBag, ChevronRight } from "lucide-react";
@@ -19,7 +19,7 @@ function Cart() {
 
   return (
     <div className="min-h-screen pb-40">
-      <KioskHeader title="Tu pedido" back="/categories" />
+      <TotemHeader title="Tu pedido" back="/categories" />
       <main className="mx-auto max-w-4xl px-6 py-10 md:px-10 md:py-14">
         <div className="mb-10">
           <div className="text-xs font-bold uppercase tracking-[0.3em] text-gold">Resumen</div>

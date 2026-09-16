@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { Sparkles, ChevronRight, Store } from "lucide-react";
-import type { KioskHome as KioskHomeData } from "@/lib/api/kiosk.functions";
+import type { TotemHome as TotemHomeData } from "@/lib/api/totem.functions";
 
 const FALLBACK_ACCENT = "var(--gold, #f5b800)";
 
-function Badges({ data, className = "" }: { data: KioskHomeData; className?: string }) {
+function Badges({ data, className = "" }: { data: TotemHomeData; className?: string }) {
   const badges = [data.badge1, data.badge2].filter(Boolean) as string[];
   if (badges.length === 0) return null;
   return (
@@ -23,7 +23,7 @@ function Badges({ data, className = "" }: { data: KioskHomeData; className?: str
   );
 }
 
-function Logo({ data }: { data: KioskHomeData }) {
+function Logo({ data }: { data: TotemHomeData }) {
   const accent = data.accentColor || data.primaryColor || undefined;
   return (
     <div className="flex items-center gap-4">
@@ -52,11 +52,11 @@ function Logo({ data }: { data: KioskHomeData }) {
   );
 }
 
-function StartButton({ data, size = "lg" }: { data: KioskHomeData; size?: "lg" | "xl" }) {
+function StartButton({ data, size = "lg" }: { data: TotemHomeData; size?: "lg" | "xl" }) {
   const accent = data.accentColor || data.primaryColor || undefined;
   return (
     <Link
-      to="/k/$slug/categorias"
+      to="/t/$slug/categorias"
       params={{ slug: data.slug }}
       className={`group flex w-full items-center justify-between gap-4 rounded-3xl shadow-glow transition hover:scale-[1.02] active:scale-[0.98] ${
         size === "xl" ? "px-12 py-10" : "px-10 py-8"
@@ -77,7 +77,7 @@ function StartButton({ data, size = "lg" }: { data: KioskHomeData; size?: "lg" |
   );
 }
 
-function Title({ data, className = "" }: { data: KioskHomeData; className?: string }) {
+function Title({ data, className = "" }: { data: TotemHomeData; className?: string }) {
   const accent = data.accentColor || data.primaryColor || FALLBACK_ACCENT;
   return (
     <h1 className={`font-display leading-[0.85] ${className}`}>
@@ -92,7 +92,7 @@ function Title({ data, className = "" }: { data: KioskHomeData; className?: stri
 }
 
 // Hero lateral: imagen de fondo difuminada, texto a la izquierda, botón a la derecha.
-function Clasico({ data }: { data: KioskHomeData }) {
+function Clasico({ data }: { data: TotemHomeData }) {
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
       {data.heroImageUrl && (
@@ -138,7 +138,7 @@ function Clasico({ data }: { data: KioskHomeData }) {
 }
 
 // Pantalla completa: imagen a sangre, todo centrado. Ideal para discotecas/eventos.
-function Completo({ data }: { data: KioskHomeData }) {
+function Completo({ data }: { data: TotemHomeData }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-center">
       {data.heroImageUrl && (
@@ -167,7 +167,7 @@ function Completo({ data }: { data: KioskHomeData }) {
 }
 
 // Split: mitad imagen, mitad panel sólido. Look de carta/menú sobrio.
-function Split({ data }: { data: KioskHomeData }) {
+function Split({ data }: { data: TotemHomeData }) {
   return (
     <div className="flex min-h-screen flex-col bg-background lg:flex-row">
       <div className="relative min-h-[35vh] flex-1 overflow-hidden lg:min-h-screen">
@@ -194,7 +194,7 @@ function Split({ data }: { data: KioskHomeData }) {
   );
 }
 
-export function KioskHome({ data }: { data: KioskHomeData }) {
+export function TotemHome({ data }: { data: TotemHomeData }) {
   if (data.template === "completo") return <Completo data={data} />;
   if (data.template === "split") return <Split data={data} />;
   return <Clasico data={data} />;

@@ -19,12 +19,12 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MenuCategoryRouteImport } from './routes/menu.$category'
 import { Route as ConfirmationOrderIdRouteImport } from './routes/confirmation.$orderId'
-import { Route as KSlugIndexRouteImport } from './routes/k.$slug.index'
-import { Route as KSlugCheckoutRouteImport } from './routes/k.$slug.checkout'
-import { Route as KSlugCategoriasRouteImport } from './routes/k.$slug.categorias'
-import { Route as KSlugCarritoRouteImport } from './routes/k.$slug.carrito'
-import { Route as KSlugMenuCategoryRouteImport } from './routes/k.$slug.menu.$category'
-import { Route as KSlugListoOrderIdRouteImport } from './routes/k.$slug.listo.$orderId'
+import { Route as TSlugIndexRouteImport } from './routes/t.$slug.index'
+import { Route as TSlugCheckoutRouteImport } from './routes/t.$slug.checkout'
+import { Route as TSlugCategoriasRouteImport } from './routes/t.$slug.categorias'
+import { Route as TSlugCarritoRouteImport } from './routes/t.$slug.carrito'
+import { Route as TSlugMenuCategoryRouteImport } from './routes/t.$slug.menu.$category'
+import { Route as TSlugListoOrderIdRouteImport } from './routes/t.$slug.listo.$orderId'
 
 const SuperadminRoute = SuperadminRouteImport.update({
   id: '/superadmin',
@@ -76,34 +76,34 @@ const ConfirmationOrderIdRoute = ConfirmationOrderIdRouteImport.update({
   path: '/confirmation/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const KSlugIndexRoute = KSlugIndexRouteImport.update({
-  id: '/k/$slug/',
-  path: '/k/$slug/',
+const TSlugIndexRoute = TSlugIndexRouteImport.update({
+  id: '/t/$slug/',
+  path: '/t/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const KSlugCheckoutRoute = KSlugCheckoutRouteImport.update({
-  id: '/k/$slug/checkout',
-  path: '/k/$slug/checkout',
+const TSlugCheckoutRoute = TSlugCheckoutRouteImport.update({
+  id: '/t/$slug/checkout',
+  path: '/t/$slug/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const KSlugCategoriasRoute = KSlugCategoriasRouteImport.update({
-  id: '/k/$slug/categorias',
-  path: '/k/$slug/categorias',
+const TSlugCategoriasRoute = TSlugCategoriasRouteImport.update({
+  id: '/t/$slug/categorias',
+  path: '/t/$slug/categorias',
   getParentRoute: () => rootRouteImport,
 } as any)
-const KSlugCarritoRoute = KSlugCarritoRouteImport.update({
-  id: '/k/$slug/carrito',
-  path: '/k/$slug/carrito',
+const TSlugCarritoRoute = TSlugCarritoRouteImport.update({
+  id: '/t/$slug/carrito',
+  path: '/t/$slug/carrito',
   getParentRoute: () => rootRouteImport,
 } as any)
-const KSlugMenuCategoryRoute = KSlugMenuCategoryRouteImport.update({
-  id: '/k/$slug/menu/$category',
-  path: '/k/$slug/menu/$category',
+const TSlugMenuCategoryRoute = TSlugMenuCategoryRouteImport.update({
+  id: '/t/$slug/menu/$category',
+  path: '/t/$slug/menu/$category',
   getParentRoute: () => rootRouteImport,
 } as any)
-const KSlugListoOrderIdRoute = KSlugListoOrderIdRouteImport.update({
-  id: '/k/$slug/listo/$orderId',
-  path: '/k/$slug/listo/$orderId',
+const TSlugListoOrderIdRoute = TSlugListoOrderIdRouteImport.update({
+  id: '/t/$slug/listo/$orderId',
+  path: '/t/$slug/listo/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -118,12 +118,12 @@ export interface FileRoutesByFullPath {
   '/superadmin': typeof SuperadminRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
-  '/k/$slug/carrito': typeof KSlugCarritoRoute
-  '/k/$slug/categorias': typeof KSlugCategoriasRoute
-  '/k/$slug/checkout': typeof KSlugCheckoutRoute
-  '/k/$slug/': typeof KSlugIndexRoute
-  '/k/$slug/listo/$orderId': typeof KSlugListoOrderIdRoute
-  '/k/$slug/menu/$category': typeof KSlugMenuCategoryRoute
+  '/t/$slug/carrito': typeof TSlugCarritoRoute
+  '/t/$slug/categorias': typeof TSlugCategoriasRoute
+  '/t/$slug/checkout': typeof TSlugCheckoutRoute
+  '/t/$slug/': typeof TSlugIndexRoute
+  '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
+  '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -136,12 +136,12 @@ export interface FileRoutesByTo {
   '/superadmin': typeof SuperadminRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
-  '/k/$slug/carrito': typeof KSlugCarritoRoute
-  '/k/$slug/categorias': typeof KSlugCategoriasRoute
-  '/k/$slug/checkout': typeof KSlugCheckoutRoute
-  '/k/$slug': typeof KSlugIndexRoute
-  '/k/$slug/listo/$orderId': typeof KSlugListoOrderIdRoute
-  '/k/$slug/menu/$category': typeof KSlugMenuCategoryRoute
+  '/t/$slug/carrito': typeof TSlugCarritoRoute
+  '/t/$slug/categorias': typeof TSlugCategoriasRoute
+  '/t/$slug/checkout': typeof TSlugCheckoutRoute
+  '/t/$slug': typeof TSlugIndexRoute
+  '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
+  '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -155,12 +155,12 @@ export interface FileRoutesById {
   '/superadmin': typeof SuperadminRoute
   '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
   '/menu/$category': typeof MenuCategoryRoute
-  '/k/$slug/carrito': typeof KSlugCarritoRoute
-  '/k/$slug/categorias': typeof KSlugCategoriasRoute
-  '/k/$slug/checkout': typeof KSlugCheckoutRoute
-  '/k/$slug/': typeof KSlugIndexRoute
-  '/k/$slug/listo/$orderId': typeof KSlugListoOrderIdRoute
-  '/k/$slug/menu/$category': typeof KSlugMenuCategoryRoute
+  '/t/$slug/carrito': typeof TSlugCarritoRoute
+  '/t/$slug/categorias': typeof TSlugCategoriasRoute
+  '/t/$slug/checkout': typeof TSlugCheckoutRoute
+  '/t/$slug/': typeof TSlugIndexRoute
+  '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
+  '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -175,12 +175,12 @@ export interface FileRouteTypes {
     | '/superadmin'
     | '/confirmation/$orderId'
     | '/menu/$category'
-    | '/k/$slug/carrito'
-    | '/k/$slug/categorias'
-    | '/k/$slug/checkout'
-    | '/k/$slug/'
-    | '/k/$slug/listo/$orderId'
-    | '/k/$slug/menu/$category'
+    | '/t/$slug/carrito'
+    | '/t/$slug/categorias'
+    | '/t/$slug/checkout'
+    | '/t/$slug/'
+    | '/t/$slug/listo/$orderId'
+    | '/t/$slug/menu/$category'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -193,12 +193,12 @@ export interface FileRouteTypes {
     | '/superadmin'
     | '/confirmation/$orderId'
     | '/menu/$category'
-    | '/k/$slug/carrito'
-    | '/k/$slug/categorias'
-    | '/k/$slug/checkout'
-    | '/k/$slug'
-    | '/k/$slug/listo/$orderId'
-    | '/k/$slug/menu/$category'
+    | '/t/$slug/carrito'
+    | '/t/$slug/categorias'
+    | '/t/$slug/checkout'
+    | '/t/$slug'
+    | '/t/$slug/listo/$orderId'
+    | '/t/$slug/menu/$category'
   id:
     | '__root__'
     | '/'
@@ -211,12 +211,12 @@ export interface FileRouteTypes {
     | '/superadmin'
     | '/confirmation/$orderId'
     | '/menu/$category'
-    | '/k/$slug/carrito'
-    | '/k/$slug/categorias'
-    | '/k/$slug/checkout'
-    | '/k/$slug/'
-    | '/k/$slug/listo/$orderId'
-    | '/k/$slug/menu/$category'
+    | '/t/$slug/carrito'
+    | '/t/$slug/categorias'
+    | '/t/$slug/checkout'
+    | '/t/$slug/'
+    | '/t/$slug/listo/$orderId'
+    | '/t/$slug/menu/$category'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -230,12 +230,12 @@ export interface RootRouteChildren {
   SuperadminRoute: typeof SuperadminRoute
   ConfirmationOrderIdRoute: typeof ConfirmationOrderIdRoute
   MenuCategoryRoute: typeof MenuCategoryRoute
-  KSlugCarritoRoute: typeof KSlugCarritoRoute
-  KSlugCategoriasRoute: typeof KSlugCategoriasRoute
-  KSlugCheckoutRoute: typeof KSlugCheckoutRoute
-  KSlugIndexRoute: typeof KSlugIndexRoute
-  KSlugListoOrderIdRoute: typeof KSlugListoOrderIdRoute
-  KSlugMenuCategoryRoute: typeof KSlugMenuCategoryRoute
+  TSlugCarritoRoute: typeof TSlugCarritoRoute
+  TSlugCategoriasRoute: typeof TSlugCategoriasRoute
+  TSlugCheckoutRoute: typeof TSlugCheckoutRoute
+  TSlugIndexRoute: typeof TSlugIndexRoute
+  TSlugListoOrderIdRoute: typeof TSlugListoOrderIdRoute
+  TSlugMenuCategoryRoute: typeof TSlugMenuCategoryRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -310,46 +310,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfirmationOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/k/$slug/': {
-      id: '/k/$slug/'
-      path: '/k/$slug'
-      fullPath: '/k/$slug/'
-      preLoaderRoute: typeof KSlugIndexRouteImport
+    '/t/$slug/': {
+      id: '/t/$slug/'
+      path: '/t/$slug'
+      fullPath: '/t/$slug/'
+      preLoaderRoute: typeof TSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/k/$slug/checkout': {
-      id: '/k/$slug/checkout'
-      path: '/k/$slug/checkout'
-      fullPath: '/k/$slug/checkout'
-      preLoaderRoute: typeof KSlugCheckoutRouteImport
+    '/t/$slug/checkout': {
+      id: '/t/$slug/checkout'
+      path: '/t/$slug/checkout'
+      fullPath: '/t/$slug/checkout'
+      preLoaderRoute: typeof TSlugCheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/k/$slug/categorias': {
-      id: '/k/$slug/categorias'
-      path: '/k/$slug/categorias'
-      fullPath: '/k/$slug/categorias'
-      preLoaderRoute: typeof KSlugCategoriasRouteImport
+    '/t/$slug/categorias': {
+      id: '/t/$slug/categorias'
+      path: '/t/$slug/categorias'
+      fullPath: '/t/$slug/categorias'
+      preLoaderRoute: typeof TSlugCategoriasRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/k/$slug/carrito': {
-      id: '/k/$slug/carrito'
-      path: '/k/$slug/carrito'
-      fullPath: '/k/$slug/carrito'
-      preLoaderRoute: typeof KSlugCarritoRouteImport
+    '/t/$slug/carrito': {
+      id: '/t/$slug/carrito'
+      path: '/t/$slug/carrito'
+      fullPath: '/t/$slug/carrito'
+      preLoaderRoute: typeof TSlugCarritoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/k/$slug/menu/$category': {
-      id: '/k/$slug/menu/$category'
-      path: '/k/$slug/menu/$category'
-      fullPath: '/k/$slug/menu/$category'
-      preLoaderRoute: typeof KSlugMenuCategoryRouteImport
+    '/t/$slug/menu/$category': {
+      id: '/t/$slug/menu/$category'
+      path: '/t/$slug/menu/$category'
+      fullPath: '/t/$slug/menu/$category'
+      preLoaderRoute: typeof TSlugMenuCategoryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/k/$slug/listo/$orderId': {
-      id: '/k/$slug/listo/$orderId'
-      path: '/k/$slug/listo/$orderId'
-      fullPath: '/k/$slug/listo/$orderId'
-      preLoaderRoute: typeof KSlugListoOrderIdRouteImport
+    '/t/$slug/listo/$orderId': {
+      id: '/t/$slug/listo/$orderId'
+      path: '/t/$slug/listo/$orderId'
+      fullPath: '/t/$slug/listo/$orderId'
+      preLoaderRoute: typeof TSlugListoOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -366,12 +366,12 @@ const rootRouteChildren: RootRouteChildren = {
   SuperadminRoute: SuperadminRoute,
   ConfirmationOrderIdRoute: ConfirmationOrderIdRoute,
   MenuCategoryRoute: MenuCategoryRoute,
-  KSlugCarritoRoute: KSlugCarritoRoute,
-  KSlugCategoriasRoute: KSlugCategoriasRoute,
-  KSlugCheckoutRoute: KSlugCheckoutRoute,
-  KSlugIndexRoute: KSlugIndexRoute,
-  KSlugListoOrderIdRoute: KSlugListoOrderIdRoute,
-  KSlugMenuCategoryRoute: KSlugMenuCategoryRoute,
+  TSlugCarritoRoute: TSlugCarritoRoute,
+  TSlugCategoriasRoute: TSlugCategoriasRoute,
+  TSlugCheckoutRoute: TSlugCheckoutRoute,
+  TSlugIndexRoute: TSlugIndexRoute,
+  TSlugListoOrderIdRoute: TSlugListoOrderIdRoute,
+  TSlugMenuCategoryRoute: TSlugMenuCategoryRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

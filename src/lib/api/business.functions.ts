@@ -2,10 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { companies, kioskSettings } from "@/db/schema";
+import { companies, totemSettings } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
-import type { KioskTemplate } from "@/lib/api/kiosk.functions";
+import type { TotemTemplate } from "@/lib/api/totem.functions";
 
 export interface MyBusiness {
   id: number;
@@ -70,8 +70,8 @@ export const updateMyBusiness = createServerFn({ method: "POST" })
 
 // ---------- Portada del tótem ----------
 
-export interface MyKioskSettings {
-  template: KioskTemplate;
+export interface MyTotemSettings {
+  template: TotemTemplate;
   heroImageUrl: string;
   eyebrow: string;
   title: string;
@@ -83,20 +83,20 @@ export interface MyKioskSettings {
   accentColor: string;
 }
 
-export const getMyKioskSettings = createServerFn({ method: "GET" })
+export const getMyTotemSettings = createServerFn({ method: "GET" })
   .middleware([requireAuth])
-  .handler(async ({ context }): Promise<MyKioskSettings | null> => {
+  .handler(async ({ context }): Promise<MyTotemSettings | null> => {
     const user = context.user as SessionUser;
     if (!user.companyId) return null;
 
     const [s] = await db
       .select()
-      .from(kioskSettings)
-      .where(eq(kioskSettings.companyId, user.companyId))
+      .from(totemSettings)
+      .where(eq(totemSettings.companyId, user.companyId))
       .limit(1);
 
     return {
-      template: (s?.template as KioskTemplate) ?? "clasico",
+      template: (s?.template as TotemTemplate) ?? "clasico",
       heroImageUrl: s?.heroImageUrl ?? "",
       eyebrow: s?.eyebrow ?? "",
       title: s?.title ?? "",
@@ -109,7 +109,7 @@ export const getMyKioskSettings = createServerFn({ method: "GET" })
     };
   });
 
-export const updateMyKioskSettings = createServerFn({ method: "POST" })
+export const updateMyTotemSettings = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator(
     z.object({
@@ -151,7 +151,7 @@ export const updateMyKioskSettings = createServerFn({ method: "POST" })
     };
 
     await db
-      .insert(kioskSettings)
+      .insert(totemSettings)
       .values({ companyId: user.companyId, ...values })
       .onDuplicateKeyUpdate({ set: values });
 

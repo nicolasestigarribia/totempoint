@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Store, ShoppingCart } from "lucide-react";
-import { useCartForSlug, cartCount } from "@/lib/kiosk-cart";
+import { useCartForSlug, cartCount } from "@/lib/totem-cart";
 
 // Barra del tótem. Sólo navega dentro del pedido: nunca sale al panel ni al login.
-export function KioskTopBar({
+export function TotemTopBar({
   slug,
   name,
   logoUrl,
@@ -25,7 +25,7 @@ export function KioskTopBar({
     <header className="flex items-center gap-4 border-b border-border px-6 py-4 md:px-12">
       {back === "categorias" ? (
         <Link
-          to="/k/$slug/categorias"
+          to="/t/$slug/categorias"
           params={{ slug }}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border transition hover:border-primary"
           aria-label="Volver"
@@ -34,7 +34,7 @@ export function KioskTopBar({
         </Link>
       ) : (
         <Link
-          to="/k/$slug"
+          to="/t/$slug"
           params={{ slug }}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border transition hover:border-primary"
           aria-label="Volver"
@@ -59,7 +59,7 @@ export function KioskTopBar({
 
       {showCart && count > 0 && (
         <Link
-          to="/k/$slug/carrito"
+          to="/t/$slug/carrito"
           params={{ slug }}
           className="ml-auto flex items-center gap-3 rounded-2xl px-5 py-3 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03]"
           style={{ background: accent ?? "var(--primary)" }}

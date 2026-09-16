@@ -13,17 +13,17 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { KioskHome } from "@/components/kiosk/KioskHome";
+import { TotemHome } from "@/components/totem/TotemHome";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
-  getMyKioskSettings,
-  updateMyKioskSettings,
-  type MyKioskSettings,
+  getMyTotemSettings,
+  updateMyTotemSettings,
+  type MyTotemSettings,
   type MyBusiness,
 } from "@/lib/api/business.functions";
-import type { KioskHome as KioskHomeData, KioskTemplate } from "@/lib/api/kiosk.functions";
+import type { TotemHome as TotemHomeData, TotemTemplate } from "@/lib/api/totem.functions";
 
-const TEMPLATES: { value: KioskTemplate; label: string; hint: string }[] = [
+const TEMPLATES: { value: TotemTemplate; label: string; hint: string }[] = [
   {
     value: "clasico",
     label: "Clásico",
@@ -37,7 +37,7 @@ const TEMPLATES: { value: KioskTemplate; label: string; hint: string }[] = [
   { value: "split", label: "Dividido", hint: "Mitad imagen, mitad panel sólido" },
 ];
 
-const EMPTY: MyKioskSettings = {
+const EMPTY: MyTotemSettings = {
   template: "clasico",
   heroImageUrl: "",
   eyebrow: "",
@@ -57,12 +57,12 @@ export function PortadaSection({
   panelClass: string;
   business: MyBusiness;
 }) {
-  const fetchSettings = useServerFn(getMyKioskSettings);
-  const save = useServerFn(updateMyKioskSettings);
+  const fetchSettings = useServerFn(getMyTotemSettings);
+  const save = useServerFn(updateMyTotemSettings);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<MyKioskSettings>(EMPTY);
+  const [form, setForm] = useState<MyTotemSettings>(EMPTY);
 
   useEffect(() => {
     let mounted = true;
@@ -81,7 +81,7 @@ export function PortadaSection({
     };
   }, [fetchSettings]);
 
-  const set = <K extends keyof MyKioskSettings>(key: K, value: MyKioskSettings[K]) =>
+  const set = <K extends keyof MyTotemSettings>(key: K, value: MyTotemSettings[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,7 +97,7 @@ export function PortadaSection({
     }
   };
 
-  const preview: KioskHomeData = {
+  const preview: TotemHomeData = {
     companyId: business.id,
     name: business.name,
     slug: business.slug,
@@ -133,13 +133,13 @@ export function PortadaSection({
           </p>
         </div>
         <a
-          href={`/k/${business.slug}`}
+          href={`/t/${business.slug}`}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition hover:border-primary"
         >
           <ExternalLink className="h-4 w-4" />
-          Abrir /k/{business.slug}
+          Abrir /t/{business.slug}
         </a>
       </div>
 
@@ -149,7 +149,7 @@ export function PortadaSection({
             <Label>Plantilla</Label>
             <Select
               value={form.template}
-              onValueChange={(v) => set("template", v as KioskTemplate)}
+              onValueChange={(v) => set("template", v as TotemTemplate)}
             >
               <SelectTrigger className="h-11">
                 <SelectValue />
@@ -281,7 +281,7 @@ export function PortadaSection({
               className="pointer-events-none absolute left-0 top-0 origin-top-left"
               style={{ width: 1280, height: 800, transform: "scale(0.42)" }}
             >
-              <KioskHome data={preview} />
+              <TotemHome data={preview} />
             </div>
           </div>
           <p className="text-xs text-muted-foreground">

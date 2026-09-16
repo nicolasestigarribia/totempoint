@@ -1,17 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Trash2, ShoppingCart, ImageOff } from "lucide-react";
-import { getKioskMenu } from "@/lib/api/kiosk.functions";
-import { KioskError } from "@/components/kiosk/KioskError";
-import { KioskTopBar } from "@/components/kiosk/KioskTopBar";
-import { useKioskCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/kiosk-cart";
-import { useKioskIdleReset } from "@/lib/use-kiosk-idle";
+import { getTotemMenu } from "@/lib/api/totem.functions";
+import { TotemError } from "@/components/totem/TotemError";
+import { TotemTopBar } from "@/components/totem/TotemTopBar";
+import { useTotemCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/totem-cart";
+import { useTotemIdleReset } from "@/lib/use-totem-idle";
 
-export const Route = createFileRoute("/k/$slug/carrito")({
-  loader: ({ params }) => getKioskMenu({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$slug/carrito")({
+  loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Tu pedido — ${loaderData.name}` : "Tu pedido" }],
   }),
-  errorComponent: ({ error }) => <KioskError message={error.message} />,
+  errorComponent: ({ error }) => <TotemError message={error.message} />,
   component: CarritoPage,
 });
 
@@ -19,17 +19,17 @@ function CarritoPage() {
   const menu = Route.useLoaderData();
   const navigate = useNavigate();
   const accent = menu.accentColor || undefined;
-  useKioskIdleReset(menu.slug);
+  useTotemIdleReset(menu.slug);
 
   const items = useCartForSlug(menu.slug);
-  const add = useKioskCart((s) => s.add);
-  const removeOne = useKioskCart((s) => s.removeOne);
-  const removeAll = useKioskCart((s) => s.removeAll);
+  const add = useTotemCart((s) => s.add);
+  const removeOne = useTotemCart((s) => s.removeOne);
+  const removeAll = useTotemCart((s) => s.removeAll);
   const total = cartTotal(items);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <KioskTopBar
+      <TotemTopBar
         slug={menu.slug}
         name={menu.name}
         logoUrl={menu.logoUrl}
@@ -46,7 +46,7 @@ function CarritoPage() {
             <ShoppingCart className="h-14 w-14 text-muted-foreground" />
             <p className="text-xl text-muted-foreground">Todavía no agregaste nada</p>
             <Link
-              to="/k/$slug/categorias"
+              to="/t/$slug/categorias"
               params={{ slug: menu.slug }}
               className="rounded-2xl px-8 py-4 font-display text-xl uppercase tracking-wide text-white"
               style={{ background: accent ?? "var(--primary)" }}
@@ -129,7 +129,7 @@ function CarritoPage() {
 
               <button
                 type="button"
-                onClick={() => navigate({ to: "/k/$slug/checkout", params: { slug: menu.slug } })}
+                onClick={() => navigate({ to: "/t/$slug/checkout", params: { slug: menu.slug } })}
                 className="mt-6 flex w-full items-center justify-center rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] active:scale-[0.98]"
                 style={{ background: accent ?? "var(--primary)" }}
               >

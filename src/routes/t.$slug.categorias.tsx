@@ -1,27 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight, UtensilsCrossed } from "lucide-react";
-import { getKioskMenu } from "@/lib/api/kiosk.functions";
-import { KioskError } from "@/components/kiosk/KioskError";
-import { KioskTopBar } from "@/components/kiosk/KioskTopBar";
-import { useKioskIdleReset } from "@/lib/use-kiosk-idle";
+import { getTotemMenu } from "@/lib/api/totem.functions";
+import { TotemError } from "@/components/totem/TotemError";
+import { TotemTopBar } from "@/components/totem/TotemTopBar";
+import { useTotemIdleReset } from "@/lib/use-totem-idle";
 
-export const Route = createFileRoute("/k/$slug/categorias")({
-  loader: ({ params }) => getKioskMenu({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$slug/categorias")({
+  loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Menú — ${loaderData.name}` : "Menú" }],
   }),
-  errorComponent: ({ error }) => <KioskError message={error.message} />,
+  errorComponent: ({ error }) => <TotemError message={error.message} />,
   component: CategoriasPage,
 });
 
 function CategoriasPage() {
   const menu = Route.useLoaderData();
   const accent = menu.accentColor || undefined;
-  useKioskIdleReset(menu.slug);
+  useTotemIdleReset(menu.slug);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <KioskTopBar slug={menu.slug} name={menu.name} logoUrl={menu.logoUrl} accent={accent} />
+      <TotemTopBar slug={menu.slug} name={menu.name} logoUrl={menu.logoUrl} accent={accent} />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
         <div className="mb-6 text-center">
@@ -39,7 +39,7 @@ function CategoriasPage() {
             {menu.categories.map((c) => (
               <Link
                 key={c.id}
-                to="/k/$slug/menu/$category"
+                to="/t/$slug/menu/$category"
                 params={{ slug: menu.slug, category: String(c.id) }}
                 className="group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary"
               >

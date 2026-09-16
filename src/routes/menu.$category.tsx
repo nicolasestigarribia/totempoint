@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { KioskHeader } from "@/components/KioskHeader";
+import { TotemHeader } from "@/components/TotemHeader";
 import { categories, products, formatPrice, type CategoryId } from "@/lib/menu";
 import { useStore, cartCount, cartTotal } from "@/lib/store";
 import { Plus, Check, ShoppingBag, ChevronRight } from "lucide-react";
@@ -30,7 +30,7 @@ function Menu() {
 
   return (
     <div className="min-h-screen pb-36">
-      <KioskHeader title={cat.name} back="/categories" />
+      <TotemHeader title={cat.name} back="/categories" />
 
       <div className="relative h-48 overflow-hidden border-b border-border md:h-64">
         <img

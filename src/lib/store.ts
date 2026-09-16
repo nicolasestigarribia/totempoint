@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "./menu";
 
-export type OrderStatus = "nuevo" | "preparacion" | "listo" | "entregado";
+export type OrderStatus = "recibido" | "preparacion" | "entregado";
 export type DeliveryMethod = "local" | "mostrador";
 
 export interface CartItem {
@@ -65,7 +65,7 @@ export const useStore = create<State>()(
           comments: data.comments,
           items: cart,
           total,
-          status: "nuevo",
+          status: "recibido",
           createdAt: Date.now(),
         };
         set((s) => ({ orders: [order, ...s.orders], nextOrderId: s.nextOrderId + 1, cart: [] }));

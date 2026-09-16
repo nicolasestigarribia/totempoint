@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useKioskCart } from "@/lib/kiosk-cart";
+import { useTotemCart } from "@/lib/totem-cart";
 
 const IDLE_MS = 90_000;
 
 // Si un cliente se va a mitad del pedido, la tablet no puede quedar con su
 // carrito abierto para el siguiente. Pasado el tiempo sin tocar la pantalla,
 // vuelve sola a la portada y vacía el pedido.
-export function useKioskIdleReset(slug: string) {
+export function useTotemIdleReset(slug: string) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,8 +16,8 @@ export function useKioskIdleReset(slug: string) {
     const reset = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        useKioskCart.getState().clear();
-        navigate({ to: "/k/$slug", params: { slug }, replace: true });
+        useTotemCart.getState().clear();
+        navigate({ to: "/t/$slug", params: { slug }, replace: true });
       }, IDLE_MS);
     };
 

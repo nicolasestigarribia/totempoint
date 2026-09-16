@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { KioskHeader } from "@/components/KioskHeader";
+import { TotemHeader } from "@/components/TotemHeader";
 import { useStore, cartTotal, type DeliveryMethod } from "@/lib/store";
 import { formatPrice } from "@/lib/menu";
 import { useState } from "react";
@@ -23,7 +23,7 @@ function Checkout() {
   if (cart.length === 0) {
     return (
       <div className="min-h-screen">
-        <KioskHeader title="Confirmar" back="/categories" />
+        <TotemHeader title="Confirmar" back="/categories" />
         <div className="mx-auto max-w-md px-6 py-20 text-center">
           <h1 className="font-display text-4xl">No hay productos</h1>
           <p className="mt-2 text-muted-foreground">Agregá algo al pedido para continuar.</p>
@@ -50,7 +50,7 @@ function Checkout() {
 
   return (
     <div className="min-h-screen pb-40">
-      <KioskHeader title="Casi listo" back="/cart" />
+      <TotemHeader title="Casi listo" back="/cart" />
       <main className="mx-auto grid max-w-6xl gap-10 px-6 py-10 md:grid-cols-[1fr,380px] md:px-10 md:py-14">
         <section className="space-y-8">
           <div>

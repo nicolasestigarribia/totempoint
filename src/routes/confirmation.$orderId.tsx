@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { KioskHeader } from "@/components/KioskHeader";
+import { TotemHeader } from "@/components/TotemHeader";
 import { useStore } from "@/lib/store";
 import { formatPrice } from "@/lib/menu";
 import { CheckCircle2, Clock, Utensils, ShoppingBag } from "lucide-react";
@@ -15,7 +15,7 @@ function Confirmation() {
 
   return (
     <div className="min-h-screen">
-      <KioskHeader />
+      <TotemHeader />
       <main className="mx-auto flex max-w-2xl flex-col items-center px-6 py-12 text-center md:py-16">
         <div className="relative mb-8">
           <div className="absolute inset-0 animate-ping rounded-full bg-gold/30" />

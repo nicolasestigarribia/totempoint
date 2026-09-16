@@ -4,7 +4,7 @@ import { eq, and, asc, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companies,
-  kioskSettings,
+  totemSettings,
   categories,
   products,
   locations,
@@ -15,15 +15,15 @@ import {
 // Capa pública: el tótem no tiene sesión, resuelve la empresa por slug de la URL.
 // No usa requireAuth a propósito — devolvé sólo datos que puedan verse en pantalla.
 
-export type KioskTemplate = "clasico" | "completo" | "split";
+export type TotemTemplate = "clasico" | "completo" | "split";
 
-export interface KioskHome {
+export interface TotemHome {
   companyId: number;
   name: string;
   slug: string;
   logoUrl: string | null;
   primaryColor: string | null;
-  template: KioskTemplate;
+  template: TotemTemplate;
   heroImageUrl: string | null;
   eyebrow: string | null;
   title: string;
@@ -39,7 +39,7 @@ export interface KioskHome {
 // para que nunca queden invisibles en el tótem.
 export const UNCATEGORIZED = 0;
 
-export interface KioskCategory {
+export interface TotemCategory {
   id: number;
   name: string;
   tagline: string | null;
@@ -47,7 +47,7 @@ export interface KioskCategory {
   productCount: number;
 }
 
-export interface KioskProduct {
+export interface TotemProduct {
   id: number;
   categoryId: number;
   name: string;
@@ -56,25 +56,25 @@ export interface KioskProduct {
   photoUrl: string | null;
 }
 
-export interface KioskMenu {
+export interface TotemMenu {
   name: string;
   slug: string;
   logoUrl: string | null;
   accentColor: string | null;
-  categories: KioskCategory[];
-  products: KioskProduct[];
+  categories: TotemCategory[];
+  products: TotemProduct[];
 }
 
-export const getKioskHome = createServerFn({ method: "GET" })
+export const getTotemHome = createServerFn({ method: "GET" })
   .inputValidator(z.object({ slug: z.string().trim().min(1).max(60) }))
-  .handler(async ({ data }): Promise<KioskHome> => {
+  .handler(async ({ data }): Promise<TotemHome> => {
     const [row] = await db
       .select({
         company: companies,
-        settings: kioskSettings,
+        settings: totemSettings,
       })
       .from(companies)
-      .leftJoin(kioskSettings, eq(kioskSettings.companyId, companies.id))
+      .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
       .where(eq(companies.slug, data.slug))
       .limit(1);
 
@@ -88,7 +88,7 @@ export const getKioskHome = createServerFn({ method: "GET" })
       slug: row.company.slug,
       logoUrl: row.company.logoUrl,
       primaryColor: row.company.primaryColor,
-      template: (s?.template as KioskTemplate) ?? "clasico",
+      template: (s?.template as TotemTemplate) ?? "clasico",
       heroImageUrl: s?.heroImageUrl ?? null,
       eyebrow: s?.eyebrow ?? null,
       title: s?.title?.trim() || row.company.name,
@@ -101,13 +101,13 @@ export const getKioskHome = createServerFn({ method: "GET" })
     };
   });
 
-export const getKioskMenu = createServerFn({ method: "GET" })
+export const getTotemMenu = createServerFn({ method: "GET" })
   .inputValidator(z.object({ slug: z.string().trim().min(1).max(60) }))
-  .handler(async ({ data }): Promise<KioskMenu> => {
+  .handler(async ({ data }): Promise<TotemMenu> => {
     const [row] = await db
-      .select({ company: companies, accentColor: kioskSettings.accentColor })
+      .select({ company: companies, accentColor: totemSettings.accentColor })
       .from(companies)
-      .leftJoin(kioskSettings, eq(kioskSettings.companyId, companies.id))
+      .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
       .where(eq(companies.slug, data.slug))
       .limit(1);
 
@@ -136,12 +136,12 @@ export const getKioskMenu = createServerFn({ method: "GET" })
         .orderBy(asc(products.sort), asc(products.name)),
     ]);
 
-    const visibleProducts: KioskProduct[] = prods.map((p) => ({
+    const visibleProducts: TotemProduct[] = prods.map((p) => ({
       ...p,
       categoryId: p.categoryId ?? UNCATEGORIZED,
     }));
 
-    const kioskCategories: KioskCategory[] = cats.map((c) => ({
+    const totemCategories: TotemCategory[] = cats.map((c) => ({
       id: c.id,
       name: c.name,
       tagline: c.tagline,
@@ -151,7 +151,7 @@ export const getKioskMenu = createServerFn({ method: "GET" })
 
     const looseCount = visibleProducts.filter((p) => p.categoryId === UNCATEGORIZED).length;
     if (looseCount > 0) {
-      kioskCategories.push({
+      totemCategories.push({
         id: UNCATEGORIZED,
         name: "Otros",
         tagline: "Del menú",
@@ -165,14 +165,14 @@ export const getKioskMenu = createServerFn({ method: "GET" })
       slug: row.company.slug,
       logoUrl: row.company.logoUrl,
       accentColor: row.accentColor ?? row.company.primaryColor,
-      categories: kioskCategories.filter((c) => c.productCount > 0),
+      categories: totemCategories.filter((c) => c.productCount > 0),
       products: visibleProducts,
     };
   });
 
 // El tótem manda sólo qué productos y cuántos: los precios y el total se
 // calculan acá con los datos de la base, nunca con lo que llega del cliente.
-export const createKioskOrder = createServerFn({ method: "POST" })
+export const createTotemOrder = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       slug: z.string().trim().min(1).max(60),
@@ -247,7 +247,7 @@ export const createKioskOrder = createServerFn({ method: "POST" })
           customerName: data.customerName.trim(),
           deliveryMethod: data.deliveryMethod,
           comments: data.comments?.trim() || null,
-          status: "nuevo",
+          status: "recibido",
           total: total.toFixed(2),
         })
         .$returningId();
@@ -258,10 +258,10 @@ export const createKioskOrder = createServerFn({ method: "POST" })
     });
   });
 
-export interface KioskOrderSummary {
+export interface TotemOrderSummary {
   orderNumber: number;
   customerName: string;
-  status: "nuevo" | "preparacion" | "listo" | "entregado";
+  status: "recibido" | "preparacion" | "entregado";
   total: string;
   companyName: string;
   slug: string;
@@ -269,9 +269,9 @@ export interface KioskOrderSummary {
   accentColor: string | null;
 }
 
-export const getKioskOrder = createServerFn({ method: "GET" })
+export const getTotemOrder = createServerFn({ method: "GET" })
   .inputValidator(z.object({ slug: z.string().trim().min(1).max(60), orderId: z.number().int() }))
-  .handler(async ({ data }): Promise<KioskOrderSummary> => {
+  .handler(async ({ data }): Promise<TotemOrderSummary> => {
     const [row] = await db
       .select({
         orderNumber: orders.orderNumber,
@@ -282,12 +282,12 @@ export const getKioskOrder = createServerFn({ method: "GET" })
         slug: companies.slug,
         logoUrl: companies.logoUrl,
         primaryColor: companies.primaryColor,
-        accentColor: kioskSettings.accentColor,
+        accentColor: totemSettings.accentColor,
       })
       .from(orders)
       .innerJoin(locations, eq(locations.id, orders.locationId))
       .innerJoin(companies, eq(companies.id, locations.companyId))
-      .leftJoin(kioskSettings, eq(kioskSettings.companyId, companies.id))
+      .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
       .where(and(eq(orders.id, data.orderId), eq(companies.slug, data.slug)))
       .limit(1);
 

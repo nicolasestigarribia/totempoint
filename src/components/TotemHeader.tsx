@@ -2,7 +2,7 @@ import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { ShoppingBag, ArrowLeft, Flame } from "lucide-react";
 import { useStore, cartCount } from "@/lib/store";
 
-export function KioskHeader({ back, title }: { back?: string; title?: string }) {
+export function TotemHeader({ back, title }: { back?: string; title?: string }) {
   const cart = useStore((s) => s.cart);
   const count = cartCount(cart);
   const router = useRouter();

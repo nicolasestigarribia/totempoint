@@ -1,6 +1,6 @@
 import { Store } from "lucide-react";
 
-export function KioskError({ message }: { message: string }) {
+export function TotemError({ message }: { message: string }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="max-w-md rounded-3xl border border-border bg-card/60 p-10 text-center">

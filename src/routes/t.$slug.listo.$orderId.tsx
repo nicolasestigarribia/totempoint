@@ -1,16 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
-import { getKioskOrder } from "@/lib/api/kiosk.functions";
-import { KioskError } from "@/components/kiosk/KioskError";
-import { formatPrice } from "@/lib/kiosk-cart";
+import { getTotemOrder } from "@/lib/api/totem.functions";
+import { TotemError } from "@/components/totem/TotemError";
+import { formatPrice } from "@/lib/totem-cart";
 
-export const Route = createFileRoute("/k/$slug/listo/$orderId")({
+export const Route = createFileRoute("/t/$slug/listo/$orderId")({
   loader: ({ params }) =>
-    getKioskOrder({ data: { slug: params.slug, orderId: Number(params.orderId) } }),
+    getTotemOrder({ data: { slug: params.slug, orderId: Number(params.orderId) } }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Pedido #${loaderData.orderNumber}` : "Pedido enviado" }],
   }),
-  errorComponent: ({ error }) => <KioskError message={error.message} />,
+  errorComponent: ({ error }) => <TotemError message={error.message} />,
   component: ListoPage,
 });
 
@@ -38,7 +38,7 @@ function ListoPage() {
       </div>
 
       <Link
-        to="/k/$slug"
+        to="/t/$slug"
         params={{ slug: order.slug }}
         className="mt-10 rounded-3xl px-12 py-6 font-display text-2xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02]"
         style={{ background: accent ?? "var(--primary)" }}

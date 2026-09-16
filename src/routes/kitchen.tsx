@@ -20,7 +20,7 @@ import {
   type KitchenOrder,
   type OrderStatus,
 } from "@/lib/api/orders.functions";
-import { formatPrice } from "@/lib/kiosk-cart";
+import { formatPrice } from "@/lib/totem-cart";
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({ meta: [{ title: "Panel de cocina" }] }),
@@ -31,8 +31,8 @@ const statusMeta: Record<
   OrderStatus,
   { label: string; pill: string; icon: typeof Clock; accent: string }
 > = {
-  nuevo: {
-    label: "Nuevo",
+  recibido: {
+    label: "Recibido",
     pill: "bg-primary/20 text-primary border-primary/40",
     icon: Clock,
     accent: "border-l-primary",
@@ -43,28 +43,21 @@ const statusMeta: Record<
     icon: ChefHat,
     accent: "border-l-gold",
   },
-  listo: {
-    label: "Listo",
-    pill: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-    icon: CheckCheck,
-    accent: "border-l-emerald-500",
-  },
   entregado: {
     label: "Entregado",
-    pill: "bg-muted text-muted-foreground border-border",
+    pill: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
     icon: PackageCheck,
-    accent: "border-l-muted-foreground",
+    accent: "border-l-emerald-500",
   },
 };
 
 const flow: Record<OrderStatus, OrderStatus | null> = {
-  nuevo: "preparacion",
-  preparacion: "listo",
-  listo: "entregado",
+  recibido: "preparacion",
+  preparacion: "entregado",
   entregado: null,
 };
 
-const columns: OrderStatus[] = ["nuevo", "preparacion", "listo", "entregado"];
+const columns: OrderStatus[] = ["recibido", "preparacion", "entregado"];
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -119,9 +112,8 @@ function Kitchen() {
 
   const grouped = useMemo(() => {
     const g: Record<OrderStatus, KitchenOrder[]> = {
-      nuevo: [],
+      recibido: [],
       preparacion: [],
-      listo: [],
       entregado: [],
     };
     for (const o of orders) g[o.status].push(o);
@@ -277,7 +269,7 @@ function Kitchen() {
                           )}
                           {o.status === "entregado" && (
                             <button
-                              onClick={() => changeStatus(o, "listo")}
+                              onClick={() => changeStatus(o, "preparacion")}
                               className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                             >
                               <Undo2 className="h-4 w-4" /> Revertir
