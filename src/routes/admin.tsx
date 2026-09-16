@@ -23,6 +23,7 @@ import {
   Tags,
   PanelLeft,
   PanelLeftClose,
+  Monitor,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -36,6 +37,8 @@ import { DisponibilidadSection } from "@/components/admin/DisponibilidadSection"
 import { StockSection } from "@/components/admin/StockSection";
 import { MovimientosSection } from "@/components/admin/MovimientosSection";
 import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
+import { PortadaSection } from "@/components/admin/PortadaSection";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -46,6 +49,7 @@ export const Route = createFileRoute("/admin")({
 
 type SectionId =
   | "resumen"
+  | "portada"
   | "locales"
   | "categorias"
   | "productos"
@@ -65,6 +69,7 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   { id: "resumen", label: "Resumen", icon: LayoutDashboard, desc: "Datos y marca de tu empresa" },
+  { id: "portada", label: "Portada", icon: Monitor, desc: "Pantalla de inicio de tu tótem" },
   { id: "locales", label: "Locales", icon: MapPin, desc: "Sucursales de la empresa" },
   { id: "categorias", label: "Categorías", icon: FolderTree, desc: "Categorías del menú" },
   { id: "productos", label: "Productos", icon: Package, desc: "Productos y precios" },
@@ -324,6 +329,8 @@ function SectionContent({
   switch (section) {
     case "resumen":
       return <BrandingForm business={business} branding={branding} panelClass={panelClass} />;
+    case "portada":
+      return <PortadaSection panelClass={panelClass} business={business} />;
     case "locales":
       return <LocalesSection panelClass={panelClass} />;
     case "categorias":
@@ -380,15 +387,8 @@ function BrandingForm({
             <Label htmlFor="name">Nombre visible</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="h-11" />
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="logo">Logo (URL)</Label>
-            <Input
-              id="logo"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://..."
-              className="h-11"
-            />
+          <div className="md:col-span-2">
+            <ImageUploadField id="logo" label="Logo" value={logoUrl} onChange={setLogoUrl} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="color">Color principal</Label>

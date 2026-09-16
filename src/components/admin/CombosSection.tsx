@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   listCombos,
   createCombo,
@@ -413,16 +414,12 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                   onChange={(e) => setPrice(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="combo-photo">Logo / Foto URL</Label>
-                <Input
-                  id="combo-photo"
-                  value={photoUrl}
-                  maxLength={500}
-                  placeholder="https://..."
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                />
-              </div>
+              <ImageUploadField
+                id="combo-photo"
+                label="Foto del combo"
+                value={photoUrl}
+                onChange={setPhotoUrl}
+              />
               {editing && (
                 <div className="flex items-center gap-2">
                   <input

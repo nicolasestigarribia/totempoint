@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   listProducts,
   createProduct,
@@ -485,16 +486,12 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="product-photo">Logo / Foto URL</Label>
-                <Input
-                  id="product-photo"
-                  value={photoUrl}
-                  maxLength={500}
-                  placeholder="https://..."
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                />
-              </div>
+              <ImageUploadField
+                id="product-photo"
+                label="Foto del producto"
+                value={photoUrl}
+                onChange={setPhotoUrl}
+              />
               {editing && (
                 <div className="flex items-center gap-2">
                   <input

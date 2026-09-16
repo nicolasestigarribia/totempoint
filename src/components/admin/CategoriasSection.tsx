@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   listCategories,
   createCategory,
@@ -42,6 +43,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CategoryRow | null>(null);
   const [name, setName] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [sort, setSort] = useState("0");
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +70,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   function openCreate() {
     setEditing(null);
     setName("");
+    setTagline("");
+    setPhotoUrl("");
     setSort("0");
     setActive(true);
     setDialogOpen(true);
@@ -75,6 +80,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   function openEdit(row: CategoryRow) {
     setEditing(row);
     setName(row.name);
+    setTagline(row.tagline ?? "");
+    setPhotoUrl(row.photoUrl ?? "");
     setSort(String(row.sort));
     setActive(row.active);
     setDialogOpen(true);
@@ -93,11 +100,25 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
     try {
       if (editing) {
         await update({
-          data: { id: editing.id, name: trimmed, sort: safeSort, active },
+          data: {
+            id: editing.id,
+            name: trimmed,
+            tagline: tagline.trim(),
+            photoUrl: photoUrl.trim(),
+            sort: safeSort,
+            active,
+          },
         });
         toast.success("Categoría actualizada");
       } else {
-        await create({ data: { name: trimmed, sort: safeSort } });
+        await create({
+          data: {
+            name: trimmed,
+            tagline: tagline.trim(),
+            photoUrl: photoUrl.trim(),
+            sort: safeSort,
+          },
+        });
         toast.success("Categoría creada");
       }
       setDialogOpen(false);
@@ -262,6 +283,22 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="category-tagline">Bajada</Label>
+              <Input
+                id="category-tagline"
+                value={tagline}
+                maxLength={60}
+                placeholder="Ej: Bien frías"
+                onChange={(e) => setTagline(e.target.value)}
+              />
+            </div>
+            <ImageUploadField
+              id="category-photo"
+              label="Foto de la categoría"
+              value={photoUrl}
+              onChange={setPhotoUrl}
+            />
             <div className="space-y-2">
               <Label htmlFor="category-sort">Orden</Label>
               <Input

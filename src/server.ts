@@ -40,6 +40,18 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Las imágenes de los negocios viven en la base y se sirven acá, antes de
+      // que el request entre al router.
+      const { pathname } = new URL(request.url);
+      if (pathname.startsWith("/img/")) {
+        const id = Number(pathname.slice("/img/".length));
+        if (Number.isInteger(id) && id > 0) {
+          const { serveImage } = await import("./lib/images");
+          return await serveImage(id);
+        }
+        return new Response("Not found", { status: 404 });
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

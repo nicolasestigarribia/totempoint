@@ -1,12 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { KioskHeader } from "@/components/KioskHeader";
-import { useStore, type OrderStatus } from "@/lib/store";
-import { formatPrice } from "@/lib/menu";
-import { useMemo } from "react";
-import { Clock, ChefHat, CheckCheck, PackageCheck, ChevronRight, Undo2 } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  Clock,
+  ChefHat,
+  CheckCheck,
+  PackageCheck,
+  ChevronRight,
+  Undo2,
+  Loader2,
+  LogOut,
+  RefreshCw,
+} from "lucide-react";
+import { toast } from "sonner";
+import { me, logout } from "@/lib/api/auth.functions";
+import {
+  listKitchenOrders,
+  setOrderStatus,
+  type KitchenOrder,
+  type OrderStatus,
+} from "@/lib/api/orders.functions";
+import { formatPrice } from "@/lib/kiosk-cart";
 
 export const Route = createFileRoute("/kitchen")({
-  head: () => ({ meta: [{ title: "Panel de cocina — Burger Point" }] }),
+  head: () => ({ meta: [{ title: "Panel de cocina" }] }),
   component: Kitchen,
 });
 
@@ -49,9 +66,9 @@ const flow: Record<OrderStatus, OrderStatus | null> = {
 
 const columns: OrderStatus[] = ["nuevo", "preparacion", "listo", "entregado"];
 
-function timeAgo(ts: number) {
-  const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return `${s}s`;
+function timeAgo(iso: string) {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return `${Math.max(s, 0)}s`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m} min`;
   const h = Math.floor(m / 60);
@@ -59,11 +76,49 @@ function timeAgo(ts: number) {
 }
 
 function Kitchen() {
-  const orders = useStore((s) => s.orders);
-  const setStatus = useStore((s) => s.setStatus);
+  const navigate = useNavigate();
+  const doMe = useServerFn(me);
+  const doLogout = useServerFn(logout);
+  const fetchOrders = useServerFn(listKitchenOrders);
+  const updateStatus = useServerFn(setOrderStatus);
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [orders, setOrders] = useState<KitchenOrder[]>([]);
+
+  const load = useCallback(async () => {
+    try {
+      setOrders(await fetchOrders());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los pedidos");
+    }
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const user = await doMe();
+      if (!user) {
+        navigate({ to: "/login", replace: true });
+        return;
+      }
+      await load();
+      if (alive) setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [doMe, navigate, load]);
+
+  // La cocina queda abierta todo el día: refrescamos solos para que entren los
+  // pedidos nuevos sin que nadie toque la pantalla.
+  useEffect(() => {
+    const id = setInterval(load, 15000);
+    return () => clearInterval(id);
+  }, [load]);
 
   const grouped = useMemo(() => {
-    const g: Record<OrderStatus, typeof orders> = {
+    const g: Record<OrderStatus, KitchenOrder[]> = {
       nuevo: [],
       preparacion: [],
       listo: [],
@@ -73,27 +128,65 @@ function Kitchen() {
     return g;
   }, [orders]);
 
+  const changeStatus = async (order: KitchenOrder, status: OrderStatus) => {
+    const previous = order.status;
+    setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status } : o)));
+    try {
+      await updateStatus({ data: { orderId: order.id, status } });
+    } catch (err) {
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: previous } : o)));
+      toast.error(err instanceof Error ? err.message : "No se pudo cambiar el estado");
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen">
-      <KioskHeader title="Panel de cocina" />
+    <div className="min-h-screen bg-background">
       <main className="mx-auto max-w-[1700px] px-6 py-8 md:px-10">
-        <div className="mb-8 flex items-end justify-between">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-gold">Operaciones</div>
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-gold">
+              Operaciones
+            </div>
             <h1 className="mt-2 font-display text-5xl md:text-6xl">Cocina</h1>
             <p className="mt-1 text-muted-foreground">
               {orders.length} {orders.length === 1 ? "pedido" : "pedidos"} en total
             </p>
           </div>
-          <div className="hidden gap-4 md:flex">
-            {columns.slice(0, 3).map((c) => (
-              <div key={c} className="rounded-2xl border border-border bg-card px-4 py-2 text-center">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {statusMeta[c].label}
-                </div>
-                <div className="font-display text-3xl text-gold">{grouped[c].length}</div>
-              </div>
-            ))}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-bold transition hover:border-primary"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Actualizar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await doLogout();
+                navigate({ to: "/login", replace: true });
+              }}
+              className="flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-bold transition hover:border-primary"
+            >
+              <LogOut className="h-4 w-4" />
+              Salir
+            </button>
           </div>
         </div>
 
@@ -101,7 +194,7 @@ function Kitchen() {
           <div className="rounded-3xl border border-dashed border-border bg-card/40 p-16 text-center">
             <h2 className="font-display text-3xl">Sin pedidos todavía</h2>
             <p className="mt-2 text-muted-foreground">
-              Apenas entren los pedidos aparecerán acá.
+              Apenas entren los pedidos del tótem aparecerán acá.
             </p>
           </div>
         ) : (
@@ -119,6 +212,7 @@ function Kitchen() {
                       {grouped[col].length}
                     </span>
                   </header>
+
                   <div className="space-y-3">
                     {grouped[col].map((o) => {
                       const next = flow[o.status];
@@ -129,10 +223,14 @@ function Kitchen() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <div className="font-display text-3xl text-gold">#{o.id}</div>
+                              <div className="font-display text-3xl text-gold">
+                                #{o.orderNumber}
+                              </div>
                               <div className="text-sm font-bold">{o.customerName}</div>
                               <div className="text-xs text-muted-foreground">
-                                {o.delivery === "local" ? "Comer en el local" : "Retirar en mostrador"}
+                                {o.deliveryMethod === "local"
+                                  ? "Comer en el local"
+                                  : "Retirar en mostrador"}
                                 {" · "}
                                 <span className="text-gold">{timeAgo(o.createdAt)}</span>
                               </div>
@@ -145,11 +243,11 @@ function Kitchen() {
                           </div>
 
                           <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
-                            {o.items.map((i) => (
-                              <li key={i.product.id} className="flex justify-between">
+                            {o.items.map((i, idx) => (
+                              <li key={idx} className="flex justify-between">
                                 <span className="truncate">
                                   <span className="font-bold text-gold">{i.quantity}×</span>{" "}
-                                  {i.product.name}
+                                  {i.productName}
                                 </span>
                               </li>
                             ))}
@@ -157,7 +255,7 @@ function Kitchen() {
 
                           {o.comments && (
                             <div className="mt-3 rounded-lg bg-secondary p-2 text-xs italic text-muted-foreground">
-                              💬 {o.comments}
+                              {o.comments}
                             </div>
                           )}
 
@@ -170,7 +268,7 @@ function Kitchen() {
 
                           {next && (
                             <button
-                              onClick={() => setStatus(o.id, next)}
+                              onClick={() => changeStatus(o, next)}
                               className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition hover:scale-[1.02] active:scale-95"
                             >
                               {statusMeta[next].label}
@@ -179,7 +277,7 @@ function Kitchen() {
                           )}
                           {o.status === "entregado" && (
                             <button
-                              onClick={() => setStatus(o.id, "listo")}
+                              onClick={() => changeStatus(o, "listo")}
                               className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                             >
                               <Undo2 className="h-4 w-4" /> Revertir
