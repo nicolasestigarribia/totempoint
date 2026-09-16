@@ -32,10 +32,11 @@ Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive
 
 ## Architecture
 
-### Two kiosk flows — the live one is `/k/$slug`, the old one is legacy
+### One totem flow: `/t/$slug`
 
-- **`/k/$slug/*` is the real, multi-tenant kiosk** and the only one to build on. Routes: `k.$slug.index` (cover), `k.$slug.categorias`, `k.$slug.menu.$category`, `k.$slug.carrito`, `k.$slug.checkout`, `k.$slug.listo.$orderId`. It reads the DB catalog through `src/lib/api/kiosk.functions.ts` and persists real orders.
-- **`src/lib/menu.ts` + `src/lib/store.ts` + the bare routes (`index`, `categories`, `menu.$category`, `cart`, `checkout`, `confirmation.$orderId`) are the legacy Burger Point demo**: static data, client-only cart, orders that never reach the DB. Nothing new should be wired to them; they are kept only because the old home page at `/` still renders them. Prefer deleting them over extending them.
+- **`/t/$slug/*` is the totem**, multi-tenant and the only ordering flow there is. Routes: `t.$slug.index` (cover), `t.$slug.categorias`, `t.$slug.menu.$category`, `t.$slug.carrito`, `t.$slug.checkout`, `t.$slug.listo.$orderId`. It reads the DB catalog through `src/lib/api/totem.functions.ts` and persists real orders.
+- The old single-brand Burger Point demo (`src/lib/menu.ts`, `src/lib/store.ts`, `TotemHeader`, and the bare `categories` / `menu.$category` / `cart` / `checkout` / `confirmation.$orderId` routes) **was deleted**: it served a hardcoded menu whose orders never reached the database, and a tablet left on `/` could take fake orders. Don't reintroduce a demo flow at the root.
+- **`/` is the platform's landing page**, not a business: the Totempoint pitch plus a link to `/login`. A totem is always opened by its own slug URL.
 
 ### The public kiosk layer (`src/lib/api/kiosk.functions.ts`)
 

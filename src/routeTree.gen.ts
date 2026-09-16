@@ -12,13 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KitchenRouteImport } from './routes/kitchen'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as CategoriesRouteImport } from './routes/categories'
-import { Route as CartRouteImport } from './routes/cart'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MenuCategoryRouteImport } from './routes/menu.$category'
-import { Route as ConfirmationOrderIdRouteImport } from './routes/confirmation.$orderId'
 import { Route as TSlugIndexRouteImport } from './routes/t.$slug.index'
 import { Route as TSlugCheckoutRouteImport } from './routes/t.$slug.checkout'
 import { Route as TSlugCategoriasRouteImport } from './routes/t.$slug.categorias'
@@ -41,21 +36,6 @@ const KitchenRoute = KitchenRouteImport.update({
   path: '/kitchen',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CategoriesRoute = CategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CartRoute = CartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -64,16 +44,6 @@ const AdminRoute = AdminRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MenuCategoryRoute = MenuCategoryRouteImport.update({
-  id: '/menu/$category',
-  path: '/menu/$category',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfirmationOrderIdRoute = ConfirmationOrderIdRouteImport.update({
-  id: '/confirmation/$orderId',
-  path: '/confirmation/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TSlugIndexRoute = TSlugIndexRouteImport.update({
@@ -110,14 +80,9 @@ const TSlugListoOrderIdRoute = TSlugListoOrderIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/cart': typeof CartRoute
-  '/categories': typeof CategoriesRoute
-  '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
-  '/menu/$category': typeof MenuCategoryRoute
   '/t/$slug/carrito': typeof TSlugCarritoRoute
   '/t/$slug/categorias': typeof TSlugCategoriasRoute
   '/t/$slug/checkout': typeof TSlugCheckoutRoute
@@ -128,14 +93,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/cart': typeof CartRoute
-  '/categories': typeof CategoriesRoute
-  '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
-  '/menu/$category': typeof MenuCategoryRoute
   '/t/$slug/carrito': typeof TSlugCarritoRoute
   '/t/$slug/categorias': typeof TSlugCategoriasRoute
   '/t/$slug/checkout': typeof TSlugCheckoutRoute
@@ -147,14 +107,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/cart': typeof CartRoute
-  '/categories': typeof CategoriesRoute
-  '/checkout': typeof CheckoutRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/confirmation/$orderId': typeof ConfirmationOrderIdRoute
-  '/menu/$category': typeof MenuCategoryRoute
   '/t/$slug/carrito': typeof TSlugCarritoRoute
   '/t/$slug/categorias': typeof TSlugCategoriasRoute
   '/t/$slug/checkout': typeof TSlugCheckoutRoute
@@ -167,14 +122,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
-    | '/cart'
-    | '/categories'
-    | '/checkout'
     | '/kitchen'
     | '/login'
     | '/superadmin'
-    | '/confirmation/$orderId'
-    | '/menu/$category'
     | '/t/$slug/carrito'
     | '/t/$slug/categorias'
     | '/t/$slug/checkout'
@@ -185,14 +135,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
-    | '/cart'
-    | '/categories'
-    | '/checkout'
     | '/kitchen'
     | '/login'
     | '/superadmin'
-    | '/confirmation/$orderId'
-    | '/menu/$category'
     | '/t/$slug/carrito'
     | '/t/$slug/categorias'
     | '/t/$slug/checkout'
@@ -203,14 +148,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
-    | '/cart'
-    | '/categories'
-    | '/checkout'
     | '/kitchen'
     | '/login'
     | '/superadmin'
-    | '/confirmation/$orderId'
-    | '/menu/$category'
     | '/t/$slug/carrito'
     | '/t/$slug/categorias'
     | '/t/$slug/checkout'
@@ -222,14 +162,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
-  CartRoute: typeof CartRoute
-  CategoriesRoute: typeof CategoriesRoute
-  CheckoutRoute: typeof CheckoutRoute
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
-  ConfirmationOrderIdRoute: typeof ConfirmationOrderIdRoute
-  MenuCategoryRoute: typeof MenuCategoryRoute
   TSlugCarritoRoute: typeof TSlugCarritoRoute
   TSlugCategoriasRoute: typeof TSlugCategoriasRoute
   TSlugCheckoutRoute: typeof TSlugCheckoutRoute
@@ -261,27 +196,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KitchenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/categories': {
-      id: '/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof CategoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cart': {
-      id: '/cart'
-      path: '/cart'
-      fullPath: '/cart'
-      preLoaderRoute: typeof CartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -294,20 +208,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/menu/$category': {
-      id: '/menu/$category'
-      path: '/menu/$category'
-      fullPath: '/menu/$category'
-      preLoaderRoute: typeof MenuCategoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/confirmation/$orderId': {
-      id: '/confirmation/$orderId'
-      path: '/confirmation/$orderId'
-      fullPath: '/confirmation/$orderId'
-      preLoaderRoute: typeof ConfirmationOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/t/$slug/': {
@@ -358,14 +258,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  CartRoute: CartRoute,
-  CategoriesRoute: CategoriesRoute,
-  CheckoutRoute: CheckoutRoute,
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
-  ConfirmationOrderIdRoute: ConfirmationOrderIdRoute,
-  MenuCategoryRoute: MenuCategoryRoute,
   TSlugCarritoRoute: TSlugCarritoRoute,
   TSlugCategoriasRoute: TSlugCategoriasRoute,
   TSlugCheckoutRoute: TSlugCheckoutRoute,

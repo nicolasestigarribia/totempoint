@@ -1,97 +1,111 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Flame, Sparkles, Clock, ChevronRight, LogIn } from "lucide-react";
-import heroBurger from "@/assets/hero-burger.jpg";
+import { Monitor, LogIn, Store, Users, Receipt } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Burger Point — Autoservicio Premium" },
-      { name: "description", content: "Hamburguesas premium hechas al momento. Armá tu pedido en segundos." },
+      { title: "Totempoint — Autoservicio para tu negocio" },
+      {
+        name: "description",
+        content:
+          "Tótems de autoservicio para bares, sanguicherías y locales de comida: el cliente pide desde la pantalla y la comanda le llega al local.",
+      },
     ],
   }),
   component: Home,
 });
 
+// La raíz es la puerta de entrada de la plataforma, no la de un negocio.
+// Cada tótem se abre por su propia URL: /t/<slug>.
+const FEATURES = [
+  {
+    icon: Monitor,
+    title: "El cliente pide solo",
+    desc: "Elige desde la pantalla del tótem, sin depender de que haya alguien en la caja.",
+  },
+  {
+    icon: Receipt,
+    title: "La comanda llega al local",
+    desc: "Cada pedido entra con su número y su detalle, listo para preparar y entregar.",
+  },
+  {
+    icon: Store,
+    title: "Un menú por local",
+    desc: "Cada sucursal activa lo que vende y con qué precio, sobre el catálogo de la marca.",
+  },
+  {
+    icon: Users,
+    title: "Encargados por sucursal",
+    desc: "El dueño da de alta a su gente y cada uno ve solamente los locales que maneja.",
+  },
+];
+
 function Home() {
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-      <img
-        src={heroBurger}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/60" />
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex items-center justify-between gap-4 px-6 py-6 md:px-12">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-primary shadow-glow">
+            <Monitor className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <span className="font-display text-xl tracking-wide">Totempoint</span>
+        </div>
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold transition hover:border-primary hover:text-foreground"
+        >
+          <LogIn className="h-4 w-4" />
+          Iniciar sesión
+        </Link>
+      </header>
 
-      <div className="relative z-10 flex flex-1 flex-col px-6 py-8 md:px-14 md:py-10">
-        <div className="grid flex-1 grid-cols-1 items-center gap-10 py-6 lg:grid-cols-2">
-          <div className="flex flex-col gap-6">
-            <div className="flex w-fit items-center gap-2 rounded-full border border-border/70 bg-card/70 px-5 py-2 backdrop-blur">
-              <Sparkles className="h-4 w-4 text-gold" />
-              <span className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
-                Autoservicio Premium
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-primary shadow-glow">
-                <Flame className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Premium Burgers</div>
-                <div className="font-display text-2xl tracking-wide md:text-3xl">
-                  Burger <span className="text-sky-400">Point</span>
-                </div>
-              </div>
-            </div>
-
-            <h1 className="font-display text-7xl leading-[0.85] sm:text-8xl md:text-9xl">
-              <span className="block">BURGER</span>
-              <span className="block text-gold">POINT</span>
-            </h1>
-
-            <p className="max-w-md text-balance text-lg text-muted-foreground md:text-xl">
-              Hamburguesas premium hechas al momento.
-              <br />
-              Tocá la pantalla y armá tu pedido en segundos.
+      <main className="flex flex-1 flex-col justify-center px-6 py-10 md:px-12">
+        <div className="mx-auto w-full max-w-4xl space-y-12">
+          <div className="space-y-6">
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
+              Autoservicio
             </p>
-
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 backdrop-blur">
-                <Clock className="h-4 w-4 text-gold" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Listo en 5 min</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 backdrop-blur">
-                <Flame className="h-4 w-4 text-gold" />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Carne 100% Premium</span>
-              </div>
+            <h1 className="font-display text-5xl leading-[0.95] sm:text-6xl md:text-7xl">
+              Tu negocio toma
+              <br />
+              <span className="text-primary">los pedidos solo</span>
+            </h1>
+            <p className="max-w-xl text-balance text-lg text-muted-foreground">
+              Ponés una tablet en el mostrador, el cliente arma su pedido y la comanda te llega al
+              instante. Vos administrás la marca, los locales y el menú desde el panel.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-6 py-3 font-bold text-primary-foreground shadow-glow transition hover:opacity-90"
+              >
+                <LogIn className="h-5 w-5" />
+                Entrar al panel
+              </Link>
+              <p className="text-sm text-muted-foreground">
+                ¿Sos cliente de un local? El tótem se abre con el enlace del negocio.
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 lg:items-end">
-            <Link
-              to="/categories"
-              className="group flex w-full max-w-md items-center justify-between gap-4 rounded-3xl bg-gradient-primary px-10 py-8 shadow-glow transition hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <span className="font-display text-3xl uppercase tracking-wide text-primary-foreground md:text-4xl">
-                Empezar Pedido
-              </span>
-              <ChevronRight className="h-8 w-8 text-primary-foreground transition group-hover:translate-x-1" />
-            </Link>
-
-            <Link
-              to="/login"
-              className="group flex w-full max-w-md items-center justify-between gap-4 rounded-3xl border border-border/70 bg-card/70 px-10 py-6 backdrop-blur transition hover:scale-[1.02] hover:border-primary active:scale-[0.98]"
-            >
-              <span className="flex items-center gap-3 font-display text-2xl uppercase tracking-wide text-foreground md:text-3xl">
-                <LogIn className="h-6 w-6 text-gold" />
-                Iniciar Sesión
-              </span>
-              <ChevronRight className="h-7 w-7 text-muted-foreground transition group-hover:translate-x-1" />
-            </Link>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {FEATURES.map((f) => (
+              <div
+                key={f.title}
+                className="rounded-2xl border border-border bg-card/40 p-5 backdrop-blur"
+              >
+                <f.icon className="h-5 w-5 text-primary" />
+                <h2 className="mt-3 font-bold">{f.title}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{f.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="px-6 py-8 text-center text-xs text-muted-foreground md:px-12">
+        Totempoint — autoservicio para locales de comida
+      </footer>
     </div>
   );
 }
