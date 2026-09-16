@@ -17,7 +17,11 @@ export const requireCompany = createMiddleware({ type: "function" })
   .server(async ({ next, context }) => {
     const user = context.user as SessionUser;
     if (!user.companyId) {
-      throw new Error("No autorizado: tu usuario no pertenece a ninguna empresa");
+      throw new Error(
+        user.roles.includes("superadmin")
+          ? "Elegí una empresa desde el panel de superadmin"
+          : "No autorizado: tu usuario no pertenece a ninguna empresa",
+      );
     }
     return next({ context: { user } });
   });
@@ -27,7 +31,8 @@ export const requireOwner = createMiddleware({ type: "function" })
   .middleware([requireCompany])
   .server(async ({ next, context }) => {
     const user = context.user as SessionUser;
-    if (!user.roles.includes("owner")) {
+    // El superadmin tiene acceso a todo, incluido el panel de cada empresa.
+    if (!user.roles.includes("owner") && !user.roles.includes("superadmin")) {
       throw new Error("No autorizado: se requiere ser dueño de la empresa");
     }
     return next({ context: { user } });

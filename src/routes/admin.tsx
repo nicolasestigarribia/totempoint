@@ -25,9 +25,11 @@ import {
   PanelLeftClose,
   Monitor,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
+import { exitBusiness } from "@/lib/api/platform.functions";
 import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
 import { LocalesSection } from "@/components/admin/LocalesSection";
 import { CategoriasSection } from "@/components/admin/CategoriasSection";
@@ -133,6 +135,7 @@ function AdminPage() {
   const navigate = useNavigate();
   const doMe = useServerFn(me);
   const doLogout = useServerFn(logout);
+  const doExitBusiness = useServerFn(exitBusiness);
   const fetchBusiness = useServerFn(getMyBusiness);
   const saveBusiness = useServerFn(updateMyBusiness);
 
@@ -142,6 +145,7 @@ function AdminPage() {
   const [noBusiness, setNoBusiness] = useState(false);
   const [email, setEmail] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
+  const [actingCompanyId, setActingCompanyId] = useState<number | null>(null);
 
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -168,18 +172,20 @@ function AdminPage() {
         navigate({ to: "/login", replace: true });
         return;
       }
-      // El panel es de la empresa: el superusuario tiene el suyo y cocina su pantalla.
+      // El superadmin ve todo, pero necesita haber entrado a una empresa desde su panel.
       if (user.roles.includes("superadmin")) {
-        navigate({ to: "/superadmin", replace: true });
-        return;
-      }
-      if (!user.roles.includes("owner") && !user.roles.includes("encargado")) {
+        if (!user.actingCompanyId) {
+          navigate({ to: "/superadmin", replace: true });
+          return;
+        }
+      } else if (!user.roles.includes("owner") && !user.roles.includes("encargado")) {
         navigate({ to: user.roles.includes("kitchen") ? "/kitchen" : "/login", replace: true });
         return;
       }
       if (!mounted) return;
       setEmail(user.email);
       setRoles(user.roles);
+      setActingCompanyId(user.actingCompanyId);
 
       const biz = await fetchBusiness();
       if (!mounted) return;
@@ -199,6 +205,14 @@ function AdminPage() {
       mounted = false;
     };
   }, [navigate, doMe, fetchBusiness]);
+
+  const handleExitBusiness = async () => {
+    try {
+      await doExitBusiness();
+    } finally {
+      navigate({ to: "/superadmin", replace: true });
+    }
+  };
 
   const handleLogout = async () => {
     await doLogout();
@@ -271,7 +285,7 @@ function AdminPage() {
     onSave: handleSave,
   };
 
-  const isOwner = roles.includes("owner");
+  const isOwner = roles.includes("owner") || roles.includes("superadmin");
   const visibleSections = SECTIONS.filter((s) => !s.ownerOnly || isOwner);
   const current = SECTIONS.find((s) => s.id === section)!;
 
@@ -337,6 +351,17 @@ function AdminPage() {
       </aside>
 
       <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
+        {actingCompanyId !== null && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/30 bg-primary/10 px-6 py-3 md:px-8">
+            <p className="flex items-center gap-2 text-sm">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Estás viendo <span className="font-semibold">{business!.name}</span> como superusuario.
+            </p>
+            <Button variant="outline" size="sm" onClick={handleExitBusiness}>
+              Volver al panel de superadmin
+            </Button>
+          </div>
+        )}
         <div className="flex items-center gap-4 border-b border-border px-6 py-5 md:px-8">
           {!sidebarOpen && (
             <button

@@ -23,6 +23,7 @@ import {
   Carrot,
   PanelLeft,
   PanelLeftClose,
+  LogIn,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ import {
   listBusinesses,
   setBusinessActive,
   updateBusinessAdmin,
+  enterBusiness,
   type BusinessRow,
 } from "@/lib/api/platform.functions";
 import { GlobalActionCodesSection } from "@/components/admin/GlobalActionCodesSection";
@@ -70,6 +72,7 @@ function SuperadminPage() {
   const create = useServerFn(createBusiness);
   const toggleActive = useServerFn(setBusinessActive);
   const updateAdmin = useServerFn(updateBusinessAdmin);
+  const doEnterBusiness = useServerFn(enterBusiness);
   const doMe = useServerFn(me);
   const doLogout = useServerFn(logout);
 
@@ -170,6 +173,16 @@ function SuperadminPage() {
       toast.error(err instanceof Error ? err.message : "No se pudo actualizar");
     } finally {
       setEditing(false);
+    }
+  };
+
+  // Entrar al panel de una empresa: el superadmin ve y opera todo como el dueño.
+  const handleEnter = async (row: BusinessRow) => {
+    try {
+      await doEnterBusiness({ data: { companyId: row.id } });
+      navigate({ to: "/admin" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo entrar a la empresa");
     }
   };
 
@@ -410,6 +423,15 @@ function SuperadminPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => handleEnter(b)}
+                      >
+                        <LogIn className="h-3.5 w-3.5" />
+                        Entrar
+                      </Button>
                       {b.admin_user_id && (
                         <Button variant="outline" size="sm" className="gap-1" onClick={() => openEdit(b)}>
                           <KeyRound className="h-3.5 w-3.5" />

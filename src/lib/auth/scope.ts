@@ -9,8 +9,9 @@ export function companyIdOf(user: SessionUser): number {
   return user.companyId;
 }
 
+/** Owner de la empresa, o superadmin (que tiene acceso a todo). */
 export function isOwner(user: SessionUser): boolean {
-  return user.roles.includes("owner");
+  return user.roles.includes("owner") || user.roles.includes("superadmin");
 }
 
 /**

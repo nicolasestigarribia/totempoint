@@ -46,8 +46,11 @@ async function companyLocationIds(companyId: number): Promise<number[]> {
   return rows.map((r) => r.id);
 }
 
-/** Valida que el usuario objetivo exista y sea un operador de la misma empresa. */
-async function loadTargetUser(userId: number, companyId: number) {
+/**
+ * Valida que el usuario objetivo exista y sea un operador de la misma empresa.
+ * El owner no puede tocar a otro dueño; el superadmin sí, porque ve todo.
+ */
+async function loadTargetUser(userId: number, companyId: number, caller: SessionUser) {
   const [target] = await db
     .select({ id: users.id, companyId: users.companyId })
     .from(users)
@@ -61,8 +64,12 @@ async function loadTargetUser(userId: number, companyId: number) {
     .from(userRoles)
     .where(eq(userRoles.userId, userId));
   const roleNames = roles.map((r) => r.role);
-  if (roleNames.includes("superadmin") || roleNames.includes("owner")) {
-    throw new Error("No podés modificar a un dueño o superusuario desde este panel");
+  const callerIsSuperadmin = caller.roles.includes("superadmin");
+  if (roleNames.includes("superadmin")) {
+    throw new Error("No podés modificar a un superusuario desde este panel");
+  }
+  if (roleNames.includes("owner") && !callerIsSuperadmin) {
+    throw new Error("No podés modificar a un dueño desde este panel");
   }
   return { ...target, roles: roleNames };
 }
@@ -204,7 +211,7 @@ export const updateOperator = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
     const companyId = companyIdOf(user);
-    await loadTargetUser(data.userId, companyId);
+    await loadTargetUser(data.userId, companyId, user);
 
     const email = data.email.toLowerCase();
     const username = data.username.toLowerCase();
@@ -243,7 +250,7 @@ export const setOperatorActive = createServerFn({ method: "POST" })
     const user = context.user as SessionUser;
     const companyId = companyIdOf(user);
     if (data.userId === user.id) throw new Error("No podés desactivar tu propio usuario");
-    await loadTargetUser(data.userId, companyId);
+    await loadTargetUser(data.userId, companyId, user);
 
     await db.update(users).set({ active: data.active }).where(eq(users.id, data.userId));
     return { ok: true };

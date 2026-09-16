@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { companies, locations, users, userRoles, userLocations } from "@/db/schema";
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
+import { setActingCompany, clearActingCompany } from "@/lib/auth/session";
 
 function slugify(name: string) {
   return name
@@ -196,5 +197,32 @@ export const setBusinessActive = createServerFn({ method: "POST" })
       .update(companies)
       .set({ active: data.active })
       .where(eq(companies.id, data.id));
+    return { ok: true };
+  });
+
+/**
+ * El superadmin entra al panel de una empresa para verla/operarla como el dueño.
+ * Mientras esté "adentro", sus server functions trabajan con ese companyId.
+ */
+export const enterBusiness = createServerFn({ method: "POST" })
+  .middleware([requireSuperadmin])
+  .inputValidator(z.object({ companyId: z.number().int() }))
+  .handler(async ({ data }) => {
+    const [company] = await db
+      .select({ id: companies.id, name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, data.companyId))
+      .limit(1);
+    if (!company) throw new Error("La empresa no existe");
+
+    setActingCompany(company.id);
+    return { id: company.id, name: company.name };
+  });
+
+/** Vuelve al panel de superadmin. */
+export const exitBusiness = createServerFn({ method: "POST" })
+  .middleware([requireSuperadmin])
+  .handler(async () => {
+    clearActingCompany();
     return { ok: true };
   });

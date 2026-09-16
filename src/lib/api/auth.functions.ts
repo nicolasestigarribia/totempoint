@@ -12,6 +12,8 @@ export interface AuthUser {
   companyId: number | null;
   locationId: number | null;
   roles: string[];
+  /** Empresa que el superadmin esta mirando; null para todos los demas. */
+  actingCompanyId: number | null;
   /** Locales asignados (vacio para owner y superadmin: no se limitan por local). */
   locationIds: number[];
 }
@@ -57,6 +59,7 @@ export const login = createServerFn({ method: "POST" })
       companyId: user.companyId,
       locationId: user.locationId,
       roles: roles.map((r) => r.role),
+      actingCompanyId: null,
       locationIds: assigned.map((a) => a.locationId),
     };
   });
