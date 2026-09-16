@@ -1,0 +1,24 @@
+# Todo el repositorio usa LF, que es lo que espera Prettier (su default) y lo
+# que evita que Windows y macOS/Linux se pisen el fin de línea entre commits.
+* text=auto eol=lf
+
+# Scripts de Windows: sólo funcionan con CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binarios: que git no intente convertirlos ni mostrar diffs de texto.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
+# El lockfile es generado: se versiona, pero su diff no aporta a la revisión.
+bun.lock -diff

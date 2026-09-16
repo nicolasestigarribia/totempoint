@@ -23,6 +23,7 @@ import {
   Tags,
   PanelLeft,
   PanelLeftClose,
+  Monitor,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -36,6 +37,8 @@ import { DisponibilidadSection } from "@/components/admin/DisponibilidadSection"
 import { StockSection } from "@/components/admin/StockSection";
 import { MovimientosSection } from "@/components/admin/MovimientosSection";
 import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
+import { PortadaSection } from "@/components/admin/PortadaSection";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -46,6 +49,7 @@ export const Route = createFileRoute("/admin")({
 
 type SectionId =
   | "resumen"
+  | "portada"
   | "locales"
   | "categorias"
   | "productos"
@@ -65,19 +69,36 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   { id: "resumen", label: "Resumen", icon: LayoutDashboard, desc: "Datos y marca de tu empresa" },
+  { id: "portada", label: "Portada", icon: Monitor, desc: "Pantalla de inicio de tu tótem" },
   { id: "locales", label: "Locales", icon: MapPin, desc: "Sucursales de la empresa" },
   { id: "categorias", label: "Categorías", icon: FolderTree, desc: "Categorías del menú" },
   { id: "productos", label: "Productos", icon: Package, desc: "Productos y precios" },
   { id: "combos", label: "Combos", icon: Boxes, desc: "Combos armados con productos" },
-  { id: "ingredientes", label: "Ingredientes", icon: Carrot, desc: "Ingredientes de tus productos" },
-  { id: "disponibilidad", label: "Disponibilidad", icon: Store, desc: "Qué se muestra en cada local" },
+  {
+    id: "ingredientes",
+    label: "Ingredientes",
+    icon: Carrot,
+    desc: "Ingredientes de tus productos",
+  },
+  {
+    id: "disponibilidad",
+    label: "Disponibilidad",
+    icon: Store,
+    desc: "Qué se muestra en cada local",
+  },
   { id: "stock", label: "Stock", icon: Warehouse, desc: "Stock de ingredientes por local" },
-  { id: "movimientos", label: "Movimientos", icon: ScrollText, desc: "Historial de movimientos de la empresa" },
+  {
+    id: "movimientos",
+    label: "Movimientos",
+    icon: ScrollText,
+    desc: "Historial de movimientos de la empresa",
+  },
   { id: "codigos", label: "Códigos de acción", icon: Tags, desc: "Motivos de ingresos y egresos" },
 ];
 
 // Superficie elevada para separar paneles del fondo oscuro
-const PANEL = "rounded-3xl border border-white/10 bg-[oklch(0.17_0.015_20)] shadow-lg shadow-black/40";
+const PANEL =
+  "rounded-3xl border border-white/10 bg-[oklch(0.17_0.015_20)] shadow-lg shadow-black/40";
 
 interface BrandingProps {
   name: string;
@@ -302,7 +323,12 @@ function AdminPage() {
           </div>
         </div>
         <div className="p-6 md:p-8">
-          <SectionContent section={section} business={business!} branding={branding} panelClass={PANEL} />
+          <SectionContent
+            section={section}
+            business={business!}
+            branding={branding}
+            panelClass={PANEL}
+          />
         </div>
       </main>
     </div>
@@ -324,6 +350,8 @@ function SectionContent({
   switch (section) {
     case "resumen":
       return <BrandingForm business={business} branding={branding} panelClass={panelClass} />;
+    case "portada":
+      return <PortadaSection panelClass={panelClass} business={business} />;
     case "locales":
       return <LocalesSection panelClass={panelClass} />;
     case "categorias":
@@ -354,7 +382,8 @@ function BrandingForm({
   branding: BrandingProps;
   panelClass: string;
 }) {
-  const { name, setName, logoUrl, setLogoUrl, primaryColor, setPrimaryColor, saving, onSave } = branding;
+  const { name, setName, logoUrl, setLogoUrl, primaryColor, setPrimaryColor, saving, onSave } =
+    branding;
   return (
     <div className="space-y-6">
       <div className={`flex flex-wrap items-start justify-between gap-4 p-6 ${panelClass}`}>
@@ -378,17 +407,16 @@ function BrandingForm({
         <div className="grid gap-5 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">Nombre visible</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="h-11" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="logo">Logo (URL)</Label>
             <Input
-              id="logo"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder="https://..."
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
               className="h-11"
             />
+          </div>
+          <div className="md:col-span-2">
+            <ImageUploadField id="logo" label="Logo" value={logoUrl} onChange={setLogoUrl} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="color">Color principal</Label>

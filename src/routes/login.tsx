@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Flame, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Flame, Loader2, Eye, EyeOff, ArrowLeft, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { login, me, type AuthUser } from "@/lib/api/auth.functions";
 
@@ -29,6 +30,7 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     doMe().then((user) => {
@@ -39,11 +41,27 @@ function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
       const user = await doLogin({ data: { identifier, password } });
       navigate({ to: destinationFor(user), replace: true });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error de autenticación";
+    } catch (err: any) {
+      console.error("Login error detail:", err);
+      
+      let msg = "Error de autenticación. Por favor, revisá tus credenciales.";
+      
+      if (err?.message === "An error occurred in the Server Function") {
+        // Este es el error genérico de TanStack Start cuando falla una Server Function
+        msg = "No se pudo conectar con el servidor o hubo un error interno. Intentalo de nuevo en unos momentos.";
+      } else if (err?.message) {
+        msg = err.message;
+      } else if (err?.data?.message) {
+        msg = err.data.message;
+      } else if (typeof err === 'string') {
+        msg = err;
+      }
+
+      setError(msg);
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -70,6 +88,13 @@ function LoginPage() {
           </p>
         </div>
 
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="identifier">Email o usuario</Label>
@@ -79,7 +104,10 @@ function LoginPage() {
               required
               autoComplete="username"
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(e) => {
+                setIdentifier(e.target.value);
+                if (error) setError(null);
+              }}
               placeholder="admin@negocio.com o usuario"
               className="h-12"
             />
@@ -93,7 +121,10 @@ function LoginPage() {
                 required
                 autoComplete="current-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder="••••••••"
                 className="h-12 pr-12"
               />

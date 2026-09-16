@@ -5,12 +5,7 @@ import { Plus, Pencil, Trash2, Loader2, Boxes, X, Search, Eye } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -20,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   listCombos,
   createCombo,
@@ -62,18 +58,14 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [viewTarget, setViewTarget] = useState<ComboRow | null>(null);
 
-  const [estadoFilter, setEstadoFilter] = useState<
-    "todos" | "activos" | "inactivos"
-  >("todos");
+  const [estadoFilter, setEstadoFilter] = useState<"todos" | "activos" | "inactivos">("todos");
 
   async function loadCombosOnly() {
     try {
       const data = await list();
       setRows(data);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudieron cargar los combos",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los combos");
     }
   }
 
@@ -84,9 +76,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
       setRows(cmb);
       setProducts(prods);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudieron cargar los datos",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los datos");
     } finally {
       setLoading(false);
     }
@@ -209,9 +199,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
       setDialogOpen(false);
       await loadCombosOnly();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudo guardar el combo",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el combo");
     } finally {
       setSaving(false);
     }
@@ -225,9 +213,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
       toast.success("Combo eliminado");
       await loadCombosOnly();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudo eliminar el combo",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el combo");
     } finally {
       setDeletingId(null);
     }
@@ -296,12 +282,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => openEdit(row)}
-            aria-label="Editar"
-          >
+          <Button variant="ghost" size="icon" onClick={() => openEdit(row)} aria-label="Editar">
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
@@ -345,18 +326,12 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
         initialSort={{ key: "name", dir: "asc" }}
         pageSize={10}
         filter={(r) =>
-          estadoFilter === "todos"
-            ? true
-            : estadoFilter === "activos"
-              ? r.active
-              : !r.active
+          estadoFilter === "todos" ? true : estadoFilter === "activos" ? r.active : !r.active
         }
         toolbar={
           <Select
             value={estadoFilter}
-            onValueChange={(v) =>
-              setEstadoFilter(v as "todos" | "activos" | "inactivos")
-            }
+            onValueChange={(v) => setEstadoFilter(v as "todos" | "activos" | "inactivos")}
           >
             <SelectTrigger className="h-10 w-40">
               <SelectValue />
@@ -413,16 +388,12 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                   onChange={(e) => setPrice(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="combo-photo">Logo / Foto URL</Label>
-                <Input
-                  id="combo-photo"
-                  value={photoUrl}
-                  maxLength={500}
-                  placeholder="https://..."
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                />
-              </div>
+              <ImageUploadField
+                id="combo-photo"
+                label="Foto del combo"
+                value={photoUrl}
+                onChange={setPhotoUrl}
+              />
               {editing && (
                 <div className="flex items-center gap-2">
                   <input
@@ -456,9 +427,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
               <div className="max-h-40 divide-y divide-white/5 overflow-auto rounded-md border border-white/10">
                 {availableProducts.length === 0 ? (
                   <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-                    {products.length === 0
-                      ? "No hay productos cargados"
-                      : "Sin resultados"}
+                    {products.length === 0 ? "No hay productos cargados" : "Sin resultados"}
                   </p>
                 ) : (
                   availableProducts.map((p) => (
@@ -470,9 +439,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                     >
                       <span>
                         {p.name}
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          (${p.price})
-                        </span>
+                        <span className="ml-1 text-xs text-muted-foreground">(${p.price})</span>
                       </span>
                       <Plus className="h-4 w-4 text-primary" />
                     </button>
@@ -485,9 +452,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                   Seleccionados ({draftProducts.length})
                 </p>
                 {draftProducts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Todavía no agregaste productos.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Todavía no agregaste productos.</p>
                 ) : (
                   <div className="max-h-56 space-y-2 overflow-auto pr-1">
                     {draftProducts.map((d) => (
@@ -497,9 +462,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                       >
                         <span className="flex-1 text-sm font-medium">
                           {d.name}
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            (${d.price})
-                          </span>
+                          <span className="ml-1 text-xs text-muted-foreground">(${d.price})</span>
                         </span>
                         <Input
                           type="number"
@@ -508,9 +471,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                           value={d.quantity}
                           placeholder="Cant."
                           className="h-9 w-24"
-                          onChange={(e) =>
-                            setDraftQuantity(d.productId, e.target.value)
-                          }
+                          onChange={(e) => setDraftQuantity(d.productId, e.target.value)}
                         />
                         <Button
                           variant="ghost"
@@ -529,11 +490,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button className="gap-2" onClick={handleSave} disabled={saving}>

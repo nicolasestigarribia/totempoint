@@ -9,6 +9,8 @@ import type { SessionUser } from "@/lib/auth/session";
 export interface CategoryRow {
   id: number;
   name: string;
+  tagline: string | null;
+  photoUrl: string | null;
   sort: number;
   active: boolean;
 }
@@ -23,6 +25,8 @@ export const listCategories = createServerFn({ method: "GET" })
       .select({
         id: categories.id,
         name: categories.name,
+        tagline: categories.tagline,
+        photoUrl: categories.photoUrl,
         sort: categories.sort,
         active: categories.active,
       })
@@ -38,6 +42,8 @@ export const createCategory = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       name: z.string().trim().min(1).max(80),
+      tagline: z.string().trim().max(60).optional(),
+      photoUrl: z.string().trim().max(500).optional(),
       sort: z.number().int().default(0),
     }),
   )
@@ -47,18 +53,22 @@ export const createCategory = createServerFn({ method: "POST" })
 
     const name = data.name.trim();
     const sort = data.sort ?? 0;
+    const tagline = data.tagline?.trim() || null;
+    const photoUrl = data.photoUrl?.trim() || null;
 
     const [{ id }] = await db
       .insert(categories)
       .values({
         companyId: user.companyId,
         name,
+        tagline,
+        photoUrl,
         sort,
         active: true,
       })
       .$returningId();
 
-    return { id, name, sort, active: true };
+    return { id, name, tagline, photoUrl, sort, active: true };
   });
 
 export const updateCategory = createServerFn({ method: "POST" })
@@ -67,6 +77,8 @@ export const updateCategory = createServerFn({ method: "POST" })
     z.object({
       id: z.number().int(),
       name: z.string().trim().min(1).max(80),
+      tagline: z.string().trim().max(60).optional(),
+      photoUrl: z.string().trim().max(500).optional(),
       sort: z.number().int(),
       active: z.boolean(),
     }),
@@ -79,12 +91,12 @@ export const updateCategory = createServerFn({ method: "POST" })
       .update(categories)
       .set({
         name: data.name.trim(),
+        tagline: data.tagline?.trim() || null,
+        photoUrl: data.photoUrl?.trim() || null,
         sort: data.sort,
         active: data.active,
       })
-      .where(
-        and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)),
-      );
+      .where(and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)));
 
     return { ok: true };
   });
@@ -111,9 +123,7 @@ export const deleteCategory = createServerFn({ method: "POST" })
 
     await db
       .delete(categories)
-      .where(
-        and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)),
-      );
+      .where(and(eq(categories.id, data.id), eq(categories.companyId, user.companyId)));
 
     return { ok: true };
   });

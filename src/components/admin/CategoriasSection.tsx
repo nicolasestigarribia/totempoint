@@ -5,12 +5,7 @@ import { Plus, Pencil, Trash2, Loader2, FolderTree } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectTrigger,
@@ -20,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   listCategories,
   createCategory,
@@ -42,6 +38,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CategoryRow | null>(null);
   const [name, setName] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
   const [sort, setSort] = useState("0");
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +65,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   function openCreate() {
     setEditing(null);
     setName("");
+    setTagline("");
+    setPhotoUrl("");
     setSort("0");
     setActive(true);
     setDialogOpen(true);
@@ -75,6 +75,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   function openEdit(row: CategoryRow) {
     setEditing(row);
     setName(row.name);
+    setTagline(row.tagline ?? "");
+    setPhotoUrl(row.photoUrl ?? "");
     setSort(String(row.sort));
     setActive(row.active);
     setDialogOpen(true);
@@ -93,11 +95,25 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
     try {
       if (editing) {
         await update({
-          data: { id: editing.id, name: trimmed, sort: safeSort, active },
+          data: {
+            id: editing.id,
+            name: trimmed,
+            tagline: tagline.trim(),
+            photoUrl: photoUrl.trim(),
+            sort: safeSort,
+            active,
+          },
         });
         toast.success("Categoría actualizada");
       } else {
-        await create({ data: { name: trimmed, sort: safeSort } });
+        await create({
+          data: {
+            name: trimmed,
+            tagline: tagline.trim(),
+            photoUrl: photoUrl.trim(),
+            sort: safeSort,
+          },
+        });
         toast.success("Categoría creada");
       }
       setDialogOpen(false);
@@ -155,11 +171,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
         emptyMessage="No hay categorías todavía."
         emptyIcon={<FolderTree className="h-8 w-8 opacity-40" />}
         filter={(r) =>
-          estadoFilter === "todos"
-            ? true
-            : estadoFilter === "activos"
-              ? r.active
-              : !r.active
+          estadoFilter === "todos" ? true : estadoFilter === "activos" ? r.active : !r.active
         }
         toolbar={
           <Select
@@ -204,7 +216,9 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
                     onCheckedChange={(v) => toggleActive(r, v)}
                     aria-label={r.active ? "Desactivar" : "Activar"}
                   />
-                  <span className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}>
+                  <span
+                    className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}
+                  >
                     {r.active ? "Activa" : "Inactiva"}
                   </span>
                 </div>
@@ -247,9 +261,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editing ? "Editar categoría" : "Nueva categoría"}
-            </DialogTitle>
+            <DialogTitle>{editing ? "Editar categoría" : "Nueva categoría"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -262,6 +274,22 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="category-tagline">Bajada</Label>
+              <Input
+                id="category-tagline"
+                value={tagline}
+                maxLength={60}
+                placeholder="Ej: Bien frías"
+                onChange={(e) => setTagline(e.target.value)}
+              />
+            </div>
+            <ImageUploadField
+              id="category-photo"
+              label="Foto de la categoría"
+              value={photoUrl}
+              onChange={setPhotoUrl}
+            />
             <div className="space-y-2">
               <Label htmlFor="category-sort">Orden</Label>
               <Input
@@ -287,11 +315,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
             )}
           </div>
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancelar
             </Button>
             <Button className="gap-2" onClick={handleSave} disabled={saving}>

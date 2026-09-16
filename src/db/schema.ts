@@ -8,6 +8,7 @@ import {
   decimal,
   mysqlEnum,
   text,
+  mediumtext,
   unique,
   index,
 } from "drizzle-orm/mysql-core";
@@ -51,10 +52,7 @@ export const users = mysqlTable(
     locationId: int("location_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [
-    index("users_company_idx").on(t.companyId),
-    index("users_location_idx").on(t.locationId),
-  ],
+  (t) => [index("users_company_idx").on(t.companyId), index("users_location_idx").on(t.locationId)],
 );
 
 // Sesiones (cookie httpOnly). id = token secreto aleatorio, NO autoincrement.
@@ -81,6 +79,45 @@ export const userRoles = mysqlTable(
   (t) => [unique("user_roles_user_role_uq").on(t.userId, t.role)],
 );
 
+// Imágenes subidas por cada negocio, guardadas como base64 en la propia base
+// para no depender de un storage externo. El navegador las comprime antes de
+// subirlas; se sirven por /img/:id desde src/lib/images.ts.
+export const images = mysqlTable(
+  "images",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    companyId: int("company_id").notNull(),
+    mimeType: varchar("mime_type", { length: 40 }).notNull(),
+    data: mediumtext("data").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("images_company_idx").on(t.companyId)],
+);
+
+// Portada del tótem, una fila por empresa. Reemplaza lo que antes estaba
+// hardcodeado en la home: cada rubro (hamburguesería, discoteca, sanguchería)
+// carga su propia imagen, textos y plantilla desde el panel admin.
+export const kioskSettings = mysqlTable(
+  "kiosk_settings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    companyId: int("company_id").notNull(),
+    template: mysqlEnum("template", ["clasico", "completo", "split"]).notNull().default("clasico"),
+    heroImageUrl: varchar("hero_image_url", { length: 500 }),
+    eyebrow: varchar("eyebrow", { length: 60 }),
+    title: varchar("title", { length: 60 }),
+    titleAccent: varchar("title_accent", { length: 60 }),
+    subtitle: varchar("subtitle", { length: 255 }),
+    ctaLabel: varchar("cta_label", { length: 40 }).notNull().default("Empezar pedido"),
+    badge1: varchar("badge_1", { length: 40 }),
+    badge2: varchar("badge_2", { length: 40 }),
+    accentColor: varchar("accent_color", { length: 9 }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [unique("kiosk_settings_company_uq").on(t.companyId)],
+);
+
 // Categorías del menú (a nivel empresa)
 export const categories = mysqlTable(
   "categories",
@@ -88,6 +125,8 @@ export const categories = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
     name: varchar("name", { length: 80 }).notNull(),
+    tagline: varchar("tagline", { length: 60 }),
+    photoUrl: varchar("photo_url", { length: 500 }),
     sort: int("sort").notNull().default(0),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
