@@ -374,12 +374,12 @@ function SuperadminPage() {
           </Dialog>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-lg">
+        <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-lg">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-6 py-4">Negocio</th>
-                <th className="px-6 py-4">Administrador</th>
+                <th className="hidden px-6 py-4 md:table-cell">Administrador</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4 text-right">Acción</th>
               </tr>
@@ -394,11 +394,14 @@ function SuperadminPage() {
               )}
               {rows.map((b) => (
                 <tr key={b.id} className="border-t border-border">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4 md:px-6">
                     <p className="font-semibold">{b.name}</p>
                     <code className="text-xs text-muted-foreground">{b.slug}</code>
+                    {b.admin_email && (
+                      <p className="text-xs text-muted-foreground md:hidden">{b.admin_email}</p>
+                    )}
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">
+                  <td className="hidden px-6 py-4 text-muted-foreground md:table-cell">
                     {b.admin_email ? (
                       <div className="flex flex-col">
                         <span>{b.admin_email}</span>
@@ -421,8 +424,8 @@ function SuperadminPage() {
                       {b.active ? "Activo" : "Inactivo"}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-2">
+                  <td className="px-4 py-4 md:px-6">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button
                         variant="outline"
                         size="sm"
