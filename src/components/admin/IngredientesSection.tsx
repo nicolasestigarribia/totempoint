@@ -19,12 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import {
   listIngredients,
@@ -72,7 +67,6 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
   const [deleting, setDeleting] = useState(false);
 
   // Filtros
-  const [scopeFilter, setScopeFilter] = useState<"todos" | "global" | "private">("todos");
   const [categoryFilter, setCategoryFilter] = useState<string>("todas");
 
   // Gestor de categorías
@@ -86,9 +80,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
       setRows(data);
       setCategories(cats);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudieron cargar los ingredientes",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los ingredientes");
     } finally {
       setLoading(false);
     }
@@ -206,7 +198,11 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
   };
 
   const handleDeleteCategory = async (cat: IngredientCategoryRow) => {
-    if (!window.confirm(`¿Eliminar la categoría "${cat.name}"? Los ingredientes quedan sin categoría.`))
+    if (
+      !window.confirm(
+        `¿Eliminar la categoría "${cat.name}"? Los ingredientes quedan sin categoría.`,
+      )
+    )
       return;
     try {
       await catDelete({ data: { id: cat.id } });
@@ -238,9 +234,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
       header: "Unidad",
       sortable: true,
       sortAccessor: (r) => r.unit ?? "",
-      cell: (r) => (
-        <span className="text-muted-foreground">{r.unit ?? "—"}</span>
-      ),
+      cell: (r) => <span className="text-muted-foreground">{r.unit ?? "—"}</span>,
     },
     {
       key: "bulk",
@@ -259,26 +253,8 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
       sortable: true,
       sortAccessor: (r) => (r.cost === null ? -1 : Number(r.cost)),
       cell: (r) => (
-        <span className="text-muted-foreground">
-          {r.cost === null ? "—" : `$${r.cost}`}
-        </span>
+        <span className="text-muted-foreground">{r.cost === null ? "—" : `$${r.cost}`}</span>
       ),
-    },
-    {
-      key: "scope",
-      header: "Ámbito",
-      sortable: true,
-      sortAccessor: (r) => r.scope,
-      cell: (r) =>
-        r.scope === "global" ? (
-          <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-400">
-            Global
-          </span>
-        ) : (
-          <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
-            Propio
-          </span>
-        ),
     },
     {
       key: "actions",
@@ -286,49 +262,17 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
       align: "right",
       cell: (row) => (
         <div className="flex justify-end gap-2">
-          {row.scope === "global" ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => openEdit(row)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button variant="ghost" size="icon" disabled className="h-8 w-8">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>No se puede borrar un ingrediente global</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => openEdit(row)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => setDeleteTarget(row)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          )}
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => setDeleteTarget(row)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       ),
     },
@@ -361,14 +305,13 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
         searchKeys={[(r) => r.name]}
         searchPlaceholder="Buscar ingrediente..."
         filter={(r) => {
-          const okScope = scopeFilter === "todos" || r.scope === scopeFilter;
           const okCat =
             categoryFilter === "todas"
               ? true
               : categoryFilter === "sin"
                 ? r.categoryId === null
                 : r.categoryId === Number(categoryFilter);
-          return okScope && okCat;
+          return okCat;
         }}
         initialSort={{ key: "name", dir: "asc" }}
         pageSize={10}
@@ -388,19 +331,6 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={scopeFilter}
-              onValueChange={(v) => setScopeFilter(v as "todos" | "global" | "private")}
-            >
-              <SelectTrigger className="h-10 w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="global">Global</SelectItem>
-                <SelectItem value="private">Propio</SelectItem>
-              </SelectContent>
-            </Select>
           </>
         }
       />
@@ -409,9 +339,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editing ? "Editar ingrediente" : "Nuevo ingrediente"}
-            </DialogTitle>
+            <DialogTitle>{editing ? "Editar ingrediente" : "Nuevo ingrediente"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-5">
             <div className="space-y-2">
@@ -428,10 +356,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="ingredient-unit">Unidad</Label>
-              <Select
-                value={unit || "none"}
-                onValueChange={(v) => setUnit(v === "none" ? "" : v)}
-              >
+              <Select value={unit || "none"} onValueChange={(v) => setUnit(v === "none" ? "" : v)}>
                 <SelectTrigger id="ingredient-unit" className="h-11">
                   <SelectValue placeholder="Sin unidad" />
                 </SelectTrigger>
@@ -456,7 +381,6 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.name}
-                      {c.scope === "global" ? " · global" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -523,10 +447,8 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             ¿Seguro que querés eliminar{" "}
-            <span className="font-semibold text-foreground">
-              {deleteTarget?.name}
-            </span>
-            ? Esta acción no se puede deshacer.
+            <span className="font-semibold text-foreground">{deleteTarget?.name}</span>? Esta acción
+            no se puede deshacer.
           </p>
           <div className="flex justify-end gap-2">
             <Button
@@ -571,8 +493,16 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
                   }
                 }}
               />
-              <Button className="gap-2" onClick={handleAddCategory} disabled={catBusy || !newCatName.trim()}>
-                {catBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              <Button
+                className="gap-2"
+                onClick={handleAddCategory}
+                disabled={catBusy || !newCatName.trim()}
+              >
+                {catBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
                 Agregar
               </Button>
             </div>
@@ -585,44 +515,28 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
                     key={c.id}
                     className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2"
                   >
-                    {c.scope === "global" ? (
-                      <>
-                        <span className="flex-1 text-sm">{c.name}</span>
-                        <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-400">
-                          Global
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Input
-                          defaultValue={c.name}
-                          maxLength={80}
-                          className="h-8 flex-1"
-                          onBlur={(e) => handleRenameCategory(c, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                          }}
-                        />
-                        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                          Propio
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteCategory(c)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
+                    <Input
+                      defaultValue={c.name}
+                      maxLength={80}
+                      className="h-8 flex-1"
+                      onBlur={(e) => handleRenameCategory(c, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteCategory(c)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Renombrá tocando el nombre. Las globales las gestiona la plataforma.
-            </p>
+            <p className="text-xs text-muted-foreground">Renombrá tocando el nombre.</p>
           </div>
         </DialogContent>
       </Dialog>

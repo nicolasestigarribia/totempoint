@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, or, isNull, asc } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { actionCodes, movements } from "@/db/schema";
-import { requireAuth, requireSuperadmin } from "@/lib/auth/middleware";
+import { requireAuth } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface ActionCodeRow {
@@ -14,7 +14,6 @@ export interface ActionCodeRow {
   direction: "ingreso" | "egreso";
   auto: boolean;
   active: boolean;
-  scope: "global" | "private";
 }
 
 function normalizeCode(raw: string): string {
@@ -35,7 +34,7 @@ export const listActionCodesAll = createServerFn({ method: "GET" })
     const rows = await db
       .select()
       .from(actionCodes)
-      .where(or(isNull(actionCodes.companyId), eq(actionCodes.companyId, user.companyId)))
+      .where(eq(actionCodes.companyId, user.companyId))
       .orderBy(asc(actionCodes.type), asc(actionCodes.code));
 
     return rows.map((r) => ({
@@ -46,7 +45,6 @@ export const listActionCodesAll = createServerFn({ method: "GET" })
       direction: r.direction,
       auto: r.auto,
       active: r.active,
-      scope: r.companyId === null ? "global" : "private",
     }));
   });
 
@@ -70,7 +68,7 @@ export const createActionCode = createServerFn({ method: "POST" })
     const [dup] = await db
       .select({ id: actionCodes.id })
       .from(actionCodes)
-      .where(eq(actionCodes.code, code))
+      .where(and(eq(actionCodes.code, code), eq(actionCodes.companyId, user.companyId)))
       .limit(1);
     if (dup) throw new Error("Ya existe un código con ese nombre");
 
@@ -95,7 +93,6 @@ export const createActionCode = createServerFn({ method: "POST" })
       direction: data.direction,
       auto: false,
       active: true,
-      scope: "private",
     };
   });
 
@@ -165,140 +162,17 @@ export const deleteActionCode = createServerFn({ method: "POST" })
     const [used] = await db
       .select({ id: movements.id })
       .from(movements)
-      .where(
-        and(eq(movements.companyId, user.companyId), eq(movements.actionCode, existing.code)),
-      )
+      .where(and(eq(movements.companyId, user.companyId), eq(movements.actionCode, existing.code)))
       .limit(1);
     if (used) {
-      throw new Error("No se puede borrar: el código ya tiene movimientos. Desactivalo en su lugar.");
+      throw new Error(
+        "No se puede borrar: el código ya tiene movimientos. Desactivalo en su lugar.",
+      );
     }
 
     await db
       .delete(actionCodes)
       .where(and(eq(actionCodes.id, data.id), eq(actionCodes.companyId, user.companyId)));
 
-    return { ok: true };
-  });
-
-// ---------- Globales (superadmin) ----------
-
-export interface GlobalActionCodeRow {
-  id: number;
-  code: string;
-  label: string;
-  type: "stock" | "caja";
-  direction: "ingreso" | "egreso";
-  auto: boolean;
-  active: boolean;
-}
-
-export const listGlobalActionCodes = createServerFn({ method: "GET" })
-  .middleware([requireSuperadmin])
-  .handler(async (): Promise<GlobalActionCodeRow[]> => {
-    const rows = await db
-      .select()
-      .from(actionCodes)
-      .where(isNull(actionCodes.companyId))
-      .orderBy(asc(actionCodes.type), asc(actionCodes.code));
-    return rows.map((r) => ({
-      id: r.id,
-      code: r.code,
-      label: r.label,
-      type: r.type,
-      direction: r.direction,
-      auto: r.auto,
-      active: r.active,
-    }));
-  });
-
-export const createGlobalActionCode = createServerFn({ method: "POST" })
-  .middleware([requireSuperadmin])
-  .inputValidator(
-    z.object({
-      code: z.string().trim().min(1).max(40),
-      label: z.string().trim().min(1).max(120),
-      type: z.enum(["stock", "caja"]),
-      direction: z.enum(["ingreso", "egreso"]),
-      auto: z.boolean().optional(),
-    }),
-  )
-  .handler(async ({ data }) => {
-    const code = normalizeCode(data.code);
-    if (!code) throw new Error("Código inválido");
-    const [dup] = await db
-      .select({ id: actionCodes.id })
-      .from(actionCodes)
-      .where(eq(actionCodes.code, code))
-      .limit(1);
-    if (dup) throw new Error("Ya existe un código con ese nombre");
-
-    await db.insert(actionCodes).values({
-      companyId: null,
-      code,
-      label: data.label.trim(),
-      type: data.type,
-      direction: data.direction,
-      auto: data.auto ?? false,
-      active: true,
-    });
-    return { ok: true };
-  });
-
-export const updateGlobalActionCode = createServerFn({ method: "POST" })
-  .middleware([requireSuperadmin])
-  .inputValidator(
-    z.object({
-      id: z.number().int(),
-      label: z.string().trim().min(1).max(120),
-      type: z.enum(["stock", "caja"]),
-      direction: z.enum(["ingreso", "egreso"]),
-      auto: z.boolean(),
-      active: z.boolean(),
-    }),
-  )
-  .handler(async ({ data }) => {
-    const [existing] = await db
-      .select({ id: actionCodes.id })
-      .from(actionCodes)
-      .where(and(eq(actionCodes.id, data.id), isNull(actionCodes.companyId)))
-      .limit(1);
-    if (!existing) throw new Error("Código global no encontrado");
-
-    await db
-      .update(actionCodes)
-      .set({
-        label: data.label.trim(),
-        type: data.type,
-        direction: data.direction,
-        auto: data.auto,
-        active: data.active,
-      })
-      .where(and(eq(actionCodes.id, data.id), isNull(actionCodes.companyId)));
-    return { ok: true };
-  });
-
-export const deleteGlobalActionCode = createServerFn({ method: "POST" })
-  .middleware([requireSuperadmin])
-  .inputValidator(z.object({ id: z.number().int() }))
-  .handler(async ({ data }) => {
-    const [existing] = await db
-      .select({ id: actionCodes.id, code: actionCodes.code })
-      .from(actionCodes)
-      .where(and(eq(actionCodes.id, data.id), isNull(actionCodes.companyId)))
-      .limit(1);
-    if (!existing) throw new Error("Código global no encontrado");
-
-    const [used] = await db
-      .select({ id: movements.id })
-      .from(movements)
-      .where(eq(movements.actionCode, existing.code))
-      .limit(1);
-    if (used) {
-      throw new Error("No se puede borrar: ya tiene movimientos. Desactivalo en su lugar.");
-    }
-
-    await db
-      .delete(actionCodes)
-      .where(and(eq(actionCodes.id, data.id), isNull(actionCodes.companyId)));
     return { ok: true };
   });

@@ -187,7 +187,7 @@ export const ingredientCategories = mysqlTable(
   "ingredient_categories",
   {
     id: int("id").autoincrement().primaryKey(),
-    companyId: int("company_id"),
+    companyId: int("company_id").notNull(),
     name: varchar("name", { length: 80 }).notNull(),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -200,7 +200,7 @@ export const ingredients = mysqlTable(
   "ingredients",
   {
     id: int("id").autoincrement().primaryKey(),
-    companyId: int("company_id"),
+    companyId: int("company_id").notNull(),
     categoryId: int("category_id"),
     name: varchar("name", { length: 120 }).notNull(),
     unit: varchar("unit", { length: 20 }),
@@ -293,8 +293,8 @@ export const actionCodes = mysqlTable(
   "action_codes",
   {
     id: int("id").autoincrement().primaryKey(),
-    companyId: int("company_id"), // null = global
-    code: varchar("code", { length: 40 }).notNull().unique(),
+    companyId: int("company_id").notNull(),
+    code: varchar("code", { length: 40 }).notNull(),
     label: varchar("label", { length: 120 }).notNull(),
     type: mysqlEnum("type", ["stock", "caja"]).notNull(),
     direction: mysqlEnum("direction", ["ingreso", "egreso"]).notNull(),
@@ -302,7 +302,10 @@ export const actionCodes = mysqlTable(
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("action_codes_company_idx").on(t.companyId)],
+  (t) => [
+    index("action_codes_company_idx").on(t.companyId),
+    unique("action_codes_company_code_uq").on(t.companyId, t.code),
+  ],
 );
 
 // Movements: libro mayor transversal. type = dominio (stock o caja).

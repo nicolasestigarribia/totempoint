@@ -6,12 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -19,12 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import {
   listActionCodesAll,
@@ -49,7 +39,6 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
   const [loading, setLoading] = useState(true);
 
   const [typeFilter, setTypeFilter] = useState<"todos" | "stock" | "caja">("todos");
-  const [scopeFilter, setScopeFilter] = useState<"todos" | "global" | "private">("todos");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ActionCodeRow | null>(null);
@@ -193,73 +182,38 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
         ),
       },
       {
-        key: "scope",
-        header: "Ámbito",
-        sortable: true,
-        sortAccessor: (r) => r.scope,
-        cell: (r) =>
-          r.scope === "global" ? (
-            <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-400">
-              Global
-            </span>
-          ) : (
-            <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
-              Propio
-            </span>
-          ),
-      },
-      {
         key: "active",
         header: "Estado",
         sortable: true,
         sortAccessor: (r) => (r.active ? 1 : 0),
-        cell: (r) =>
-          r.scope === "global" ? (
+        cell: (r) => (
+          <div className="flex items-center gap-2">
+            <Switch checked={r.active} onCheckedChange={(v) => toggleActive(r, v)} />
             <span className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}>
               {r.active ? "Activo" : "Inactivo"}
             </span>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Switch checked={r.active} onCheckedChange={(v) => toggleActive(r, v)} />
-              <span className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}>
-                {r.active ? "Activo" : "Inactivo"}
-              </span>
-            </div>
-          ),
+          </div>
+        ),
       },
       {
         key: "actions",
         header: "Acción",
         align: "right",
-        cell: (r) =>
-          r.scope === "global" ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Button variant="ghost" size="icon" disabled className="h-8 w-8">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Código global (lo gestiona la plataforma)</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}>
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => setToDelete(r)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ),
+        cell: (r) => (
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => setToDelete(r)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -285,16 +239,6 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
               <SelectItem value="caja">Caja</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={scopeFilter} onValueChange={(v) => setScopeFilter(v as typeof scopeFilter)}>
-            <SelectTrigger className="h-10 w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="global">Globales</SelectItem>
-              <SelectItem value="private">Propios</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -308,10 +252,7 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
         emptyIcon={<Tags className="h-8 w-8 opacity-40" />}
         searchKeys={[(r) => r.code, (r) => r.label]}
         searchPlaceholder="Buscar código..."
-        filter={(r) =>
-          (typeFilter === "todos" || r.type === typeFilter) &&
-          (scopeFilter === "todos" || r.scope === scopeFilter)
-        }
+        filter={(r) => typeFilter === "todos" || r.type === typeFilter}
         initialSort={{ key: "code", dir: "asc" }}
         pageSize={12}
       />
@@ -400,13 +341,19 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             ¿Eliminar <span className="font-medium text-foreground">{toDelete?.label}</span> (
-            <code>{toDelete?.code}</code>)? Si ya tiene movimientos, no se podrá borrar (desactivalo).
+            <code>{toDelete?.code}</code>)? Si ya tiene movimientos, no se podrá borrar
+            (desactivalo).
           </p>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setToDelete(null)} disabled={deleting}>
               Cancelar
             </Button>
-            <Button variant="destructive" className="gap-2" onClick={handleDelete} disabled={deleting}>
+            <Button
+              variant="destructive"
+              className="gap-2"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
               {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
               Eliminar
             </Button>
