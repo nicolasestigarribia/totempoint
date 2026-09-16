@@ -18,7 +18,8 @@ export const Route = createFileRoute("/login")({
 
 function destinationFor(user: AuthUser): string {
   if (user.roles.includes("superadmin")) return "/superadmin";
-  if (user.roles.includes("kitchen") && !user.roles.includes("admin")) return "/kitchen";
+  if (user.roles.includes("owner") || user.roles.includes("encargado")) return "/admin";
+  if (user.roles.includes("kitchen")) return "/kitchen";
   return "/admin";
 }
 

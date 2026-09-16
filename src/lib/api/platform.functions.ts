@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, or, ne, and, desc } from "drizzle-orm";
 
 import { db } from "@/db";
-import { companies, locations, users, userRoles } from "@/db/schema";
+import { companies, locations, users, userRoles, userLocations } from "@/db/schema";
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 
@@ -128,7 +128,9 @@ export const createBusiness = createServerFn({ method: "POST" })
         locationId,
       })
       .$returningId();
-    await db.insert(userRoles).values({ userId, role: "admin" });
+    // El usuario que se crea con la empresa es el owner (dueno de la marca).
+    await db.insert(userRoles).values({ userId, role: "owner" });
+    await db.insert(userLocations).values({ userId, locationId });
 
     const [company] = await db
       .select()

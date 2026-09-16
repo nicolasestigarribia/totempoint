@@ -1,10 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { locations } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireCompany, requireOwner } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { accessibleLocationIds, companyIdOf } from "@/lib/auth/scope";
 
 export interface LocationRow {
   id: number;
@@ -15,10 +16,14 @@ export interface LocationRow {
 }
 
 export const listLocations = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireCompany])
   .handler(async ({ context }): Promise<LocationRow[]> => {
     const user = context.user as SessionUser;
-    if (!user.companyId) throw new Error("Usuario sin empresa asignada");
+    const companyId = companyIdOf(user);
+
+    // El owner ve todos los locales de la empresa; el encargado, solo los suyos.
+    const allowed = await accessibleLocationIds(user);
+    if (allowed.length === 0) return [];
 
     const rows = await db
       .select({
@@ -29,14 +34,14 @@ export const listLocations = createServerFn({ method: "GET" })
         active: locations.active,
       })
       .from(locations)
-      .where(eq(locations.companyId, user.companyId))
+      .where(and(eq(locations.companyId, companyId), inArray(locations.id, allowed)))
       .orderBy(desc(locations.createdAt));
 
     return rows;
   });
 
 export const createLocation = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireOwner])
   .inputValidator(
     z.object({
       name: z.string().trim().min(1).max(120),
@@ -68,7 +73,7 @@ export const createLocation = createServerFn({ method: "POST" })
   });
 
 export const updateLocation = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireOwner])
   .inputValidator(
     z.object({
       id: z.number().int(),
@@ -103,7 +108,7 @@ export const updateLocation = createServerFn({ method: "POST" })
   });
 
 export const setLocationActive = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireOwner])
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
@@ -116,7 +121,7 @@ export const setLocationActive = createServerFn({ method: "POST" })
   });
 
 export const deleteLocation = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireOwner])
   .inputValidator(z.object({ id: z.number().int() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { ingredients, products, artistock, stockLimits, movements, locations } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { assertLocationAccess } from "@/lib/auth/scope";
 
 // Fila de stock de un ítem stockable: ingrediente o producto de reventa.
 export interface StockRow {
@@ -19,15 +20,6 @@ export interface StockRow {
   epLocal: string;
   stockActual: string;
   minStock: string | null;
-}
-
-async function assertLocationOwned(locationId: number, companyId: number) {
-  const [loc] = await db
-    .select({ id: locations.id })
-    .from(locations)
-    .where(and(eq(locations.id, locationId), eq(locations.companyId, companyId)))
-    .limit(1);
-  if (!loc) throw new Error("El local no pertenece a tu empresa");
 }
 
 async function assertIngredientUsable(ingredientId: number, companyId: number) {
@@ -60,7 +52,7 @@ export const getLocationStock = createServerFn({ method: "GET" })
   .handler(async ({ context, data }): Promise<StockRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
-    await assertLocationOwned(data.locationId, user.companyId);
+    await assertLocationAccess(user, data.locationId);
 
     const ingRows = await db
       .select({
@@ -176,7 +168,7 @@ export const getMovements = createServerFn({ method: "GET" })
   .handler(async ({ context, data }): Promise<MovementRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
-    await assertLocationOwned(data.locationId, user.companyId);
+    await assertLocationAccess(user, data.locationId);
 
     if (!data.ingredientId && !data.productId) {
       throw new Error("Falta el ingrediente o producto");

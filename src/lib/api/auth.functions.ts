@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { users, userRoles } from "@/db/schema";
+import { users, userRoles, userLocations } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession, getSessionUser } from "@/lib/auth/session";
 
@@ -12,6 +12,8 @@ export interface AuthUser {
   companyId: number | null;
   locationId: number | null;
   roles: string[];
+  /** Locales asignados (vacio para owner y superadmin: no se limitan por local). */
+  locationIds: number[];
 }
 
 export const login = createServerFn({ method: "POST" })
@@ -33,6 +35,10 @@ export const login = createServerFn({ method: "POST" })
       throw new Error("Usuario o contraseña incorrectos");
     }
 
+    if (!user.active) {
+      throw new Error("Tu usuario está desactivado. Contactate con el dueño de la empresa");
+    }
+
     await createSession(user.id);
 
     const roles = await db
@@ -40,12 +46,18 @@ export const login = createServerFn({ method: "POST" })
       .from(userRoles)
       .where(eq(userRoles.userId, user.id));
 
+    const assigned = await db
+      .select({ locationId: userLocations.locationId })
+      .from(userLocations)
+      .where(eq(userLocations.userId, user.id));
+
     return {
       id: user.id,
       email: user.email,
       companyId: user.companyId,
       locationId: user.locationId,
       roles: roles.map((r) => r.role),
+      locationIds: assigned.map((a) => a.locationId),
     };
   });
 

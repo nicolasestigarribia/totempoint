@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { assertLocationAccess } from "@/lib/auth/scope";
 
 export interface AvailCategory {
   id: number;
@@ -31,22 +32,13 @@ export interface LocationAvailability {
 }
 
 // Verifica que el local pertenezca a la empresa del usuario.
-async function assertLocationOwned(locationId: number, companyId: number) {
-  const [loc] = await db
-    .select({ id: locations.id })
-    .from(locations)
-    .where(and(eq(locations.id, locationId), eq(locations.companyId, companyId)))
-    .limit(1);
-  if (!loc) throw new Error("El local no pertenece a tu empresa");
-}
-
 export const getLocationAvailability = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator(z.object({ locationId: z.number().int() }))
   .handler(async ({ context, data }): Promise<LocationAvailability> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
-    await assertLocationOwned(data.locationId, user.companyId);
+    await assertLocationAccess(user, data.locationId);
 
     // Categorías de la empresa + override de disponibilidad para este local
     const cats = await db
@@ -107,7 +99,7 @@ export const setCategoryAvailability = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
-    await assertLocationOwned(data.locationId, user.companyId);
+    await assertLocationAccess(user, data.locationId);
 
     const [cat] = await db
       .select({ id: categories.id })
@@ -131,7 +123,7 @@ export const setProductAvailability = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
-    await assertLocationOwned(data.locationId, user.companyId);
+    await assertLocationAccess(user, data.locationId);
 
     const [prod] = await db
       .select({ id: products.id })

@@ -40,7 +40,9 @@ export const locations = mysqlTable(
   (t) => [index("locations_company_idx").on(t.companyId)],
 );
 
-// Usuarios propios. superadmin: companyId/locationId null. admin: ligado a un local.
+// Usuarios propios. superadmin: companyId/locationId null; owner/encargado: ligados
+// a una empresa. locationId queda como local por defecto (legacy): el alcance real
+// de un encargado son las filas de user_locations.
 export const users = mysqlTable(
   "users",
   {
@@ -50,6 +52,7 @@ export const users = mysqlTable(
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     companyId: int("company_id"),
     locationId: int("location_id"),
+    active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("users_company_idx").on(t.companyId), index("users_location_idx").on(t.locationId)],
@@ -67,16 +70,37 @@ export const sessions = mysqlTable(
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
 
-// Roles (un usuario puede tener varios)
+// Roles (un usuario puede tener varios).
+// superadmin: equipo de desarrollo, ve todo el sistema y da de alta empresas.
+// owner: dueno de una empresa, ve todos los locales de su empresa.
+// encargado: lo da de alta el owner, solo ve los locales que tiene asignados
+// en user_locations.
+// kitchen: pantalla de comandas; se mantiene del modelo anterior.
 export const userRoles = mysqlTable(
   "user_roles",
   {
     id: int("id").autoincrement().primaryKey(),
     userId: int("user_id").notNull(),
-    role: mysqlEnum("role", ["superadmin", "admin", "kitchen"]).notNull(),
+    role: mysqlEnum("role", ["superadmin", "owner", "encargado", "kitchen"]).notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [unique("user_roles_user_role_uq").on(t.userId, t.role)],
+);
+
+// Locales asignados a un usuario (un encargado puede estar a cargo de 1 a N locales).
+// El owner no necesita filas aca: ve todos los locales de su empresa.
+export const userLocations = mysqlTable(
+  "user_locations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    locationId: int("location_id").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("user_locations_user_location_uq").on(t.userId, t.locationId),
+    index("user_locations_location_idx").on(t.locationId),
+  ],
 );
 
 // Imágenes subidas por cada negocio, guardadas como base64 en la propia base

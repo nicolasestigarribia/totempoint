@@ -24,6 +24,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   Monitor,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -38,6 +39,7 @@ import { StockSection } from "@/components/admin/StockSection";
 import { MovimientosSection } from "@/components/admin/MovimientosSection";
 import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
 import { PortadaSection } from "@/components/admin/PortadaSection";
+import { OperadoresSection } from "@/components/admin/OperadoresSection";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -58,19 +60,28 @@ type SectionId =
   | "disponibilidad"
   | "stock"
   | "movimientos"
-  | "codigos";
+  | "codigos"
+  | "operadores";
 
 interface SectionDef {
   id: SectionId;
   label: string;
   icon: LucideIcon;
   desc: string;
+  /** Secciones que solo ve el dueño de la empresa, no los encargados. */
+  ownerOnly?: boolean;
 }
 
 const SECTIONS: SectionDef[] = [
   { id: "resumen", label: "Resumen", icon: LayoutDashboard, desc: "Datos y marca de tu empresa" },
   { id: "portada", label: "Portada", icon: Monitor, desc: "Pantalla de inicio de tu tótem" },
-  { id: "locales", label: "Locales", icon: MapPin, desc: "Sucursales de la empresa" },
+  {
+    id: "locales",
+    label: "Locales",
+    icon: MapPin,
+    desc: "Sucursales de la empresa",
+    ownerOnly: true,
+  },
   { id: "categorias", label: "Categorías", icon: FolderTree, desc: "Categorías del menú" },
   { id: "productos", label: "Productos", icon: Package, desc: "Productos y precios" },
   { id: "combos", label: "Combos", icon: Boxes, desc: "Combos armados con productos" },
@@ -94,6 +105,13 @@ const SECTIONS: SectionDef[] = [
     desc: "Historial de movimientos de la empresa",
   },
   { id: "codigos", label: "Códigos de acción", icon: Tags, desc: "Motivos de ingresos y egresos" },
+  {
+    id: "operadores",
+    label: "Operadores",
+    icon: Users,
+    desc: "Encargados y los locales que manejan",
+    ownerOnly: true,
+  },
 ];
 
 // Superficie elevada para separar paneles del fondo oscuro
@@ -123,6 +141,7 @@ function AdminPage() {
   const [business, setBusiness] = useState<MyBusiness | null>(null);
   const [noBusiness, setNoBusiness] = useState(false);
   const [email, setEmail] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
 
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -149,8 +168,18 @@ function AdminPage() {
         navigate({ to: "/login", replace: true });
         return;
       }
+      // El panel es de la empresa: el superusuario tiene el suyo y cocina su pantalla.
+      if (user.roles.includes("superadmin")) {
+        navigate({ to: "/superadmin", replace: true });
+        return;
+      }
+      if (!user.roles.includes("owner") && !user.roles.includes("encargado")) {
+        navigate({ to: user.roles.includes("kitchen") ? "/kitchen" : "/login", replace: true });
+        return;
+      }
       if (!mounted) return;
       setEmail(user.email);
+      setRoles(user.roles);
 
       const biz = await fetchBusiness();
       if (!mounted) return;
@@ -242,6 +271,8 @@ function AdminPage() {
     onSave: handleSave,
   };
 
+  const isOwner = roles.includes("owner");
+  const visibleSections = SECTIONS.filter((s) => !s.ownerOnly || isOwner);
   const current = SECTIONS.find((s) => s.id === section)!;
 
   return (
@@ -279,7 +310,7 @@ function AdminPage() {
           </button>
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {SECTIONS.map((s) => (
+          {visibleSections.map((s) => (
             <button
               key={s.id}
               onClick={() => {
@@ -370,6 +401,8 @@ function SectionContent({
       return <MovimientosSection panelClass={panelClass} />;
     case "codigos":
       return <CodigosAccionSection panelClass={panelClass} />;
+    case "operadores":
+      return <OperadoresSection panelClass={panelClass} />;
   }
 }
 

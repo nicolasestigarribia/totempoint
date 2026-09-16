@@ -5,16 +5,8 @@ import { db } from "@/db";
 import { movements, ingredients, products, locations, artistock, actionCodes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { assertLocationAccess } from "@/lib/auth/scope";
 import type { ActionCode } from "@/lib/actionCodes";
-
-async function assertLocationOwned(locationId: number, companyId: number) {
-  const [loc] = await db
-    .select({ id: locations.id })
-    .from(locations)
-    .where(and(eq(locations.id, locationId), eq(locations.companyId, companyId)))
-    .limit(1);
-  if (!loc) throw new Error("El local no pertenece a tu empresa");
-}
 
 async function assertIngredientUsable(ingredientId: number, companyId: number) {
   const [ing] = await db
@@ -123,7 +115,7 @@ export const createMovement = createServerFn({ method: "POST" })
     if (!def) throw new Error("Código de acción inválido");
     if (def.auto) throw new Error("Ese código lo genera el sistema, no se carga a mano");
 
-    await assertLocationOwned(data.locationId, user.companyId);
+    await assertLocationAccess(user, data.locationId);
 
     // Movimiento de stock: apunta a un ingrediente O a un producto de reventa (exactamente uno).
     let ingredientId: number | null = null;
