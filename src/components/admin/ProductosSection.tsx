@@ -323,22 +323,6 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       cell: (r) => <span className="text-muted-foreground">${r.price}</span>,
     },
     {
-      key: "tipo",
-      header: "Tipo",
-      sortable: true,
-      sortAccessor: (r) => (r.stockable ? 1 : 0),
-      cell: (r) =>
-        r.stockable ? (
-          <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-400">
-            Reventa
-          </span>
-        ) : (
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Preparado
-          </span>
-        ),
-    },
-    {
       key: "active",
       header: "Estado",
       sortable: true,
