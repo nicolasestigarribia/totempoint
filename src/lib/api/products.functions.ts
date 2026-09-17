@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, inArray, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productIngredients, categories, ingredients } from "@/db/schema";
-import { requireView, requireEdit } from "@/lib/auth/middleware";
+import { requireView, requireEdit, requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface ProductIngredientRow {
@@ -138,7 +138,7 @@ async function loadProductRow(
 }
 
 export const listProducts = createServerFn({ method: "GET" })
-  .middleware([requireView("productos")])
+  .middleware([requireCompany])
   .handler(async ({ context }): Promise<ProductRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");

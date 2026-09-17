@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { ingredients, ingredientCategories, productIngredients, movements } from "@/db/schema";
-import { requireView, requireEdit } from "@/lib/auth/middleware";
+import { requireView, requireEdit, requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface IngredientRow {
@@ -29,7 +29,7 @@ async function assertCategoryUsable(categoryId: number, companyId: number) {
 }
 
 export const listIngredients = createServerFn({ method: "GET" })
-  .middleware([requireView("ingredientes")])
+  .middleware([requireCompany])
   .handler(async ({ context }): Promise<IngredientRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");

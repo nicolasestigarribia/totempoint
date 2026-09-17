@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, inArray, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { combos, comboProducts, products } from "@/db/schema";
-import { requireView, requireEdit } from "@/lib/auth/middleware";
+import { requireView, requireEdit, requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface ComboProductRow {
@@ -108,7 +108,7 @@ async function loadComboRow(
 }
 
 export const listCombos = createServerFn({ method: "GET" })
-  .middleware([requireView("combos")])
+  .middleware([requireCompany])
   .handler(async ({ context }): Promise<ComboRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");

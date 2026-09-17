@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
-import { requireView, requireEdit } from "@/lib/auth/middleware";
+import { requireView, requireEdit, requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface CategoryRow {
@@ -16,7 +16,7 @@ export interface CategoryRow {
 }
 
 export const listCategories = createServerFn({ method: "GET" })
-  .middleware([requireView("categorias")])
+  .middleware([requireCompany])
   .handler(async ({ context }): Promise<CategoryRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
