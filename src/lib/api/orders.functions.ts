@@ -3,7 +3,8 @@ import { z } from "zod";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, locations } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireCompany } from "@/lib/auth/middleware";
+import { accessibleLocationIds } from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
 
 export type OrderStatus = "recibido" | "preparacion" | "entregado";
@@ -27,21 +28,25 @@ export interface KitchenOrder {
   items: KitchenOrderItem[];
 }
 
-async function companyLocationIds(companyId: number) {
-  const rows = await db
+/**
+ * Negocios cuyos pedidos puede ver quien llama: el dueño los ve todos, el
+ * encargado solo los que tiene asignados.
+ */
+async function visibleLocations(user: SessionUser) {
+  const allowed = await accessibleLocationIds(user);
+  if (allowed.length === 0) return [];
+  return db
     .select({ id: locations.id, name: locations.name })
     .from(locations)
-    .where(eq(locations.companyId, companyId));
-  return rows;
+    .where(inArray(locations.id, allowed));
 }
 
 export const listKitchenOrders = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireCompany])
   .handler(async ({ context }): Promise<KitchenOrder[]> => {
     const user = context.user as SessionUser;
-    if (!user.companyId) throw new Error("Usuario sin empresa asignada");
 
-    const locs = await companyLocationIds(user.companyId);
+    const locs = await visibleLocations(user);
     if (locs.length === 0) return [];
 
     const locIds = locs.map((l) => l.id);
@@ -85,7 +90,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
   });
 
 export const setOrderStatus = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireCompany])
   .inputValidator(
     z.object({
       orderId: z.number().int(),
@@ -94,11 +99,10 @@ export const setOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
-    if (!user.companyId) throw new Error("Usuario sin empresa asignada");
 
-    const locs = await companyLocationIds(user.companyId);
+    const locs = await visibleLocations(user);
     const locIds = locs.map((l) => l.id);
-    if (locIds.length === 0) throw new Error("El pedido no pertenece a tu empresa");
+    if (locIds.length === 0) throw new Error("Ese pedido no es de un negocio tuyo");
 
     const [target] = await db
       .select({ id: orders.id })
@@ -106,7 +110,7 @@ export const setOrderStatus = createServerFn({ method: "POST" })
       .where(and(eq(orders.id, data.orderId), inArray(orders.locationId, locIds)))
       .limit(1);
 
-    if (!target) throw new Error("El pedido no pertenece a tu empresa");
+    if (!target) throw new Error("Ese pedido no es de un negocio tuyo");
 
     await db.update(orders).set({ status: data.status }).where(eq(orders.id, data.orderId));
     return { ok: true };

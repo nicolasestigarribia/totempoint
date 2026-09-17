@@ -2,9 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { users, userRoles, userLocations } from "@/db/schema";
+import { users, userRoles, userLocations, userPermissions } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession, getSessionUser } from "@/lib/auth/session";
+import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
 
 export interface AuthUser {
   id: number;
@@ -14,8 +15,10 @@ export interface AuthUser {
   roles: string[];
   /** Empresa que el superadmin esta mirando; null para todos los demas. */
   actingCompanyId: number | null;
-  /** Locales asignados (vacio para owner y superadmin: no se limitan por local). */
+  /** Negocios asignados (vacio para owner y superadmin: no se limitan por negocio). */
   locationIds: number[];
+  /** Qué puede hacer en cada sección del panel. Vacío = puede todo (dueño). */
+  permissions: Partial<Record<PanelSection, PermissionLevel>>;
 }
 
 export const login = createServerFn({ method: "POST" })
@@ -53,6 +56,13 @@ export const login = createServerFn({ method: "POST" })
       .from(userLocations)
       .where(eq(userLocations.userId, user.id));
 
+    const perms = await db
+      .select({ section: userPermissions.section, level: userPermissions.level })
+      .from(userPermissions)
+      .where(eq(userPermissions.userId, user.id));
+    const permissions: Partial<Record<PanelSection, PermissionLevel>> = {};
+    for (const p of perms) permissions[p.section] = p.level;
+
     return {
       id: user.id,
       email: user.email,
@@ -61,6 +71,7 @@ export const login = createServerFn({ method: "POST" })
       roles: roles.map((r) => r.role),
       actingCompanyId: null,
       locationIds: assigned.map((a) => a.locationId),
+      permissions,
     };
   });
 

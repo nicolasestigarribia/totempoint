@@ -2,7 +2,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { setCookie, getCookie, deleteCookie } from "@tanstack/react-start/server";
 import { db } from "@/db";
-import { sessions, users, userRoles, userLocations } from "@/db/schema";
+import { sessions, users, userRoles, userLocations, userPermissions } from "@/db/schema";
+import type { PANEL_SECTIONS } from "@/db/schema";
 
 const COOKIE_NAME = "session";
 // El superadmin puede "entrar" a una empresa para verla como si fuera propia.
@@ -15,6 +16,10 @@ const SESSION_DAYS = 30;
 // superadmin = equipo de desarrollo, owner = dueno de la empresa,
 // encargado = administrador de uno o mas locales.
 export type Role = "superadmin" | "owner" | "encargado" | "kitchen";
+
+/** Secciones del panel que el dueño puede delegar. */
+export type PanelSection = (typeof PANEL_SECTIONS)[number];
+export type PermissionLevel = "ver" | "editar";
 
 export interface SessionUser {
   id: number;
@@ -34,6 +39,11 @@ export interface SessionUser {
    * user_locations (lo que le importa al encargado).
    */
   locationIds: number[];
+  /**
+   * Qué puede hacer en cada sección del panel. Vacío para el dueño y el
+   * superadmin, que pueden todo sin necesidad de filas.
+   */
+  permissions: Partial<Record<PanelSection, PermissionLevel>>;
 }
 
 export async function createSession(userId: number): Promise<string> {
@@ -93,6 +103,13 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     .from(userLocations)
     .where(eq(userLocations.userId, row.userId));
 
+  const perms = await db
+    .select({ section: userPermissions.section, level: userPermissions.level })
+    .from(userPermissions)
+    .where(eq(userPermissions.userId, row.userId));
+  const permissions: Partial<Record<PanelSection, PermissionLevel>> = {};
+  for (const p of perms) permissions[p.section] = p.level;
+
   const roleNames = roles.map((r) => r.role);
 
   // El superadmin ve todo: si entro a una empresa, trabaja con ese companyId y
@@ -112,6 +129,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     roles: roleNames,
     actingCompanyId,
     locationIds: assigned.map((a) => a.locationId),
+    permissions,
   };
 }
 

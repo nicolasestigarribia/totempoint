@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, or, isNull, desc, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { movements, ingredients, products, locations, artistock, actionCodes } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { assertLocationAccess } from "@/lib/auth/scope";
 import type { ActionCode } from "@/lib/actionCodes";
@@ -50,7 +50,7 @@ export interface MovementListRow {
 
 // Códigos de acción disponibles (globales + de la empresa), activos.
 export const listActionCodes = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("movimientos")])
   .handler(async ({ context }): Promise<ActionCode[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
@@ -82,7 +82,7 @@ export const listActionCodes = createServerFn({ method: "GET" })
 
 // Carga manual de un movimiento (stock o caja). El código de acción define tipo y signo.
 export const createMovement = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("movimientos")])
   .inputValidator(
     z.object({
       locationId: z.number().int(),
@@ -174,7 +174,7 @@ export const createMovement = createServerFn({ method: "POST" })
   });
 
 export const listMovements = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("movimientos")])
   .inputValidator(
     z.object({
       locationId: z.number().int().nullable().optional(),

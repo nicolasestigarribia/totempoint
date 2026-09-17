@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, or, isNull, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { ingredients, products, artistock, stockLimits, movements, locations } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { assertLocationAccess } from "@/lib/auth/scope";
 
@@ -47,7 +47,7 @@ async function assertProductStockable(productId: number, companyId: number) {
 }
 
 export const getLocationStock = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("stock")])
   .inputValidator(z.object({ locationId: z.number().int() }))
   .handler(async ({ context, data }): Promise<StockRow[]> => {
     const user = context.user as SessionUser;
@@ -157,7 +157,7 @@ export interface MovementRow {
 // La carga de movimientos vive en movements.functions.ts (createMovement).
 
 export const getMovements = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("stock")])
   .inputValidator(
     z.object({
       locationId: z.number().int(),
@@ -208,7 +208,7 @@ export const getMovements = createServerFn({ method: "GET" })
   });
 
 export const setStockLimit = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("stock")])
   .inputValidator(
     z.object({
       ingredientId: z.number().int().nullable().optional(),

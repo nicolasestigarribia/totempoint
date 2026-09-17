@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, inArray, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productIngredients, categories, ingredients } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface ProductIngredientRow {
@@ -138,7 +138,7 @@ async function loadProductRow(
 }
 
 export const listProducts = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("productos")])
   .handler(async ({ context }): Promise<ProductRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
@@ -202,7 +202,7 @@ export const listProducts = createServerFn({ method: "GET" })
   });
 
 export const createProduct = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("productos")])
   .inputValidator(
     z.object({
       name: z.string().trim().min(1).max(120),
@@ -264,7 +264,7 @@ export const createProduct = createServerFn({ method: "POST" })
   });
 
 export const updateProduct = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("productos")])
   .inputValidator(
     z.object({
       id: z.number().int(),
@@ -331,7 +331,7 @@ export const updateProduct = createServerFn({ method: "POST" })
   });
 
 export const setProductActive = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("productos")])
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
@@ -344,7 +344,7 @@ export const setProductActive = createServerFn({ method: "POST" })
   });
 
 export const deleteProduct = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("productos")])
   .inputValidator(z.object({ id: z.number().int() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;

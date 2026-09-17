@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, totemSettings } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireCompany, requireOwner, requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import type { TotemTemplate } from "@/lib/api/totem.functions";
 
@@ -17,7 +17,7 @@ export interface MyBusiness {
 }
 
 export const getMyBusiness = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireCompany])
   .handler(async ({ context }): Promise<MyBusiness | null> => {
     const user = context.user as SessionUser;
     if (!user.companyId) return null;
@@ -35,8 +35,9 @@ export const getMyBusiness = createServerFn({ method: "GET" })
     };
   });
 
+// Los datos de la empresa son del dueño: no se delegan.
 export const updateMyBusiness = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireOwner])
   .inputValidator(
     z.object({
       name: z.string().trim().min(1).max(120),
@@ -84,7 +85,7 @@ export interface MyTotemSettings {
 }
 
 export const getMyTotemSettings = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("portada")])
   .handler(async ({ context }): Promise<MyTotemSettings | null> => {
     const user = context.user as SessionUser;
     if (!user.companyId) return null;
@@ -110,7 +111,7 @@ export const getMyTotemSettings = createServerFn({ method: "GET" })
   });
 
 export const updateMyTotemSettings = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("portada")])
   .inputValidator(
     z.object({
       template: z.enum(["clasico", "completo", "split"]),

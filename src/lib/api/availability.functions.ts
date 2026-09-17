@@ -9,7 +9,7 @@ import {
   locationCategories,
   locationProducts,
 } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { assertLocationAccess } from "@/lib/auth/scope";
 
@@ -33,7 +33,7 @@ export interface LocationAvailability {
 
 // Verifica que el local pertenezca a la empresa del usuario.
 export const getLocationAvailability = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("disponibilidad")])
   .inputValidator(z.object({ locationId: z.number().int() }))
   .handler(async ({ context, data }): Promise<LocationAvailability> => {
     const user = context.user as SessionUser;
@@ -92,7 +92,7 @@ export const getLocationAvailability = createServerFn({ method: "GET" })
   });
 
 export const setCategoryAvailability = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("disponibilidad")])
   .inputValidator(
     z.object({ locationId: z.number().int(), categoryId: z.number().int(), available: z.boolean() }),
   )
@@ -116,7 +116,7 @@ export const setCategoryAvailability = createServerFn({ method: "POST" })
   });
 
 export const setProductAvailability = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("disponibilidad")])
   .inputValidator(
     z.object({ locationId: z.number().int(), productId: z.number().int(), available: z.boolean() }),
   )

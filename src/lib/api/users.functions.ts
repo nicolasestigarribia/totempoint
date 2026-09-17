@@ -3,10 +3,17 @@ import { z } from "zod";
 import { and, eq, inArray, ne, or, desc } from "drizzle-orm";
 
 import { db } from "@/db";
-import { users, userRoles, userLocations, locations } from "@/db/schema";
+import {
+  users,
+  userRoles,
+  userLocations,
+  userPermissions,
+  locations,
+  PANEL_SECTIONS,
+} from "@/db/schema";
 import { requireOwner } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
-import type { SessionUser } from "@/lib/auth/session";
+import type { SessionUser, PanelSection, PermissionLevel } from "@/lib/auth/session";
 import { companyIdOf } from "@/lib/auth/scope";
 
 /**
@@ -26,12 +33,24 @@ const passwordSchema = z.string().min(6).max(100);
 // El owner no puede crear otros owners ni superadmins desde el panel.
 const assignableRoleSchema = z.enum(["encargado", "kitchen"]);
 
+// Permisos que el dueño reparte sección por sección. Resumen, Negocios y
+// Operadores no están en la lista: son del dueño y no se delegan.
+const permissionsSchema = z
+  .array(
+    z.object({
+      section: z.enum(PANEL_SECTIONS),
+      level: z.enum(["ver", "editar"]),
+    }),
+  )
+  .default([]);
+
 export interface OperatorRow {
   id: number;
   email: string;
   username: string | null;
   roles: string[];
   locationIds: number[];
+  permissions: Partial<Record<PanelSection, PermissionLevel>>;
   active: boolean;
   createdAt: string;
   isSelf: boolean;
@@ -84,6 +103,20 @@ async function assertEmailUsernameFree(email: string, username: string, exceptUs
   if (dup) throw new Error("Ese email o usuario ya está en uso");
 }
 
+/** Reemplaza los permisos de un operador por los que mandó el dueño. */
+async function replacePermissions(
+  userId: number,
+  wanted: { section: PanelSection; level: PermissionLevel }[],
+) {
+  await db.delete(userPermissions).where(eq(userPermissions.userId, userId));
+  const unique = new Map(wanted.map((p) => [p.section, p.level]));
+  if (unique.size > 0) {
+    await db
+      .insert(userPermissions)
+      .values([...unique].map(([section, level]) => ({ userId, section, level })));
+  }
+}
+
 /** Reemplaza los locales asignados a un usuario, validando que sean de la empresa. */
 async function replaceAssignedLocations(userId: number, companyId: number, wanted: number[]) {
   const valid = new Set(await companyLocationIds(companyId));
@@ -129,6 +162,22 @@ export const listOperators = createServerFn({ method: "GET" })
       .from(userLocations)
       .where(inArray(userLocations.userId, ids));
 
+    const permRows = await db
+      .select({
+        userId: userPermissions.userId,
+        section: userPermissions.section,
+        level: userPermissions.level,
+      })
+      .from(userPermissions)
+      .where(inArray(userPermissions.userId, ids));
+
+    const permsByUser = new Map<number, Partial<Record<PanelSection, PermissionLevel>>>();
+    for (const p of permRows) {
+      const map = permsByUser.get(p.userId) ?? {};
+      map[p.section] = p.level;
+      permsByUser.set(p.userId, map);
+    }
+
     const rolesByUser = new Map<number, string[]>();
     for (const r of roleRows) {
       const list = rolesByUser.get(r.userId) ?? [];
@@ -149,6 +198,7 @@ export const listOperators = createServerFn({ method: "GET" })
       username: r.username,
       roles: rolesByUser.get(r.id) ?? [],
       locationIds: locsByUser.get(r.id) ?? [],
+      permissions: permsByUser.get(r.id) ?? {},
       active: r.active,
       createdAt: r.createdAt.toISOString(),
       isSelf: r.id === user.id,
@@ -164,6 +214,7 @@ export const createOperator = createServerFn({ method: "POST" })
       password: passwordSchema,
       role: assignableRoleSchema,
       locationIds: z.array(z.number().int()).default([]),
+      permissions: permissionsSchema,
     }),
   )
   .handler(async ({ context, data }) => {
@@ -192,6 +243,7 @@ export const createOperator = createServerFn({ method: "POST" })
 
     await db.insert(userRoles).values({ userId, role: data.role });
     await replaceAssignedLocations(userId, companyId, data.locationIds);
+    await replacePermissions(userId, data.permissions);
 
     return { id: userId };
   });
@@ -206,6 +258,7 @@ export const updateOperator = createServerFn({ method: "POST" })
       password: passwordSchema.optional().nullable(),
       role: assignableRoleSchema,
       locationIds: z.array(z.number().int()).default([]),
+      permissions: permissionsSchema,
     }),
   )
   .handler(async ({ context, data }) => {
@@ -239,6 +292,7 @@ export const updateOperator = createServerFn({ method: "POST" })
     await db.insert(userRoles).values({ userId: data.userId, role: data.role });
 
     await replaceAssignedLocations(data.userId, companyId, data.locationIds);
+    await replacePermissions(data.userId, data.permissions);
 
     return { ok: true };
   });

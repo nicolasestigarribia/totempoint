@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface CategoryRow {
@@ -16,7 +16,7 @@ export interface CategoryRow {
 }
 
 export const listCategories = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("categorias")])
   .handler(async ({ context }): Promise<CategoryRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
@@ -38,7 +38,7 @@ export const listCategories = createServerFn({ method: "GET" })
   });
 
 export const createCategory = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("categorias")])
   .inputValidator(
     z.object({
       name: z.string().trim().min(1).max(80),
@@ -72,7 +72,7 @@ export const createCategory = createServerFn({ method: "POST" })
   });
 
 export const updateCategory = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("categorias")])
   .inputValidator(
     z.object({
       id: z.number().int(),
@@ -102,7 +102,7 @@ export const updateCategory = createServerFn({ method: "POST" })
   });
 
 export const setCategoryActive = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("categorias")])
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
@@ -115,7 +115,7 @@ export const setCategoryActive = createServerFn({ method: "POST" })
   });
 
 export const deleteCategory = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("categorias")])
   .inputValidator(z.object({ id: z.number().int() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;

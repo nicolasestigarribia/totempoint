@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { actionCodes, movements } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface ActionCodeRow {
@@ -26,7 +26,7 @@ function normalizeCode(raw: string): string {
 }
 
 export const listActionCodesAll = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("codigos")])
   .handler(async ({ context }): Promise<ActionCodeRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
@@ -49,7 +49,7 @@ export const listActionCodesAll = createServerFn({ method: "GET" })
   });
 
 export const createActionCode = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("codigos")])
   .inputValidator(
     z.object({
       code: z.string().trim().min(1).max(40),
@@ -97,7 +97,7 @@ export const createActionCode = createServerFn({ method: "POST" })
   });
 
 export const updateActionCode = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("codigos")])
   .inputValidator(
     z.object({
       id: z.number().int(),
@@ -132,7 +132,7 @@ export const updateActionCode = createServerFn({ method: "POST" })
   });
 
 export const setActionCodeActive = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("codigos")])
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
@@ -145,7 +145,7 @@ export const setActionCodeActive = createServerFn({ method: "POST" })
   });
 
 export const deleteActionCode = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("codigos")])
   .inputValidator(z.object({ id: z.number().int() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;

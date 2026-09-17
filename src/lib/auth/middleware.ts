@@ -1,15 +1,14 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { getSessionUser, type SessionUser } from "./session";
+import { getSessionUser, type SessionUser, type PanelSection } from "./session";
+import { assertCanView, assertCanEdit } from "./scope";
 
-export const requireAuth = createMiddleware({ type: "function" }).server(
-  async ({ next }) => {
-    const user = await getSessionUser();
-    if (!user) {
-      throw new Error("No autorizado: iniciá sesión");
-    }
-    return next({ context: { user } });
-  },
-);
+export const requireAuth = createMiddleware({ type: "function" }).server(async ({ next }) => {
+  const user = await getSessionUser();
+  if (!user) {
+    throw new Error("No autorizado: iniciá sesión");
+  }
+  return next({ context: { user } });
+});
 
 /** Usuario que pertenece a una empresa: owner o encargado. */
 export const requireCompany = createMiddleware({ type: "function" })
@@ -47,3 +46,25 @@ export const requireSuperadmin = createMiddleware({ type: "function" })
     }
     return next({ context: { user } });
   });
+
+/**
+ * Middlewares por sección del panel. `requireView` deja pasar a quien la puede
+ * mirar; `requireEdit`, solo a quien la puede modificar. El dueño pasa siempre.
+ */
+export const requireView = (section: PanelSection) =>
+  createMiddleware({ type: "function" })
+    .middleware([requireCompany])
+    .server(async ({ next, context }) => {
+      const user = context.user as SessionUser;
+      assertCanView(user, section);
+      return next({ context: { user } });
+    });
+
+export const requireEdit = (section: PanelSection) =>
+  createMiddleware({ type: "function" })
+    .middleware([requireCompany])
+    .server(async ({ next, context }) => {
+      const user = context.user as SessionUser;
+      assertCanEdit(user, section);
+      return next({ context: { user } });
+    });

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { db } from "@/db";
 import { images } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 // Tope de lo que aceptamos guardar en la base. El navegador comprime antes de
@@ -10,7 +10,7 @@ import type { SessionUser } from "@/lib/auth/session";
 const MAX_BYTES = 1_500_000;
 
 export const uploadImage = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireCompany])
   .inputValidator(
     z.object({
       mimeType: z.enum(["image/webp", "image/jpeg", "image/png"]),

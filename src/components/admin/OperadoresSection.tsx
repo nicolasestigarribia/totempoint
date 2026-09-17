@@ -25,8 +25,26 @@ import {
   type OperatorRow,
 } from "@/lib/api/users.functions";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
+import { PANEL_SECTIONS } from "@/db/schema";
+import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
 
 type AssignableRole = "encargado" | "kitchen";
+
+/** Cómo se llama cada sección del panel para el dueño. */
+const SECTION_LABEL: Record<PanelSection, string> = {
+  portada: "Portada del tótem",
+  categorias: "Categorías",
+  productos: "Productos",
+  combos: "Combos",
+  ingredientes: "Ingredientes",
+  disponibilidad: "Disponibilidad",
+  stock: "Stock",
+  movimientos: "Movimientos",
+  codigos: "Códigos de acción",
+  comandera: "Comandera",
+};
+
+type PermMap = Partial<Record<PanelSection, PermissionLevel>>;
 
 const ROLE_LABEL: Record<string, string> = {
   superadmin: "Superusuario",
@@ -58,6 +76,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<AssignableRole>("encargado");
   const [assigned, setAssigned] = useState<number[]>([]);
+  const [perms, setPerms] = useState<PermMap>({});
   const [saving, setSaving] = useState(false);
 
   const [estadoFilter, setEstadoFilter] = useState<"todos" | "activos" | "inactivos">("todos");
@@ -96,6 +115,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
     setPassword("");
     setRole("encargado");
     setAssigned([]);
+    setPerms({});
     setDialogOpen(true);
   };
 
@@ -106,6 +126,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
     setPassword("");
     setRole(row.roles.includes("kitchen") ? "kitchen" : "encargado");
     setAssigned(row.locationIds);
+    setPerms(row.permissions);
     setDialogOpen(true);
   };
 
@@ -114,6 +135,21 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
       checked ? [...new Set([...prev, locationId])] : prev.filter((id) => id !== locationId),
     );
   };
+
+  const setPerm = (section: PanelSection, value: "no" | PermissionLevel) => {
+    setPerms((prev) => {
+      const next = { ...prev };
+      if (value === "no") delete next[section];
+      else next[section] = value;
+      return next;
+    });
+  };
+
+  const permissionsPayload = () =>
+    (Object.entries(perms) as [PanelSection, PermissionLevel][]).map(([section, level]) => ({
+      section,
+      level,
+    }));
 
   const handleSave = async () => {
     if (!email.trim() || !username.trim()) {
@@ -140,6 +176,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
             password: password.length > 0 ? password : null,
             role,
             locationIds: assigned,
+            permissions: permissionsPayload(),
           },
         });
         toast.success("Operador actualizado");
@@ -151,6 +188,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
             password,
             role,
             locationIds: assigned,
+            permissions: permissionsPayload(),
           },
         });
         toast.success("Operador creado");
@@ -213,6 +251,24 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
         const names = locationNames(r.locationIds);
         return (
           <span className="text-muted-foreground">{names.length > 0 ? names.join(", ") : "—"}</span>
+        );
+      },
+    },
+    {
+      key: "permisos",
+      header: "Permisos",
+      cell: (r) => {
+        if (r.roles.includes("owner") || r.roles.includes("superadmin")) {
+          return <span className="text-muted-foreground">Todo</span>;
+        }
+        const entries = Object.entries(r.permissions) as [PanelSection, PermissionLevel][];
+        if (entries.length === 0) return <span className="text-muted-foreground">Ninguno</span>;
+        const editar = entries.filter(([, l]) => l === "editar").length;
+        return (
+          <span className="text-muted-foreground">
+            {entries.length} {entries.length === 1 ? "sección" : "secciones"}
+            {editar > 0 ? ` · ${editar} editable${editar === 1 ? "" : "s"}` : ""}
+          </span>
         );
       },
     },
@@ -380,6 +436,34 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Qué puede hacer en el panel</Label>
+              <p className="text-xs text-muted-foreground">
+                Sin acceso, la sección no le aparece. Los datos de la empresa, los negocios y los
+                operadores los maneja solo el dueño.
+              </p>
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-border p-3">
+                {PANEL_SECTIONS.map((section) => (
+                  <div key={section} className="flex items-center justify-between gap-3">
+                    <span className="text-sm">{SECTION_LABEL[section]}</span>
+                    <Select
+                      value={perms[section] ?? "no"}
+                      onValueChange={(v) => setPerm(section, v as "no" | PermissionLevel)}
+                    >
+                      <SelectTrigger className="h-9 w-40 shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">Sin acceso</SelectItem>
+                        <SelectItem value="ver">Solo ver</SelectItem>
+                        <SelectItem value="editar">Ver y editar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

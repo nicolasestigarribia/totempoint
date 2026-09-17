@@ -103,6 +103,35 @@ export const userLocations = mysqlTable(
   ],
 );
 
+// Permisos que el dueño le da a cada operador, sección por sección.
+// Sin fila = no ve la sección. "ver" = solo lectura, "editar" = puede modificar.
+// El dueño y el superadmin no llevan filas acá: pueden todo.
+// Resumen, Negocios y Operadores no se delegan: son del dueño.
+export const PANEL_SECTIONS = [
+  "portada",
+  "categorias",
+  "productos",
+  "combos",
+  "ingredientes",
+  "disponibilidad",
+  "stock",
+  "movimientos",
+  "codigos",
+  "comandera",
+] as const;
+
+export const userPermissions = mysqlTable(
+  "user_permissions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    section: mysqlEnum("section", PANEL_SECTIONS).notNull(),
+    level: mysqlEnum("level", ["ver", "editar"]).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [unique("user_permissions_user_section_uq").on(t.userId, t.section)],
+);
+
 // Imágenes subidas por cada negocio, guardadas como base64 en la propia base
 // para no depender de un storage externo. El navegador las comprime antes de
 // subirlas; se sirven por /img/:id desde src/lib/images.ts.

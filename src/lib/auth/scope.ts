@@ -1,7 +1,7 @@
 import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { locations } from "@/db/schema";
-import type { SessionUser } from "./session";
+import type { SessionUser, PanelSection } from "./session";
 
 /** El usuario pertenece a una empresa (owner o encargado) y devuelve su id. */
 export function companyIdOf(user: SessionUser): number {
@@ -48,5 +48,31 @@ export async function assertLocationAccess(user: SessionUser, locationId: number
   const allowed = await accessibleLocationIds(user);
   if (!allowed.includes(locationId)) {
     throw new Error("No tenés acceso a ese local");
+  }
+}
+
+/**
+ * Permisos por sección. El dueño y el superadmin pueden todo; el encargado,
+ * solo lo que le tildó el dueño. "editar" incluye "ver".
+ */
+export function canView(user: SessionUser, section: PanelSection): boolean {
+  if (isOwner(user)) return true;
+  return user.permissions[section] !== undefined;
+}
+
+export function canEdit(user: SessionUser, section: PanelSection): boolean {
+  if (isOwner(user)) return true;
+  return user.permissions[section] === "editar";
+}
+
+export function assertCanView(user: SessionUser, section: PanelSection): void {
+  if (!canView(user, section)) {
+    throw new Error("No tenés permiso para ver esta sección");
+  }
+}
+
+export function assertCanEdit(user: SessionUser, section: PanelSection): void {
+  if (!canEdit(user, section)) {
+    throw new Error("No tenés permiso para modificar esta sección");
   }
 }

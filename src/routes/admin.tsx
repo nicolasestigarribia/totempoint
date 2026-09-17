@@ -26,9 +26,11 @@ import {
   Monitor,
   Users,
   ShieldCheck,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
+import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
 import { exitBusiness } from "@/lib/api/platform.functions";
 import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
 import { LocalesSection } from "@/components/admin/LocalesSection";
@@ -72,11 +74,25 @@ interface SectionDef {
   desc: string;
   /** Secciones que solo ve el dueño de la empresa, no los encargados. */
   ownerOnly?: boolean;
+  /** Sección delegable: el encargado la ve si el dueño le dio permiso. */
+  permission?: PanelSection;
 }
 
 const SECTIONS: SectionDef[] = [
-  { id: "resumen", label: "Resumen", icon: LayoutDashboard, desc: "Datos y marca de tu empresa" },
-  { id: "portada", label: "Portada", icon: Monitor, desc: "Pantalla de inicio de tu tótem" },
+  {
+    id: "resumen",
+    label: "Resumen",
+    icon: LayoutDashboard,
+    desc: "Datos y marca de tu empresa",
+    ownerOnly: true,
+  },
+  {
+    id: "portada",
+    label: "Portada",
+    icon: Monitor,
+    desc: "Pantalla de inicio de tu tótem",
+    permission: "portada",
+  },
   {
     id: "locales",
     label: "Negocios",
@@ -84,29 +100,62 @@ const SECTIONS: SectionDef[] = [
     desc: "Sucursales de tu empresa",
     ownerOnly: true,
   },
-  { id: "categorias", label: "Categorías", icon: FolderTree, desc: "Categorías del menú" },
-  { id: "productos", label: "Productos", icon: Package, desc: "Productos y precios" },
-  { id: "combos", label: "Combos", icon: Boxes, desc: "Combos armados con productos" },
+  {
+    id: "categorias",
+    label: "Categorías",
+    icon: FolderTree,
+    desc: "Categorías del menú",
+    permission: "categorias",
+  },
+  {
+    id: "productos",
+    label: "Productos",
+    icon: Package,
+    desc: "Productos y precios",
+    permission: "productos",
+  },
+  {
+    id: "combos",
+    label: "Combos",
+    icon: Boxes,
+    desc: "Combos armados con productos",
+    permission: "combos",
+  },
   {
     id: "ingredientes",
+    permission: "ingredientes",
     label: "Ingredientes",
     icon: Carrot,
     desc: "Ingredientes de tus productos",
   },
   {
     id: "disponibilidad",
+    permission: "disponibilidad",
     label: "Disponibilidad",
     icon: Store,
     desc: "Qué se muestra en cada negocio",
   },
-  { id: "stock", label: "Stock", icon: Warehouse, desc: "Stock de ingredientes por negocio" },
+  {
+    id: "stock",
+    label: "Stock",
+    icon: Warehouse,
+    desc: "Stock de ingredientes por negocio",
+    permission: "stock",
+  },
   {
     id: "movimientos",
+    permission: "movimientos",
     label: "Movimientos",
     icon: ScrollText,
     desc: "Historial de movimientos de la empresa",
   },
-  { id: "codigos", label: "Códigos de acción", icon: Tags, desc: "Motivos de ingresos y egresos" },
+  {
+    id: "codigos",
+    label: "Códigos de acción",
+    icon: Tags,
+    desc: "Motivos de ingresos y egresos",
+    permission: "codigos",
+  },
   {
     id: "operadores",
     label: "Operadores",
@@ -146,6 +195,9 @@ function AdminPage() {
   const [email, setEmail] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
   const [actingCompanyId, setActingCompanyId] = useState<number | null>(null);
+  const [permissions, setPermissions] = useState<Partial<Record<PanelSection, PermissionLevel>>>(
+    {},
+  );
 
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -186,6 +238,7 @@ function AdminPage() {
       setEmail(user.email);
       setRoles(user.roles);
       setActingCompanyId(user.actingCompanyId);
+      setPermissions(user.permissions);
 
       const biz = await fetchBusiness();
       if (!mounted) return;
@@ -234,6 +287,27 @@ function AdminPage() {
       setSaving(false);
     }
   };
+
+  const isOwner = roles.includes("owner") || roles.includes("superadmin");
+  const visibleSections = SECTIONS.filter((s) => {
+    if (s.ownerOnly) return isOwner;
+    if (!s.permission || isOwner) return true;
+    return permissions[s.permission] !== undefined;
+  });
+  const current = SECTIONS.find((s) => s.id === section)!;
+  const firstVisible = visibleSections[0]?.id;
+  const sectionAllowed = visibleSections.some((s) => s.id === section);
+
+  // Si la sección abierta no está permitida, cae en la primera que sí lo esté.
+  useEffect(() => {
+    if (firstVisible && !sectionAllowed) setSection(firstVisible);
+  }, [firstVisible, sectionAllowed]);
+
+  // Con permiso de solo lectura el servidor rechaza cualquier cambio, así que
+  // conviene avisarlo arriba de la sección en vez de dejar que falle al guardar.
+  const readOnly = Boolean(
+    !isOwner && current.permission && permissions[current.permission] === "ver",
+  );
 
   if (loading) {
     return (
@@ -284,10 +358,6 @@ function AdminPage() {
     saving,
     onSave: handleSave,
   };
-
-  const isOwner = roles.includes("owner") || roles.includes("superadmin");
-  const visibleSections = SECTIONS.filter((s) => !s.ownerOnly || isOwner);
-  const current = SECTIONS.find((s) => s.id === section)!;
 
   return (
     <div className="relative min-h-screen bg-background lg:flex">
@@ -361,6 +431,12 @@ function AdminPage() {
             <Button variant="outline" size="sm" onClick={handleExitBusiness}>
               Volver al panel de superadmin
             </Button>
+          </div>
+        )}
+        {readOnly && (
+          <div className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm md:px-8">
+            <Eye className="h-4 w-4 text-amber-400" />
+            Solo lectura: podés mirar esta sección, pero no modificarla.
           </div>
         )}
         <div className="flex items-center gap-4 border-b border-border px-6 py-5 md:px-8">

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, inArray, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { combos, comboProducts, products } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface ComboProductRow {
@@ -108,7 +108,7 @@ async function loadComboRow(
 }
 
 export const listCombos = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("combos")])
   .handler(async ({ context }): Promise<ComboRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
@@ -166,7 +166,7 @@ export const listCombos = createServerFn({ method: "GET" })
   });
 
 export const createCombo = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("combos")])
   .inputValidator(
     z.object({
       name: z.string().trim().min(1).max(120),
@@ -216,7 +216,7 @@ export const createCombo = createServerFn({ method: "POST" })
   });
 
 export const updateCombo = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("combos")])
   .inputValidator(
     z.object({
       id: z.number().int(),
@@ -272,7 +272,7 @@ export const updateCombo = createServerFn({ method: "POST" })
   });
 
 export const setComboActive = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("combos")])
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
@@ -285,7 +285,7 @@ export const setComboActive = createServerFn({ method: "POST" })
   });
 
 export const deleteCombo = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("combos")])
   .inputValidator(z.object({ id: z.number().int() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;

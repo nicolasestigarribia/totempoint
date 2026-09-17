@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { ingredients, ingredientCategories, productIngredients, movements } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface IngredientRow {
@@ -29,7 +29,7 @@ async function assertCategoryUsable(categoryId: number, companyId: number) {
 }
 
 export const listIngredients = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("ingredientes")])
   .handler(async ({ context }): Promise<IngredientRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
@@ -62,7 +62,7 @@ export const listIngredients = createServerFn({ method: "GET" })
   });
 
 export const createIngredient = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("ingredientes")])
   .inputValidator(
     z.object({
       name: z.string().trim().min(1).max(120),
@@ -110,7 +110,7 @@ export const createIngredient = createServerFn({ method: "POST" })
   });
 
 export const updateIngredient = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("ingredientes")])
   .inputValidator(
     z.object({
       id: z.number().int(),
@@ -153,7 +153,7 @@ export const updateIngredient = createServerFn({ method: "POST" })
   });
 
 export const deleteIngredient = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("ingredientes")])
   .inputValidator(z.object({ id: z.number().int() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;

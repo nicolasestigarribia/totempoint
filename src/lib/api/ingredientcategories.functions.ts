@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { ingredientCategories, ingredients } from "@/db/schema";
-import { requireAuth } from "@/lib/auth/middleware";
+import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface IngredientCategoryRow {
@@ -13,7 +13,7 @@ export interface IngredientCategoryRow {
 }
 
 export const listIngredientCategories = createServerFn({ method: "GET" })
-  .middleware([requireAuth])
+  .middleware([requireView("ingredientes")])
   .handler(async ({ context }): Promise<IngredientCategoryRow[]> => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
@@ -28,7 +28,7 @@ export const listIngredientCategories = createServerFn({ method: "GET" })
   });
 
 export const createIngredientCategory = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("ingredientes")])
   .inputValidator(z.object({ name: z.string().trim().min(1).max(80) }))
   .handler(async ({ context, data }): Promise<IngredientCategoryRow> => {
     const user = context.user as SessionUser;
@@ -43,7 +43,7 @@ export const createIngredientCategory = createServerFn({ method: "POST" })
   });
 
 export const updateIngredientCategory = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("ingredientes")])
   .inputValidator(
     z.object({ id: z.number().int(), name: z.string().trim().min(1).max(80), active: z.boolean() }),
   )
@@ -76,7 +76,7 @@ export const updateIngredientCategory = createServerFn({ method: "POST" })
   });
 
 export const deleteIngredientCategory = createServerFn({ method: "POST" })
-  .middleware([requireAuth])
+  .middleware([requireEdit("ingredientes")])
   .inputValidator(z.object({ id: z.number().int() }))
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
