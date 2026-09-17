@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { PANEL_SECTIONS } from "@/lib/auth/permissions";
 import {
   mysqlTable,
   varchar,
@@ -103,23 +104,12 @@ export const userLocations = mysqlTable(
   ],
 );
 
+export { PANEL_SECTIONS };
+
 // Permisos que el dueño le da a cada operador, sección por sección.
 // Sin fila = no ve la sección. "ver" = solo lectura, "editar" = puede modificar.
 // El dueño y el superadmin no llevan filas acá: pueden todo.
 // Resumen, Negocios y Operadores no se delegan: son del dueño.
-export const PANEL_SECTIONS = [
-  "portada",
-  "categorias",
-  "productos",
-  "combos",
-  "ingredientes",
-  "disponibilidad",
-  "stock",
-  "movimientos",
-  "codigos",
-  "comandera",
-] as const;
-
 export const userPermissions = mysqlTable(
   "user_permissions",
   {

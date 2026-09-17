@@ -2,6 +2,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { locations } from "@/db/schema";
 import type { SessionUser, PanelSection } from "./session";
+import { canViewSection, canEditSection } from "./permissions";
 
 /** El usuario pertenece a una empresa (owner o encargado) y devuelve su id. */
 export function companyIdOf(user: SessionUser): number {
@@ -57,12 +58,12 @@ export async function assertLocationAccess(user: SessionUser, locationId: number
  */
 export function canView(user: SessionUser, section: PanelSection): boolean {
   if (isOwner(user)) return true;
-  return user.permissions[section] !== undefined;
+  return canViewSection(user.permissions, section);
 }
 
 export function canEdit(user: SessionUser, section: PanelSection): boolean {
   if (isOwner(user)) return true;
-  return user.permissions[section] === "editar";
+  return canEditSection(user.permissions, section);
 }
 
 export function assertCanView(user: SessionUser, section: PanelSection): void {

@@ -22,7 +22,7 @@ bun run lint         # eslint .
 bun run format       # prettier --write .
 ```
 
-There is no test script/framework configured in this repo.
+Tests run with bun's built-in runner (`bun run test`). Coverage is deliberately narrow: `src/lib/auth/permissions.test.ts` pins the permission rules, which are the part that fails silently. Everything else is still verified by hand.
 
 Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive `drizzle-kit` directly, e.g. `bunx drizzle-kit push` or `bunx drizzle-kit generate`. `drizzle.config.ts` reads `DATABASE_URL` from `.env.local` (not `.env`). Seed a superadmin user with `bun run src/db/seed.ts` (reads optional `SEED_EMAIL`/`SEED_PASSWORD` env vars, defaults exist).
 

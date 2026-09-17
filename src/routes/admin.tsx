@@ -30,7 +30,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
-import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
+import type { PanelSection, PermissionLevel, PermissionMap } from "@/lib/auth/permissions";
+import { canViewSection, canEditSection } from "@/lib/auth/permissions";
 import { exitBusiness } from "@/lib/api/platform.functions";
 import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
 import { LocalesSection } from "@/components/admin/LocalesSection";
@@ -292,7 +293,7 @@ function AdminPage() {
   const visibleSections = SECTIONS.filter((s) => {
     if (s.ownerOnly) return isOwner;
     if (!s.permission || isOwner) return true;
-    return permissions[s.permission] !== undefined;
+    return canViewSection(permissions, s.permission);
   });
   const current = SECTIONS.find((s) => s.id === section)!;
   const firstVisible = visibleSections[0]?.id;
@@ -306,7 +307,7 @@ function AdminPage() {
   // Con permiso de solo lectura el servidor rechaza cualquier cambio, así que
   // conviene avisarlo arriba de la sección en vez de dejar que falle al guardar.
   const readOnly = Boolean(
-    !isOwner && current.permission && permissions[current.permission] === "ver",
+    !isOwner && current.permission && !canEditSection(permissions, current.permission),
   );
 
   if (loading) {

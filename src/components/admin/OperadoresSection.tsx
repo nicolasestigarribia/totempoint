@@ -25,26 +25,19 @@ import {
   type OperatorRow,
 } from "@/lib/api/users.functions";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
-import { PANEL_SECTIONS } from "@/db/schema";
-import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
+import {
+  PANEL_SECTIONS,
+  SECTION_LABEL,
+  impliedBy,
+  effectiveLevel,
+  type PanelSection,
+  type PermissionLevel,
+  type PermissionMap,
+} from "@/lib/auth/permissions";
 
 type AssignableRole = "encargado" | "kitchen";
 
-/** Cómo se llama cada sección del panel para el dueño. */
-const SECTION_LABEL: Record<PanelSection, string> = {
-  portada: "Portada del tótem",
-  categorias: "Categorías",
-  productos: "Productos",
-  combos: "Combos",
-  ingredientes: "Ingredientes",
-  disponibilidad: "Disponibilidad",
-  stock: "Stock",
-  movimientos: "Movimientos",
-  codigos: "Códigos de acción",
-  comandera: "Comandera",
-};
-
-type PermMap = Partial<Record<PanelSection, PermissionLevel>>;
+type PermMap = PermissionMap;
 
 const ROLE_LABEL: Record<string, string> = {
   superadmin: "Superusuario",
@@ -141,6 +134,12 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
       const next = { ...prev };
       if (value === "no") delete next[section];
       else next[section] = value;
+      // Lo que arrastra esta sección sube con ella (Productos abre Categorías).
+      for (const target of impliedBy(section)) {
+        const efectivo = effectiveLevel(next, target);
+        if (efectivo) next[target] = efectivo;
+        else delete next[target];
+      }
       return next;
     });
   };
@@ -445,25 +444,40 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
                 operadores los maneja solo el dueño.
               </p>
               <div className="space-y-2 rounded-md border border-border p-3">
-                {PANEL_SECTIONS.map((section) => (
-                  <div key={section} className="flex items-center justify-between gap-3">
-                    <span className="text-sm">{SECTION_LABEL[section]}</span>
-                    <Select
-                      value={perms[section] ?? "no"}
-                      onValueChange={(v) => setPerm(section, v as "no" | PermissionLevel)}
-                    >
-                      <SelectTrigger className="h-9 w-40 shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no">Sin acceso</SelectItem>
-                        <SelectItem value="ver">Solo ver</SelectItem>
-                        <SelectItem value="editar">Ver y editar</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
+                {PANEL_SECTIONS.map((section) => {
+                  const efectivo = effectiveLevel(perms, section);
+                  const arrastrado = efectivo !== undefined && perms[section] === undefined;
+                  return (
+                    <div key={section} className="flex items-center justify-between gap-3">
+                      <span className="text-sm">
+                        {SECTION_LABEL[section]}
+                        {arrastrado && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            se abre con Productos
+                          </span>
+                        )}
+                      </span>
+                      <Select
+                        value={efectivo ?? "no"}
+                        onValueChange={(v) => setPerm(section, v as "no" | PermissionLevel)}
+                      >
+                        <SelectTrigger className="h-9 w-40 shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no">Sin acceso</SelectItem>
+                          <SelectItem value="ver">Solo ver</SelectItem>
+                          <SelectItem value="editar">Ver y editar</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Quien puede cargar productos también puede crear categorías: sin eso no tendría
+                dónde ponerlos.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

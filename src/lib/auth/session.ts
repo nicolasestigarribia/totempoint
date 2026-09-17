@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { setCookie, getCookie, deleteCookie } from "@tanstack/react-start/server";
 import { db } from "@/db";
 import { sessions, users, userRoles, userLocations, userPermissions } from "@/db/schema";
-import type { PANEL_SECTIONS } from "@/db/schema";
+import type { PanelSection, PermissionLevel, PermissionMap } from "./permissions";
 
 const COOKIE_NAME = "session";
 // El superadmin puede "entrar" a una empresa para verla como si fuera propia.
@@ -17,9 +17,7 @@ const SESSION_DAYS = 30;
 // encargado = administrador de uno o mas locales.
 export type Role = "superadmin" | "owner" | "encargado" | "kitchen";
 
-/** Secciones del panel que el dueño puede delegar. */
-export type PanelSection = (typeof PANEL_SECTIONS)[number];
-export type PermissionLevel = "ver" | "editar";
+export type { PanelSection, PermissionLevel, PermissionMap };
 
 export interface SessionUser {
   id: number;
@@ -43,7 +41,7 @@ export interface SessionUser {
    * Qué puede hacer en cada sección del panel. Vacío para el dueño y el
    * superadmin, que pueden todo sin necesidad de filas.
    */
-  permissions: Partial<Record<PanelSection, PermissionLevel>>;
+  permissions: PermissionMap;
 }
 
 export async function createSession(userId: number): Promise<string> {
@@ -107,7 +105,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     .select({ section: userPermissions.section, level: userPermissions.level })
     .from(userPermissions)
     .where(eq(userPermissions.userId, row.userId));
-  const permissions: Partial<Record<PanelSection, PermissionLevel>> = {};
+  const permissions: PermissionMap = {};
   for (const p of perms) permissions[p.section] = p.level;
 
   const roleNames = roles.map((r) => r.role);
