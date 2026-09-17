@@ -221,7 +221,7 @@ function SuperadminPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -230,7 +230,7 @@ function SuperadminPage() {
   const current = SECTIONS.find((s) => s.id === section)!;
 
   return (
-    <div className="relative min-h-screen bg-background lg:flex">
+    <div className="relative min-h-dvh bg-background lg:flex">
       {sidebarOpen && (
         <button
           type="button"
@@ -289,7 +289,7 @@ function SuperadminPage() {
         </div>
       </aside>
 
-      <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
+      <main className="flex min-h-dvh flex-1 flex-col overflow-x-hidden">
         <div className="flex items-center gap-4 border-b border-border px-6 py-5 md:px-8">
           {!sidebarOpen && (
             <button

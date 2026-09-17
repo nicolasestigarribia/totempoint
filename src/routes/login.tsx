@@ -71,7 +71,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-dvh items-center justify-center bg-background px-4">
       <Link
         to="/"
         className="absolute left-6 top-6 z-20 flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground backdrop-blur transition hover:border-primary hover:text-foreground md:left-12 md:top-8"

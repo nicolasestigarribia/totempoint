@@ -312,7 +312,7 @@ function AdminPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -320,7 +320,7 @@ function AdminPage() {
 
   if (noBusiness) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
         <div className="max-w-md rounded-3xl border border-destructive/40 bg-destructive/10 p-8 text-center">
           <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-destructive" />
           <h2 className="text-2xl font-bold">Usuario sin empresa asignada</h2>
@@ -336,7 +336,7 @@ function AdminPage() {
 
   if (business && !business.active) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
         <div className="max-w-md rounded-3xl border border-destructive/40 bg-destructive/10 p-8 text-center">
           <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-destructive" />
           <h2 className="text-2xl font-bold">Cuenta suspendida</h2>
@@ -361,7 +361,7 @@ function AdminPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-background lg:flex">
+    <div className="relative min-h-dvh bg-background lg:flex">
       {/* Backdrop en pantallas chicas */}
       {sidebarOpen && (
         <button
@@ -421,7 +421,7 @@ function AdminPage() {
         </div>
       </aside>
 
-      <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
+      <main className="flex min-h-dvh flex-1 flex-col overflow-x-hidden">
         {actingCompanyId !== null && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/30 bg-primary/10 px-6 py-3 md:px-8">
             <p className="flex items-center gap-2 text-sm">

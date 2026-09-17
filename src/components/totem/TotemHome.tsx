@@ -96,7 +96,7 @@ function Clasico({ data }: { data: TotemHomeData }) {
   // Sin overflow-hidden en el contenedor: si el contenido es más alto que la
   // pantalla (celular apaisado, tablet chica) hay que poder deslizar, no recortar.
   return (
-    <div className="relative flex min-h-screen flex-col bg-background">
+    <div className="relative flex min-h-dvh flex-col bg-background">
       {data.heroImageUrl && (
         <img
           src={data.heroImageUrl}
@@ -142,7 +142,7 @@ function Clasico({ data }: { data: TotemHomeData }) {
 // Pantalla completa: imagen a sangre, todo centrado. Ideal para discotecas/eventos.
 function Completo({ data }: { data: TotemHomeData }) {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background text-center">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center bg-background text-center">
       {data.heroImageUrl && (
         <img
           src={data.heroImageUrl}
@@ -171,8 +171,8 @@ function Completo({ data }: { data: TotemHomeData }) {
 // Split: mitad imagen, mitad panel sólido. Look de carta/menú sobrio.
 function Split({ data }: { data: TotemHomeData }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background lg:flex-row">
-      <div className="relative min-h-[35vh] flex-1 overflow-hidden lg:min-h-screen">
+    <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
+      <div className="relative min-h-[35dvh] flex-1 overflow-hidden lg:min-h-dvh">
         {data.heroImageUrl ? (
           <img src={data.heroImageUrl} alt="" className="h-full w-full object-cover" />
         ) : (

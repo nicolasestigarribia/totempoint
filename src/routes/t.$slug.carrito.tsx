@@ -28,7 +28,7 @@ function CarritoPage() {
   const total = cartTotal(items);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
       <TotemTopBar
         slug={menu.slug}
         name={menu.name}

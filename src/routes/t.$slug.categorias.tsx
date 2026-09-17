@@ -20,7 +20,7 @@ function CategoriasPage() {
   useTotemIdleReset(menu.slug);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
       <TotemTopBar slug={menu.slug} name={menu.name} logoUrl={menu.logoUrl} accent={accent} />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">

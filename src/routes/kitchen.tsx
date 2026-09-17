@@ -139,14 +139,14 @@ function Kitchen() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <main className="mx-auto max-w-[1700px] px-6 py-8 md:px-10">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>

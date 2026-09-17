@@ -22,7 +22,11 @@ export function TotemTopBar({
   const count = cartCount(items);
 
   return (
-    <header className="flex items-center gap-4 border-b border-border px-6 py-4 md:px-12">
+    <header
+      // Pegada arriba: en un celular la lista de productos es larga y el carrito
+      // tiene que estar siempre a mano, no diez pantallazos más arriba.
+      className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-background/95 px-6 py-4 backdrop-blur md:px-12"
+    >
       {back === "categorias" ? (
         <Link
           to="/t/$slug/categorias"

@@ -19,7 +19,7 @@ function ListoPage() {
   const accent = order.accentColor || undefined;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
       <CheckCircle2 className="h-24 w-24" style={{ color: accent }} />
 
       <h1 className="mt-6 font-display text-5xl md:text-6xl">¡Pedido enviado!</h1>
