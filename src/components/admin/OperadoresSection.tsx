@@ -418,7 +418,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
                   No hay negocios cargados todavía. Creá uno en la sección Negocios.
                 </p>
               ) : (
-                <div className="max-h-44 space-y-2 overflow-y-auto rounded-md border border-border p-3">
+                <div className="space-y-2 rounded-md border border-border p-3">
                   {locations.map((l) => (
                     <div key={l.id} className="flex items-center gap-2">
                       <Checkbox
@@ -444,7 +444,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
                 Sin acceso, la sección no le aparece. Los datos de la empresa, los negocios y los
                 operadores los maneja solo el dueño.
               </p>
-              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-border p-3">
+              <div className="space-y-2 rounded-md border border-border p-3">
                 {PANEL_SECTIONS.map((section) => (
                   <div key={section} className="flex items-center justify-between gap-3">
                     <span className="text-sm">{SECTION_LABEL[section]}</span>

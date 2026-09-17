@@ -93,8 +93,10 @@ function Title({ data, className = "" }: { data: TotemHomeData; className?: stri
 
 // Hero lateral: imagen de fondo difuminada, texto a la izquierda, botón a la derecha.
 function Clasico({ data }: { data: TotemHomeData }) {
+  // Sin overflow-hidden en el contenedor: si el contenido es más alto que la
+  // pantalla (celular apaisado, tablet chica) hay que poder deslizar, no recortar.
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+    <div className="relative flex min-h-screen flex-col bg-background">
       {data.heroImageUrl && (
         <img
           src={data.heroImageUrl}
@@ -140,7 +142,7 @@ function Clasico({ data }: { data: TotemHomeData }) {
 // Pantalla completa: imagen a sangre, todo centrado. Ideal para discotecas/eventos.
 function Completo({ data }: { data: TotemHomeData }) {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-center">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background text-center">
       {data.heroImageUrl && (
         <img
           src={data.heroImageUrl}
