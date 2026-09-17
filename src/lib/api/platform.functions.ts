@@ -115,9 +115,11 @@ export const createBusiness = createServerFn({ method: "POST" })
       .values({ name: data.name.trim(), slug, active: true })
       .$returningId();
 
+    // Primer negocio de la empresa. El nombre es solo el inicial: el dueño lo
+    // cambia desde Negocios (por ejemplo, "PrimoRosas Cariló").
     const [{ id: locationId }] = await db
       .insert(locations)
-      .values({ companyId, name: "Local principal", active: true })
+      .values({ companyId, name: "Casa central", active: true })
       .$returningId();
 
     const [{ id: userId }] = await db

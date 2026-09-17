@@ -14,6 +14,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { TotemHome } from "@/components/totem/TotemHome";
+import { PreviewFrame } from "@/components/admin/PreviewFrame";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { TotemLinkCard } from "@/components/admin/TotemLinkCard";
 import {
@@ -279,14 +280,9 @@ export function PortadaSection({
             <Monitor className="h-4 w-4 text-muted-foreground" />
             <h3 className="font-bold">Vista previa</h3>
           </div>
-          <div className="relative h-[420px] overflow-hidden rounded-2xl border border-white/10">
-            <div
-              className="pointer-events-none absolute left-0 top-0 origin-top-left"
-              style={{ width: 1280, height: 800, transform: "scale(0.42)" }}
-            >
-              <TotemHome data={preview} />
-            </div>
-          </div>
+          <PreviewFrame className="rounded-2xl border border-white/10">
+            <TotemHome data={preview} />
+          </PreviewFrame>
           <p className="text-xs text-muted-foreground">
             Los cambios se reflejan al instante, pero se aplican al tótem recién cuando guardás.
           </p>
