@@ -5,6 +5,7 @@ import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemCart, useCartForSlug, formatPrice } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
+import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
 export const Route = createFileRoute("/t/$slug/menu/$category")({
   loader: async ({ params }) => {
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/t/$slug/menu/$category")({
 
 function MenuCategoryPage() {
   const { menu, category, items } = Route.useLoaderData();
+  useTotemTheme(menu.accentColor, menu.theme);
   const accent = menu.accentColor || undefined;
   const add = useTotemCart((s) => s.add);
   const cart = useCartForSlug(menu.slug);

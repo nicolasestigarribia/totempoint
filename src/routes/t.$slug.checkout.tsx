@@ -8,6 +8,7 @@ import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
+import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
 export const Route = createFileRoute("/t/$slug/checkout")({
   loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
@@ -22,6 +23,7 @@ type Delivery = "local" | "mostrador";
 
 function CheckoutPage() {
   const menu = Route.useLoaderData();
+  useTotemTheme(menu.accentColor, menu.theme);
   const navigate = useNavigate();
   const accent = menu.accentColor || undefined;
   useTotemIdleReset(menu.slug);

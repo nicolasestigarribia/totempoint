@@ -73,6 +73,8 @@ export const updateMyBusiness = createServerFn({ method: "POST" })
 
 export interface MyTotemSettings {
   template: TotemTemplate;
+  /** Base de color de las pantallas de adentro del tótem. */
+  theme: "oscuro" | "claro" | "calido";
   heroImageUrl: string;
   eyebrow: string;
   title: string;
@@ -98,6 +100,7 @@ export const getMyTotemSettings = createServerFn({ method: "GET" })
 
     return {
       template: (s?.template as TotemTemplate) ?? "clasico",
+      theme: s?.theme ?? "oscuro",
       heroImageUrl: s?.heroImageUrl ?? "",
       eyebrow: s?.eyebrow ?? "",
       title: s?.title ?? "",
@@ -115,6 +118,7 @@ export const updateMyTotemSettings = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       template: z.enum(["clasico", "completo", "split"]),
+      theme: z.enum(["oscuro", "claro", "calido"]).default("oscuro"),
       heroImageUrl: z.string().trim().max(500),
       eyebrow: z.string().trim().max(60),
       title: z.string().trim().max(60),
@@ -140,6 +144,7 @@ export const updateMyTotemSettings = createServerFn({ method: "POST" })
 
     const values = {
       template: data.template,
+      theme: data.theme,
       heroImageUrl: data.heroImageUrl || null,
       eyebrow: data.eyebrow || null,
       title: data.title || null,

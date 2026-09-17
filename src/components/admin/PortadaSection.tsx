@@ -39,8 +39,16 @@ const TEMPLATES: { value: TotemTemplate; label: string; hint: string }[] = [
   { value: "split", label: "Dividido", hint: "Mitad imagen, mitad panel sólido" },
 ];
 
+// Bases de color de las pantallas de adentro. El color de acento las tiñe.
+const BASES: { value: MyTotemSettings["theme"]; label: string; hint: string }[] = [
+  { value: "oscuro", label: "Oscura", hint: "Fondo negro tibio, teñido con tu color" },
+  { value: "claro", label: "Clara", hint: "Fondo claro, para panaderías y cafés" },
+  { value: "calido", label: "Cálida", hint: "Marrones y tierra, para parrillas y bodegones" },
+];
+
 const EMPTY: MyTotemSettings = {
   template: "clasico",
+  theme: "oscuro",
   heroImageUrl: "",
   eyebrow: "",
   title: "",
@@ -112,6 +120,7 @@ export function PortadaSection({
     titleAccent: form.titleAccent || null,
     subtitle: form.subtitle || null,
     ctaLabel: form.ctaLabel.trim() || "Empezar pedido",
+    theme: form.theme,
     badge1: form.badge1 || null,
     badge2: form.badge2 || null,
     accentColor: form.accentColor || null,
@@ -168,6 +177,29 @@ export function PortadaSection({
             </Select>
             <p className="text-xs text-muted-foreground">
               {TEMPLATES.find((t) => t.value === form.template)?.hint}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Base de color</Label>
+            <Select
+              value={form.theme}
+              onValueChange={(v) => set("theme", v as MyTotemSettings["theme"])}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BASES.map((b) => (
+                  <SelectItem key={b.value} value={b.value}>
+                    {b.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {BASES.find((b) => b.value === form.theme)?.hint}. Manda en el menú, el carrito y el
+              checkout, no solo en la portada.
             </p>
           </div>
 

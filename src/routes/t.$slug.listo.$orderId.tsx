@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import { getTotemOrder } from "@/lib/api/totem.functions";
+import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { TotemError } from "@/components/totem/TotemError";
 import { formatPrice } from "@/lib/totem-cart";
 
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/t/$slug/listo/$orderId")({
 
 function ListoPage() {
   const order = Route.useLoaderData();
+  useTotemTheme(order.accentColor, order.theme);
   const accent = order.accentColor || undefined;
 
   return (

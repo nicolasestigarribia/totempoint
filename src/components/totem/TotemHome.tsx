@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Sparkles, ChevronRight, Store } from "lucide-react";
 import type { TotemHome as TotemHomeData } from "@/lib/api/totem.functions";
+import { themeVars } from "@/components/totem/useTotemTheme";
 
 const FALLBACK_ACCENT = "var(--gold, #f5b800)";
 
@@ -197,7 +198,18 @@ function Split({ data }: { data: TotemHomeData }) {
 }
 
 export function TotemHome({ data }: { data: TotemHomeData }) {
-  if (data.template === "completo") return <Completo data={data} />;
-  if (data.template === "split") return <Split data={data} />;
-  return <Clasico data={data} />;
+  const plantilla =
+    data.template === "completo" ? (
+      <Completo data={data} />
+    ) : data.template === "split" ? (
+      <Split data={data} />
+    ) : (
+      <Clasico data={data} />
+    );
+
+  // Los tokens van inline además de en el documento: así la vista previa del
+  // panel, que vive en un iframe aparte, muestra la base de color elegida.
+  return (
+    <div style={themeVars(data.accentColor, data.theme) as React.CSSProperties}>{plantilla}</div>
+  );
 }

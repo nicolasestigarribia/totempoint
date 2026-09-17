@@ -159,6 +159,9 @@ export const totemSettings = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
     template: mysqlEnum("template", ["clasico", "completo", "split"]).notNull().default("clasico"),
+    // Base de color de las pantallas de adentro del tótem. El color de acento
+    // las tiñe encima, así el menú sigue la marca y no queda un negro plano.
+    theme: mysqlEnum("theme", ["oscuro", "claro", "calido"]).notNull().default("oscuro"),
     heroImageUrl: varchar("hero_image_url", { length: 500 }),
     eyebrow: varchar("eyebrow", { length: 60 }),
     title: varchar("title", { length: 60 }),

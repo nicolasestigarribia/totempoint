@@ -4,6 +4,7 @@ import { getTotemMenu } from "@/lib/api/totem.functions";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
+import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
 export const Route = createFileRoute("/t/$slug/categorias")({
   loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/t/$slug/categorias")({
 
 function CategoriasPage() {
   const menu = Route.useLoaderData();
+  useTotemTheme(menu.accentColor, menu.theme);
   const accent = menu.accentColor || undefined;
   useTotemIdleReset(menu.slug);
 

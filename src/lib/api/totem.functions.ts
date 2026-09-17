@@ -17,6 +17,8 @@ import {
 
 export type TotemTemplate = "clasico" | "completo" | "split";
 
+export type TotemThemeName = "oscuro" | "claro" | "calido";
+
 export interface TotemHome {
   companyId: number;
   name: string;
@@ -30,6 +32,7 @@ export interface TotemHome {
   titleAccent: string | null;
   subtitle: string | null;
   ctaLabel: string;
+  theme: TotemThemeName;
   badge1: string | null;
   badge2: string | null;
   accentColor: string | null;
@@ -61,6 +64,7 @@ export interface TotemMenu {
   slug: string;
   logoUrl: string | null;
   accentColor: string | null;
+  theme: TotemThemeName;
   categories: TotemCategory[];
   products: TotemProduct[];
 }
@@ -98,6 +102,7 @@ export const getTotemHome = createServerFn({ method: "GET" })
       badge1: s?.badge1 ?? null,
       badge2: s?.badge2 ?? null,
       accentColor: s?.accentColor ?? null,
+      theme: s?.theme ?? "oscuro",
     };
   });
 
@@ -105,7 +110,11 @@ export const getTotemMenu = createServerFn({ method: "GET" })
   .inputValidator(z.object({ slug: z.string().trim().min(1).max(60) }))
   .handler(async ({ data }): Promise<TotemMenu> => {
     const [row] = await db
-      .select({ company: companies, accentColor: totemSettings.accentColor })
+      .select({
+        company: companies,
+        accentColor: totemSettings.accentColor,
+        theme: totemSettings.theme,
+      })
       .from(companies)
       .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
       .where(eq(companies.slug, data.slug))
@@ -165,6 +174,7 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       slug: row.company.slug,
       logoUrl: row.company.logoUrl,
       accentColor: row.accentColor ?? row.company.primaryColor,
+      theme: row.theme ?? "oscuro",
       categories: totemCategories.filter((c) => c.productCount > 0),
       products: visibleProducts,
     };
@@ -267,6 +277,7 @@ export interface TotemOrderSummary {
   slug: string;
   logoUrl: string | null;
   accentColor: string | null;
+  theme: TotemThemeName;
 }
 
 export const getTotemOrder = createServerFn({ method: "GET" })
@@ -283,6 +294,7 @@ export const getTotemOrder = createServerFn({ method: "GET" })
         logoUrl: companies.logoUrl,
         primaryColor: companies.primaryColor,
         accentColor: totemSettings.accentColor,
+        theme: totemSettings.theme,
       })
       .from(orders)
       .innerJoin(locations, eq(locations.id, orders.locationId))
@@ -302,5 +314,6 @@ export const getTotemOrder = createServerFn({ method: "GET" })
       slug: row.slug,
       logoUrl: row.logoUrl,
       accentColor: row.accentColor ?? row.primaryColor,
+      theme: row.theme ?? "oscuro",
     };
   });
