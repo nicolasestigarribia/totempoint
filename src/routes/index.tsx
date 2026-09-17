@@ -8,7 +8,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Tótems de autoservicio para bares, sanguicherías y locales de comida: el cliente pide desde la pantalla y la comanda le llega al local.",
+          "Tótems de autoservicio para bares, sanguicherías y casas de comida: el cliente pide desde la pantalla y la comanda le llega al negocio.",
       },
     ],
   }),
@@ -25,18 +25,18 @@ const FEATURES = [
   },
   {
     icon: Receipt,
-    title: "La comanda llega al local",
+    title: "La comanda llega al negocio",
     desc: "Cada pedido entra con su número y su detalle, listo para preparar y entregar.",
   },
   {
     icon: Store,
-    title: "Un menú por local",
-    desc: "Cada sucursal activa lo que vende y con qué precio, sobre el catálogo de la marca.",
+    title: "Un menú por negocio",
+    desc: "Cada negocio activa lo que vende y con qué precio, sobre el catálogo de la empresa.",
   },
   {
     icon: Users,
-    title: "Encargados por sucursal",
-    desc: "El dueño da de alta a su gente y cada uno ve solamente los locales que maneja.",
+    title: "Encargados por negocio",
+    desc: "El dueño da de alta a su gente y cada uno ve solamente los negocios que maneja.",
   },
 ];
 
@@ -72,7 +72,7 @@ function Home() {
             </h1>
             <p className="max-w-xl text-balance text-lg text-muted-foreground">
               Ponés una tablet en el mostrador, el cliente arma su pedido y la comanda te llega al
-              instante. Vos administrás la marca, los locales y el menú desde el panel.
+              instante. Vos administrás tu empresa, sus negocios y el menú desde el panel.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Link
@@ -83,7 +83,7 @@ function Home() {
                 Entrar al panel
               </Link>
               <p className="text-sm text-muted-foreground">
-                ¿Sos cliente de un local? El tótem se abre con el enlace del negocio.
+                ¿Sos cliente? El tótem se abre con el enlace que te da el negocio.
               </p>
             </div>
           </div>
@@ -104,7 +104,7 @@ function Home() {
       </main>
 
       <footer className="px-6 py-8 text-center text-xs text-muted-foreground md:px-12">
-        Totempoint — autoservicio para locales de comida
+        Totempoint — autoservicio para casas de comida
       </footer>
     </div>
   );

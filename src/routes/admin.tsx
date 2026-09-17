@@ -79,9 +79,9 @@ const SECTIONS: SectionDef[] = [
   { id: "portada", label: "Portada", icon: Monitor, desc: "Pantalla de inicio de tu tótem" },
   {
     id: "locales",
-    label: "Locales",
+    label: "Negocios",
     icon: MapPin,
-    desc: "Sucursales de la empresa",
+    desc: "Sucursales de tu empresa",
     ownerOnly: true,
   },
   { id: "categorias", label: "Categorías", icon: FolderTree, desc: "Categorías del menú" },
@@ -97,9 +97,9 @@ const SECTIONS: SectionDef[] = [
     id: "disponibilidad",
     label: "Disponibilidad",
     icon: Store,
-    desc: "Qué se muestra en cada local",
+    desc: "Qué se muestra en cada negocio",
   },
-  { id: "stock", label: "Stock", icon: Warehouse, desc: "Stock de ingredientes por local" },
+  { id: "stock", label: "Stock", icon: Warehouse, desc: "Stock de ingredientes por negocio" },
   {
     id: "movimientos",
     label: "Movimientos",
@@ -111,7 +111,7 @@ const SECTIONS: SectionDef[] = [
     id: "operadores",
     label: "Operadores",
     icon: Users,
-    desc: "Encargados y los locales que manejan",
+    desc: "Encargados y los negocios que manejan",
     ownerOnly: true,
   },
 ];
@@ -355,7 +355,8 @@ function AdminPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary/30 bg-primary/10 px-6 py-3 md:px-8">
             <p className="flex items-center gap-2 text-sm">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              Estás viendo <span className="font-semibold">{business!.name}</span> como superusuario.
+              Estás viendo <span className="font-semibold">{business!.name}</span> como
+              superusuario.
             </p>
             <Button variant="outline" size="sm" onClick={handleExitBusiness}>
               Volver al panel de superadmin

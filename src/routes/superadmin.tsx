@@ -42,7 +42,7 @@ export const Route = createFileRoute("/superadmin")({
       { title: "Superadmin — Burger Point" },
       {
         name: "description",
-        content: "Panel del administrador general: negocios, altas y estado de cada cuenta.",
+        content: "Panel del administrador general: empresas, altas y estado de cada cuenta.",
       },
       { property: "og:title", content: "Superadmin — Burger Point" },
       {
@@ -61,7 +61,12 @@ export const Route = createFileRoute("/superadmin")({
 type SectionId = "negocios" | "facturacion";
 
 const SECTIONS: { id: SectionId; label: string; icon: LucideIcon; desc: string }[] = [
-  { id: "negocios", label: "Negocios", icon: Building2, desc: "Empresas de la plataforma" },
+  {
+    id: "negocios",
+    label: "Empresas",
+    icon: Building2,
+    desc: "Marcas dadas de alta en la plataforma",
+  },
   {
     id: "facturacion",
     label: "Facturación",
@@ -136,7 +141,7 @@ function SuperadminPage() {
     setSaving(true);
     try {
       await create({ data: { name, adminEmail, adminUsername, adminPassword } });
-      toast.success("Negocio creado");
+      toast.success("Empresa creada");
       setName("");
       setAdminEmail("");
       setAdminUsername("");
@@ -144,7 +149,7 @@ function SuperadminPage() {
       setOpen(false);
       await reload();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "No se pudo crear el negocio");
+      toast.error(err instanceof Error ? err.message : "No se pudo crear la empresa");
     } finally {
       setSaving(false);
     }
@@ -312,16 +317,16 @@ function SuperadminPage() {
                   <DialogTrigger asChild>
                     <Button className="gap-2">
                       <Plus className="h-4 w-4" />
-                      Crear negocio
+                      Crear empresa
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Nuevo negocio</DialogTitle>
+                      <DialogTitle>Nueva empresa</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleCreate} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="biz-name">Nombre del negocio</Label>
+                        <Label htmlFor="biz-name">Nombre de la empresa</Label>
                         <Input
                           id="biz-name"
                           value={name}
@@ -380,7 +385,7 @@ function SuperadminPage() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
-                      <th className="px-6 py-4">Negocio</th>
+                      <th className="px-6 py-4">Empresa</th>
                       <th className="hidden px-6 py-4 md:table-cell">Administrador</th>
                       <th className="px-6 py-4">Estado</th>
                       <th className="px-6 py-4 text-right">Acción</th>
@@ -390,7 +395,7 @@ function SuperadminPage() {
                     {rows.length === 0 && (
                       <tr>
                         <td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">
-                          Todavía no hay negocios.
+                          Todavía no hay empresas.
                         </td>
                       </tr>
                     )}

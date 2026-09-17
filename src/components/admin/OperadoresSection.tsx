@@ -125,7 +125,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
       return;
     }
     if (role === "encargado" && assigned.length === 0) {
-      toast.error("Asigná al menos un local al encargado");
+      toast.error("Asigná al menos un negocio al encargado");
       return;
     }
 
@@ -205,7 +205,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
     },
     {
       key: "locations",
-      header: "Locales",
+      header: "Negocios",
       cell: (r) => {
         if (r.roles.includes("owner")) {
           return <span className="text-muted-foreground">Todos</span>;
@@ -261,7 +261,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
         <div>
           <h3 className="text-lg font-bold">Operadores</h3>
           <p className="text-sm text-muted-foreground">
-            Encargados de tus locales. Cada uno ve solamente los locales que le asignes.
+            Encargados de tus negocios. Cada uno ve solamente los negocios que le asignes.
           </p>
         </div>
         <Button className="gap-2" onClick={openCreate}>
@@ -356,10 +356,10 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Locales asignados</Label>
+              <Label>Negocios asignados</Label>
               {locations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No hay locales cargados todavía. Creá uno en la sección Locales.
+                  No hay negocios cargados todavía. Creá uno en la sección Negocios.
                 </p>
               ) : (
                 <div className="max-h-44 space-y-2 overflow-y-auto rounded-md border border-border p-3">

@@ -11,7 +11,7 @@ import { companyIdOf } from "@/lib/auth/scope";
 
 /**
  * Operadores de una empresa: el owner da de alta encargados y les asigna los
- * locales que van a manejar (reglas de negocio, punto 3).
+ * negocios que van a manejar (reglas de negocio, punto 3).
  */
 
 const usernameSchema = z

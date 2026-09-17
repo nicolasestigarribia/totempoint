@@ -15,12 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -108,7 +103,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
         setCodes(cds);
         if (data.length > 0) setLocationId(data[0].id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los locales");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
       } finally {
         if (mounted) setLoadingLocations(false);
       }
@@ -385,9 +380,11 @@ export function StockSection({ panelClass }: { panelClass: string }) {
 
   if (locations.length === 0) {
     return (
-      <div className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}>
+      <div
+        className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}
+      >
         <MapPin className="h-8 w-8 opacity-40" />
-        <span>Primero creá un local en la sección Locales.</span>
+        <span>Primero creá un negocio en la sección Negocios.</span>
       </div>
     );
   }
@@ -395,13 +392,13 @@ export function StockSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-sm text-muted-foreground">Local:</Label>
+        <Label className="text-sm text-muted-foreground">Negocio:</Label>
         <Select
           value={locationId === null ? "" : String(locationId)}
           onValueChange={(v) => setLocationId(Number(v))}
         >
           <SelectTrigger className="h-10 w-64">
-            <SelectValue placeholder="Elegí un local" />
+            <SelectValue placeholder="Elegí un negocio" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (
@@ -412,7 +409,8 @@ export function StockSection({ panelClass }: { panelClass: string }) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Stock = ingresos − ventas − egresos. Ventas se cargan solas al vender; registrá ingresos y egresos.
+          Stock = ingresos − ventas − egresos. Ventas se cargan solas al vender; registrá ingresos y
+          egresos.
         </p>
         <Button className="ml-auto gap-2" onClick={openNewMovement}>
           <Plus className="h-4 w-4" />
@@ -471,12 +469,17 @@ export function StockSection({ panelClass }: { panelClass: string }) {
               <div className="space-y-2">
                 <Label>Ingresar en</Label>
                 {movTarget && Number(movTarget.unitsPerBulk) > 1 ? (
-                  <Select value={movMode} onValueChange={(v) => setMovMode(v as "unidad" | "bulto")}>
+                  <Select
+                    value={movMode}
+                    onValueChange={(v) => setMovMode(v as "unidad" | "bulto")}
+                  >
                     <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unidad">Unidades{movTarget.unit ? ` (${movTarget.unit})` : ""}</SelectItem>
+                      <SelectItem value="unidad">
+                        Unidades{movTarget.unit ? ` (${movTarget.unit})` : ""}
+                      </SelectItem>
                       <SelectItem value="bulto">Bultos (x{movTarget.unitsPerBulk})</SelectItem>
                     </SelectContent>
                   </Select>
@@ -519,7 +522,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                 id="mov-detail"
                 value={movDetail}
                 maxLength={255}
-                placeholder="Aclaración, nº de remito, a qué local, etc."
+                placeholder="Aclaración, nº de remito, a qué negocio, etc."
                 onChange={(e) => setMovDetail(e.target.value)}
               />
             </div>
@@ -580,7 +583,8 @@ export function StockSection({ panelClass }: { panelClass: string }) {
               onChange={(e) => setMinValue(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Aplica a todos los locales. Si el stock actual queda por debajo, se marca como bajo stock.
+              Aplica a todos los negocios. Si el stock actual queda por debajo, se marca como bajo
+              stock.
             </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -615,7 +619,9 @@ export function StockSection({ panelClass }: { panelClass: string }) {
               </div>
               <div className="max-h-40 divide-y divide-white/5 overflow-auto rounded-md border border-white/10">
                 {nmFiltered.length === 0 ? (
-                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">Sin resultados</p>
+                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                    Sin resultados
+                  </p>
                 ) : (
                   nmFiltered.map((i) => {
                     const selected = nmIngredient === rowKey(i);
@@ -630,7 +636,9 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                       >
                         <span>
                           {i.name}
-                          {i.unit ? <span className="ml-1 text-xs text-muted-foreground">({i.unit})</span> : null}
+                          {i.unit ? (
+                            <span className="ml-1 text-xs text-muted-foreground">({i.unit})</span>
+                          ) : null}
                           {i.kind === "product" ? (
                             <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-400">
                               Reventa
@@ -681,7 +689,9 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unidad">Unidades{nmSelected.unit ? ` (${nmSelected.unit})` : ""}</SelectItem>
+                      <SelectItem value="unidad">
+                        Unidades{nmSelected.unit ? ` (${nmSelected.unit})` : ""}
+                      </SelectItem>
                       <SelectItem value="bulto">Bultos (x{nmSelected.unitsPerBulk})</SelectItem>
                     </SelectContent>
                   </Select>
@@ -699,7 +709,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                 id="nm-detail"
                 value={nmDetail}
                 maxLength={255}
-                placeholder="Aclaración, nº de remito, a qué local, etc."
+                placeholder="Aclaración, nº de remito, a qué negocio, etc."
                 onChange={(e) => setNmDetail(e.target.value)}
               />
             </div>

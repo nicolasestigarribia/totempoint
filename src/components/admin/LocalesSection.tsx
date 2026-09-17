@@ -6,12 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -59,7 +54,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
       const data = await fetchLocations();
       setRows(data);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los locales");
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
     }
   };
 
@@ -70,7 +65,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
         const data = await fetchLocations();
         if (mounted) setRows(data);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los locales");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -115,7 +110,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             active,
           },
         });
-        toast.success("Local actualizado");
+        toast.success("Negocio actualizado");
       } else {
         await create({
           data: {
@@ -124,12 +119,12 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             phone: phone.trim() || null,
           },
         });
-        toast.success("Local creado");
+        toast.success("Negocio creado");
       }
       setDialogOpen(false);
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo guardar el local");
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar el negocio");
     } finally {
       setSaving(false);
     }
@@ -140,11 +135,11 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
     setDeleting(true);
     try {
       await remove({ data: { id: toDelete.id } });
-      toast.success("Local eliminado");
+      toast.success("Negocio eliminado");
       setToDelete(null);
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el local");
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el negocio");
     } finally {
       setDeleting(false);
     }
@@ -208,7 +203,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             variant="ghost"
             size="icon"
             onClick={() => openEdit(row)}
-            aria-label="Editar local"
+            aria-label="Editar negocio"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -216,7 +211,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             variant="ghost"
             size="icon"
             onClick={() => setToDelete(row)}
-            aria-label="Eliminar local"
+            aria-label="Eliminar negocio"
           >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
@@ -228,10 +223,10 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <h3 className="text-lg font-bold">Locales</h3>
+        <h3 className="text-lg font-bold">Negocios</h3>
         <Button className="gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" />
-          Nuevo local
+          Nuevo negocio
         </Button>
       </div>
 
@@ -241,10 +236,10 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
         getRowId={(r) => r.id}
         panelClass={panelClass}
         loading={loading}
-        emptyMessage="No hay locales todavía."
+        emptyMessage="No hay negocios todavía."
         emptyIcon={<MapPin className="h-8 w-8 opacity-40" />}
         searchKeys={[(r) => r.name, (r) => r.address ?? "", (r) => r.phone ?? ""]}
-        searchPlaceholder="Buscar local..."
+        searchPlaceholder="Buscar negocio..."
         toolbar={
           <Select
             value={estadoFilter}
@@ -271,7 +266,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar local" : "Nuevo local"}</DialogTitle>
+            <DialogTitle>{editing ? "Editar negocio" : "Nuevo negocio"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -280,7 +275,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
                 id="local-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Nombre del local"
+                placeholder="Nombre del negocio"
                 maxLength={120}
               />
             </div>
@@ -333,10 +328,10 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
       <Dialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar local</DialogTitle>
+            <DialogTitle>Eliminar negocio</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            ¿Seguro que querés eliminar el local{" "}
+            ¿Seguro que querés eliminar el negocio{" "}
             <span className="font-medium text-foreground">{toDelete?.name}</span>? Esta acción no se
             puede deshacer.
           </p>

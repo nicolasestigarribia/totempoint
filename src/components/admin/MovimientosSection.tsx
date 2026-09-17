@@ -5,12 +5,7 @@ import { ScrollText, Plus, Loader2, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -139,7 +134,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
   const handleCreate = async () => {
     const qty = Number(mQty);
     if (!mLocation) {
-      toast.error("Elegí un local");
+      toast.error("Elegí un negocio");
       return;
     }
     if (!mCode) {
@@ -196,7 +191,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
       },
       {
         key: "location",
-        header: "Local",
+        header: "Negocio",
         sortable: true,
         sortAccessor: (r) => r.locationName ?? "",
         cell: (r) => r.locationName ?? "—",
@@ -209,9 +204,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
         cell: (r) => (
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              r.type === "stock"
-                ? "bg-sky-500/15 text-sky-400"
-                : "bg-violet-500/15 text-violet-400"
+              r.type === "stock" ? "bg-sky-500/15 text-sky-400" : "bg-violet-500/15 text-violet-400"
             }`}
           >
             {r.type === "stock" ? "Stock" : "Caja"}
@@ -248,7 +241,11 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
         sortAccessor: (r) => Number(r.amount),
         align: "right",
         cell: (r) => (
-          <span className={Number(r.amount) < 0 ? "font-semibold text-amber-400" : "font-semibold text-green-400"}>
+          <span
+            className={
+              Number(r.amount) < 0 ? "font-semibold text-amber-400" : "font-semibold text-green-400"
+            }
+          >
             {Number(r.amount) >= 0 ? "+" : ""}
             {r.amount}
           </span>
@@ -275,13 +272,13 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
           Nuevo movimiento
         </Button>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Label className="text-sm text-muted-foreground">Local:</Label>
+          <Label className="text-sm text-muted-foreground">Negocio:</Label>
           <Select value={locationFilter} onValueChange={setLocationFilter}>
             <SelectTrigger className="h-10 w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos los locales</SelectItem>
+              <SelectItem value="todos">Todos los negocios</SelectItem>
               {locations.map((l) => (
                 <SelectItem key={l.id} value={String(l.id)}>
                   {l.name}
@@ -342,10 +339,10 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Local</Label>
+                <Label>Negocio</Label>
                 <Select value={mLocation} onValueChange={setMLocation}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Elegí un local" />
+                    <SelectValue placeholder="Elegí un negocio" />
                   </SelectTrigger>
                   <SelectContent>
                     {locations.map((l) => (
@@ -454,7 +451,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
                 id="mov-detail"
                 value={mDetail}
                 maxLength={255}
-                placeholder="Aclaración, nº de remito, a qué local, etc."
+                placeholder="Aclaración, nº de remito, a qué negocio, etc."
                 onChange={(e) => setMDetail(e.target.value)}
               />
             </div>

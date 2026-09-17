@@ -34,8 +34,12 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
 
-  const [catAvailFilter, setCatAvailFilter] = useState<"todos" | "disponibles" | "ocultos">("todos");
-  const [prodAvailFilter, setProdAvailFilter] = useState<"todos" | "disponibles" | "ocultos">("todos");
+  const [catAvailFilter, setCatAvailFilter] = useState<"todos" | "disponibles" | "ocultos">(
+    "todos",
+  );
+  const [prodAvailFilter, setProdAvailFilter] = useState<"todos" | "disponibles" | "ocultos">(
+    "todos",
+  );
   const [prodCatFilter, setProdCatFilter] = useState<string>("todas");
 
   useEffect(() => {
@@ -47,7 +51,7 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
         setLocations(data);
         if (data.length > 0) setLocationId(data[0].id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los locales");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
       } finally {
         if (mounted) setLoadingLocations(false);
       }
@@ -192,9 +196,11 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
 
   if (locations.length === 0) {
     return (
-      <div className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}>
+      <div
+        className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}
+      >
         <MapPin className="h-8 w-8 opacity-40" />
-        <span>Primero creá un local en la sección Locales.</span>
+        <span>Primero creá un negocio en la sección Negocios.</span>
       </div>
     );
   }
@@ -202,13 +208,13 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-sm text-muted-foreground">Local:</Label>
+        <Label className="text-sm text-muted-foreground">Negocio:</Label>
         <Select
           value={locationId === null ? "" : String(locationId)}
           onValueChange={(v) => setLocationId(Number(v))}
         >
           <SelectTrigger className="h-10 w-64">
-            <SelectValue placeholder="Elegí un local" />
+            <SelectValue placeholder="Elegí un negocio" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (
@@ -219,7 +225,7 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Ocultá categorías o productos solo para este local (el menú se define a nivel empresa).
+          Ocultá categorías o productos solo para este negocio (el menú se define a nivel empresa).
         </p>
       </div>
 
