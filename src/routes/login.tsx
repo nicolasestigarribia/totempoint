@@ -146,8 +146,11 @@ function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          ¿No tenés acceso? Contactá al administrador de la plataforma.
+        {/* Todavía no hay recuperación por email: el reseteo es a mano, así que
+            conviene decir a quién pedírselo en vez de dejar un mensaje genérico. */}
+        <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
+          ¿Olvidaste tu contraseña? Si sos encargado, pedísela al dueño de tu empresa, que puede
+          cambiártela desde Operadores. Si sos el dueño, escribinos y te la restablecemos.
         </p>
       </div>
     </div>

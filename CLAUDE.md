@@ -82,6 +82,8 @@ Custom cookie-session auth (migrated off Supabase auth) in `src/lib/auth/`:
 - `throttle.ts`: five failed logins lock that identifier for 15 minutes (`login_attempts`). It counts by username/email rather than IP, which Railway's proxy makes unreliable; the trade-off is that someone can lock a known user out for a short while on purpose.
 - The superadmin password is changed with `SEED_PASSWORD="..." bun run src/db/set-superadmin-password.ts`, which also drops that user's sessions.
 - `password.ts`: password hashing (bcryptjs).
+- `password-policy.ts`: the single rule for credentials — 8+ characters with a letter and a digit, no catalogue passwords, and an email that can actually receive mail. Every path that creates or changes a user must use `passwordSchema`/`emailSchema`; the user asked for this explicitly and it is covered by tests.
+- **There is no password recovery by email yet.** The user chose to keep resets manual rather than add a mail provider: an owner resets his operators from Operadores, and the superadmin resets an owner from Credenciales. The email is validated because that flow is meant to arrive later; the login page says who to ask meanwhile.
 - Roles are a many-to-many table (`user_roles`: `superadmin` | `admin` | `kitchen`) — a user can hold multiple roles; check with `roles.includes(...)`, not equality.
 
 ### Multi-tenant data model (`src/db/schema.ts`)
