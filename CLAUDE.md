@@ -78,7 +78,9 @@ export const someFn = createServerFn({ method: "GET" | "POST" })
 
 Custom cookie-session auth (migrated off Supabase auth) in `src/lib/auth/`:
 
-- `session.ts`: opaque random token stored in the `sessions` MySQL table, set as an httpOnly cookie; `getSessionUser()` joins `sessions` → `users` → `user_roles`.
+- `session.ts`: opaque random token stored in the `sessions` MySQL table, set as an httpOnly cookie; `getSessionUser()` joins `sessions` → `users` → `user_roles`. A session also dies after 12h without use (`last_seen_at`, refreshed at most every 5 minutes) — the only thing limiting a tablet left logged in at the counter.
+- `throttle.ts`: five failed logins lock that identifier for 15 minutes (`login_attempts`). It counts by username/email rather than IP, which Railway's proxy makes unreliable; the trade-off is that someone can lock a known user out for a short while on purpose.
+- The superadmin password is changed with `SEED_PASSWORD="..." bun run src/db/set-superadmin-password.ts`, which also drops that user's sessions.
 - `password.ts`: password hashing (bcryptjs).
 - Roles are a many-to-many table (`user_roles`: `superadmin` | `admin` | `kitchen`) — a user can hold multiple roles; check with `roles.includes(...)`, not equality.
 

@@ -66,10 +66,23 @@ export const sessions = mysqlTable(
     id: varchar("id", { length: 64 }).primaryKey(),
     userId: int("user_id").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
+    // Última vez que se usó la sesión: sirve para cerrarla por inactividad,
+    // que es lo único que limita una tablet que quedó logueada.
+    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
+
+// Intentos fallidos de login, para frenar a quien prueba contraseñas de a miles.
+// Se cuenta por usuario/email: una racha de fallos bloquea ese identificador
+// unos minutos. Un acierto borra la fila.
+export const loginAttempts = mysqlTable("login_attempts", {
+  identifier: varchar("identifier", { length: 255 }).primaryKey(),
+  failedCount: int("failed_count").notNull().default(0),
+  lockedUntil: timestamp("locked_until"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
 
 // Roles (un usuario puede tener varios).
 // superadmin: equipo de desarrollo, ve todo el sistema y da de alta empresas.

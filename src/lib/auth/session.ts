@@ -11,6 +11,11 @@ const COOKIE_NAME = "session";
 // sea tan simple como borrarla y no toque la sesion real.
 const ACTING_COOKIE = "acting_company";
 const SESSION_DAYS = 30;
+// Una sesión sin uso se cierra sola: la tablet del mostrador no queda abierta
+// para siempre si el dueño se logueó una vez ahí.
+const IDLE_HOURS = 12;
+// Cada cuánto se refresca lastSeenAt, para no escribir en cada request.
+const TOUCH_MINUTES = 5;
 
 // Roles del sistema (ver reglas de negocio):
 // superadmin = equipo de desarrollo, owner = dueno de la empresa,
@@ -71,6 +76,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       companyId: users.companyId,
       locationId: users.locationId,
       active: users.active,
+      lastSeenAt: sessions.lastSeenAt,
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
@@ -81,6 +87,17 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (row.expiresAt.getTime() < Date.now()) {
     await db.delete(sessions).where(eq(sessions.id, token));
     return null;
+  }
+
+  // Inactividad: si pasó demasiado desde el último uso, la sesión se cierra.
+  const idleMs = Date.now() - row.lastSeenAt.getTime();
+  if (idleMs > IDLE_HOURS * 60 * 60 * 1000) {
+    await db.delete(sessions).where(eq(sessions.id, token));
+    deleteCookie(COOKIE_NAME, { path: "/" });
+    return null;
+  }
+  if (idleMs > TOUCH_MINUTES * 60 * 1000) {
+    await db.update(sessions).set({ lastSeenAt: new Date() }).where(eq(sessions.id, token));
   }
   // Un usuario dado de baja pierde la sesion al instante. Solo damos de baja
   // ante un false/0 explicito: si el driver devolviera algo raro, preferimos

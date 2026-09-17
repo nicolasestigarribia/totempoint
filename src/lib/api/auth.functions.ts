@@ -4,6 +4,7 @@ import { eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { users, userRoles, userLocations, userPermissions } from "@/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
+import { checkLock, registerFailure, clearFailures, LOCK_MESSAGE } from "@/lib/auth/throttle";
 import { createSession, destroySession, getSessionUser } from "@/lib/auth/session";
 import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
 
@@ -30,6 +31,10 @@ export const login = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }): Promise<AuthUser> => {
     const identifier = data.identifier.toLowerCase();
+
+    const lock = await checkLock(identifier);
+    if (lock.locked) throw new Error(LOCK_MESSAGE(lock.minutesLeft));
+
     const [user] = await db
       .select()
       .from(users)
@@ -37,12 +42,15 @@ export const login = createServerFn({ method: "POST" })
       .limit(1);
 
     if (!user || !(await verifyPassword(data.password, user.passwordHash))) {
+      await registerFailure(identifier);
       throw new Error("Usuario o contraseña incorrectos");
     }
 
     if (!user.active) {
       throw new Error("Tu usuario está desactivado. Contactate con el dueño de la empresa");
     }
+
+    await clearFailures(identifier);
 
     await createSession(user.id);
 
@@ -80,8 +88,6 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
   return { ok: true };
 });
 
-export const me = createServerFn({ method: "GET" }).handler(
-  async (): Promise<AuthUser | null> => {
-    return getSessionUser();
-  },
-);
+export const me = createServerFn({ method: "GET" }).handler(async (): Promise<AuthUser | null> => {
+  return getSessionUser();
+});
