@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { TotemHome } from "@/components/totem/TotemHome";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { TotemLinkCard } from "@/components/admin/TotemLinkCard";
 import {
   getMyTotemSettings,
   updateMyTotemSettings,
@@ -142,6 +143,8 @@ export function PortadaSection({
           Abrir /t/{business.slug}
         </a>
       </div>
+
+      <TotemLinkCard slug={business.slug} panelClass={panelClass} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <form onSubmit={handleSubmit} className={`space-y-6 p-6 ${panelClass}`}>
