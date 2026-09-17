@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   KeyRound,
   Building2,
+  Receipt,
   PanelLeft,
   PanelLeftClose,
   LogIn,
@@ -33,6 +34,7 @@ import {
   enterBusiness,
   type BusinessRow,
 } from "@/lib/api/platform.functions";
+import { FacturacionSection } from "@/components/admin/FacturacionSection";
 
 export const Route = createFileRoute("/superadmin")({
   head: () => ({
@@ -54,12 +56,18 @@ export const Route = createFileRoute("/superadmin")({
   component: SuperadminPage,
 });
 
-// El panel de plataforma solo administra empresas: el catálogo (ingredientes,
-// categorías, códigos de acción) es de cada empresa, no de la plataforma.
-type SectionId = "negocios";
+// El panel de plataforma administra empresas y mira cuánto factura cada una:
+// el catálogo (ingredientes, categorías, códigos de acción) es de cada empresa.
+type SectionId = "negocios" | "facturacion";
 
 const SECTIONS: { id: SectionId; label: string; icon: LucideIcon; desc: string }[] = [
   { id: "negocios", label: "Negocios", icon: Building2, desc: "Empresas de la plataforma" },
+  {
+    id: "facturacion",
+    label: "Facturación",
+    icon: Receipt,
+    desc: "Cuánto factura cada empresa",
+  },
 ];
 
 function SuperadminPage() {
@@ -294,162 +302,168 @@ function SuperadminPage() {
         </div>
 
         <div className="p-6 md:p-8">
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-sm text-muted-foreground">Sesión: {email}</p>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Crear negocio
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Nuevo negocio</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleCreate} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="biz-name">Nombre del negocio</Label>
-                      <Input
-                        id="biz-name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                        minLength={2}
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="biz-email">Email del administrador</Label>
-                      <Input
-                        id="biz-email"
-                        type="email"
-                        value={adminEmail}
-                        onChange={(e) => setAdminEmail(e.target.value)}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="biz-username">Usuario</Label>
-                      <Input
-                        id="biz-username"
-                        value={adminUsername}
-                        onChange={(e) => setAdminUsername(e.target.value)}
-                        required
-                        minLength={3}
-                        placeholder="ej: burguerdemo"
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="biz-password">Contraseña</Label>
-                      <Input
-                        id="biz-password"
-                        type="text"
-                        value={adminPassword}
-                        onChange={(e) => setAdminPassword(e.target.value)}
-                        required
-                        minLength={6}
-                        placeholder="mínimo 6 caracteres"
-                        className="h-11"
-                      />
-                    </div>
-                    <Button type="submit" disabled={saving} className="w-full gap-2">
-                      {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Crear
+          {section === "facturacion" ? (
+            <FacturacionSection />
+          ) : (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">Sesión: {email}</p>
+                <Dialog open={open} onOpenChange={setOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Crear negocio
                     </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Nuevo negocio</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleCreate} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="biz-name">Nombre del negocio</Label>
+                        <Input
+                          id="biz-name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          required
+                          minLength={2}
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="biz-email">Email del administrador</Label>
+                        <Input
+                          id="biz-email"
+                          type="email"
+                          value={adminEmail}
+                          onChange={(e) => setAdminEmail(e.target.value)}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="biz-username">Usuario</Label>
+                        <Input
+                          id="biz-username"
+                          value={adminUsername}
+                          onChange={(e) => setAdminUsername(e.target.value)}
+                          required
+                          minLength={3}
+                          placeholder="ej: burguerdemo"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="biz-password">Contraseña</Label>
+                        <Input
+                          id="biz-password"
+                          type="text"
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
+                          required
+                          minLength={6}
+                          placeholder="mínimo 6 caracteres"
+                          className="h-11"
+                        />
+                      </div>
+                      <Button type="submit" disabled={saving} className="w-full gap-2">
+                        {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Crear
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
 
-            <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-lg">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="px-6 py-4">Negocio</th>
-                    <th className="hidden px-6 py-4 md:table-cell">Administrador</th>
-                    <th className="px-6 py-4">Estado</th>
-                    <th className="px-6 py-4 text-right">Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 && (
+              <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-lg">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
-                      <td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">
-                        Todavía no hay negocios.
-                      </td>
+                      <th className="px-6 py-4">Negocio</th>
+                      <th className="hidden px-6 py-4 md:table-cell">Administrador</th>
+                      <th className="px-6 py-4">Estado</th>
+                      <th className="px-6 py-4 text-right">Acción</th>
                     </tr>
-                  )}
-                  {rows.map((b) => (
-                    <tr key={b.id} className="border-t border-border">
-                      <td className="px-4 py-4 md:px-6">
-                        <p className="font-semibold">{b.name}</p>
-                        <code className="text-xs text-muted-foreground">{b.slug}</code>
-                        {b.admin_email && (
-                          <p className="text-xs text-muted-foreground md:hidden">{b.admin_email}</p>
-                        )}
-                      </td>
-                      <td className="hidden px-6 py-4 text-muted-foreground md:table-cell">
-                        {b.admin_email ? (
-                          <div className="flex flex-col">
-                            <span>{b.admin_email}</span>
-                            {b.admin_username && (
-                              <code className="text-xs text-muted-foreground/70">
-                                @{b.admin_username}
-                              </code>
-                            )}
-                          </div>
-                        ) : (
-                          "Sin administrador"
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-                            b.active
-                              ? "bg-green-500/15 text-green-500"
-                              : "bg-destructive/15 text-destructive"
-                          }`}
-                        >
-                          {b.active ? "Activo" : "Inactivo"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 md:px-6">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1"
-                            onClick={() => handleEnter(b)}
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">
+                          Todavía no hay negocios.
+                        </td>
+                      </tr>
+                    )}
+                    {rows.map((b) => (
+                      <tr key={b.id} className="border-t border-border">
+                        <td className="px-4 py-4 md:px-6">
+                          <p className="font-semibold">{b.name}</p>
+                          <code className="text-xs text-muted-foreground">{b.slug}</code>
+                          {b.admin_email && (
+                            <p className="text-xs text-muted-foreground md:hidden">
+                              {b.admin_email}
+                            </p>
+                          )}
+                        </td>
+                        <td className="hidden px-6 py-4 text-muted-foreground md:table-cell">
+                          {b.admin_email ? (
+                            <div className="flex flex-col">
+                              <span>{b.admin_email}</span>
+                              {b.admin_username && (
+                                <code className="text-xs text-muted-foreground/70">
+                                  @{b.admin_username}
+                                </code>
+                              )}
+                            </div>
+                          ) : (
+                            "Sin administrador"
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                              b.active
+                                ? "bg-green-500/15 text-green-500"
+                                : "bg-destructive/15 text-destructive"
+                            }`}
                           >
-                            <LogIn className="h-3.5 w-3.5" />
-                            Entrar
-                          </Button>
-                          {b.admin_user_id && (
+                            {b.active ? "Activo" : "Inactivo"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 md:px-6">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               className="gap-1"
-                              onClick={() => openEdit(b)}
+                              onClick={() => handleEnter(b)}
                             >
-                              <KeyRound className="h-3.5 w-3.5" />
-                              Credenciales
+                              <LogIn className="h-3.5 w-3.5" />
+                              Entrar
                             </Button>
-                          )}
-                          <Button variant="outline" size="sm" onClick={() => handleToggle(b)}>
-                            {b.active ? "Desactivar" : "Activar"}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            {b.admin_user_id && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1"
+                                onClick={() => openEdit(b)}
+                              >
+                                <KeyRound className="h-3.5 w-3.5" />
+                                Credenciales
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm" onClick={() => handleToggle(b)}>
+                              {b.active ? "Desactivar" : "Activar"}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
 

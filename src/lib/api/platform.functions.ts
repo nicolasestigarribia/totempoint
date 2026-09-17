@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, or, ne, and, desc } from "drizzle-orm";
+import { eq, or, ne, and, desc, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { companies, locations, users, userRoles, userLocations } from "@/db/schema";
+import { companies, locations, users, userRoles, userLocations, orders } from "@/db/schema";
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 import { setActingCompany, clearActingCompany } from "@/lib/auth/session";
@@ -39,10 +39,7 @@ export interface BusinessRow {
 export const listBusinesses = createServerFn({ method: "GET" })
   .middleware([requireSuperadmin])
   .handler(async (): Promise<BusinessRow[]> => {
-    const rows = await db
-      .select()
-      .from(companies)
-      .orderBy(desc(companies.createdAt));
+    const rows = await db.select().from(companies).orderBy(desc(companies.createdAt));
 
     const admins = await db
       .select({
@@ -53,7 +50,10 @@ export const listBusinesses = createServerFn({ method: "GET" })
       })
       .from(users);
 
-    const adminByCompany = new Map<number, { id: number; email: string; username: string | null }>();
+    const adminByCompany = new Map<
+      number,
+      { id: number; email: string; username: string | null }
+    >();
     for (const a of admins) {
       if (a.companyId && !adminByCompany.has(a.companyId)) {
         adminByCompany.set(a.companyId, { id: a.id, email: a.email, username: a.username });
@@ -133,11 +133,7 @@ export const createBusiness = createServerFn({ method: "POST" })
     await db.insert(userRoles).values({ userId, role: "owner" });
     await db.insert(userLocations).values({ userId, locationId });
 
-    const [company] = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .limit(1);
+    const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
 
     return {
       business: {
@@ -171,10 +167,7 @@ export const updateBusinessAdmin = createServerFn({ method: "POST" })
       .select({ id: users.id })
       .from(users)
       .where(
-        and(
-          ne(users.id, data.userId),
-          or(eq(users.email, email), eq(users.username, username)),
-        ),
+        and(ne(users.id, data.userId), or(eq(users.email, email), eq(users.username, username))),
       )
       .limit(1);
     if (dup) throw new Error("Ese email o usuario ya está en uso por otra cuenta");
@@ -193,10 +186,7 @@ export const setBusinessActive = createServerFn({ method: "POST" })
   .middleware([requireSuperadmin])
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ data }) => {
-    await db
-      .update(companies)
-      .set({ active: data.active })
-      .where(eq(companies.id, data.id));
+    await db.update(companies).set({ active: data.active }).where(eq(companies.id, data.id));
     return { ok: true };
   });
 
@@ -225,4 +215,69 @@ export const exitBusiness = createServerFn({ method: "POST" })
   .handler(async () => {
     clearActingCompany();
     return { ok: true };
+  });
+
+/**
+ * Facturación por empresa, para el panel de plataforma. Suma los pedidos de
+ * todos los locales de cada empresa en el rango pedido.
+ *
+ * No discrimina por forma de pago porque todavía no existe: `orders` guarda un
+ * `paid` booleano y nada más. Cuando se integren los pagos, la columna se suma
+ * acá sin tocar la pantalla.
+ */
+export interface CompanyRevenueRow {
+  id: number;
+  name: string;
+  slug: string;
+  active: boolean;
+  orders: number;
+  total: string;
+  avgTicket: string;
+  lastOrderAt: string | null;
+}
+
+export const getPlatformRevenue = createServerFn({ method: "GET" })
+  .middleware([requireSuperadmin])
+  .inputValidator(
+    z.object({
+      from: z.string().optional().nullable(),
+      to: z.string().optional().nullable(),
+    }),
+  )
+  .handler(async ({ data }): Promise<CompanyRevenueRow[]> => {
+    const range = [
+      data.from ? gte(orders.createdAt, new Date(data.from)) : undefined,
+      data.to ? lte(orders.createdAt, new Date(data.to)) : undefined,
+    ].filter(Boolean);
+
+    const rows = await db
+      .select({
+        id: companies.id,
+        name: companies.name,
+        slug: companies.slug,
+        active: companies.active,
+        orders: sql<number>`COUNT(${orders.id})`,
+        total: sql<string | null>`SUM(${orders.total})`,
+        lastOrderAt: sql<Date | null>`MAX(${orders.createdAt})`,
+      })
+      .from(companies)
+      .leftJoin(locations, eq(locations.companyId, companies.id))
+      .leftJoin(orders, and(eq(orders.locationId, locations.id), ...range))
+      .groupBy(companies.id, companies.name, companies.slug, companies.active)
+      .orderBy(desc(sql`SUM(${orders.total})`));
+
+    return rows.map((r) => {
+      const count = Number(r.orders ?? 0);
+      const total = Number(r.total ?? 0);
+      return {
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        active: r.active,
+        orders: count,
+        total: total.toFixed(2),
+        avgTicket: count > 0 ? (total / count).toFixed(2) : "0.00",
+        lastOrderAt: r.lastOrderAt ? new Date(r.lastOrderAt).toISOString() : null,
+      };
+    });
   });
