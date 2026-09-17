@@ -46,7 +46,7 @@ import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [{ title: "Panel administrativo — Burger Point" }],
+    meta: [{ title: "Panel — Totempoint" }],
   }),
   component: AdminPage,
 });

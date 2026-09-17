@@ -11,7 +11,7 @@ import { login, me, type AuthUser } from "@/lib/api/auth.functions";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
-    meta: [{ title: "Acceso administrador — Burger Point" }],
+    meta: [{ title: "Acceso — Totempoint" }],
   }),
   component: LoginPage,
 });
@@ -48,17 +48,18 @@ function LoginPage() {
       navigate({ to: destinationFor(user), replace: true });
     } catch (err: any) {
       console.error("Login error detail:", err);
-      
+
       let msg = "Error de autenticación. Por favor, revisá tus credenciales.";
-      
+
       if (err?.message === "An error occurred in the Server Function") {
         // Este es el error genérico de TanStack Start cuando falla una Server Function
-        msg = "No se pudo conectar con el servidor o hubo un error interno. Intentalo de nuevo en unos momentos.";
+        msg =
+          "No se pudo conectar con el servidor o hubo un error interno. Intentalo de nuevo en unos momentos.";
       } else if (err?.message) {
         msg = err.message;
       } else if (err?.data?.message) {
         msg = err.data.message;
-      } else if (typeof err === 'string') {
+      } else if (typeof err === "string") {
         msg = err;
       }
 

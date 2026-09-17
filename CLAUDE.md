@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**Burger Point Order** — a touchscreen self-service kiosk ordering app for a burger restaurant (think a McDonald's totem), plus a multi-tenant admin/kitchen back office. Originally scaffolded with [Lovable](https://lovable.dev) (see `.lovable/`); local development now happens directly in this repo.
+**Totempoint** — self-service ordering totems for food businesses, plus the multi-tenant back office behind them. A customer orders from a tablet at the counter and the ticket reaches the business; one installation serves many brands, each with its own catalog, cover screen and staff. It was scaffolded with [Lovable](https://lovable.dev) (see `.lovable/`) as a single-brand burger demo called "Burger Point"; that demo was deleted and the name is gone — don't reintroduce it anywhere, in copy, titles or metadata.
 
-The original MVP spec (kiosk flow: home → categories → products → cart → checkout → confirmation → kitchen panel, using mocked/local data, no payments/printer/login) lives in `README.md` — read it for the intended UX and copy if working on the kiosk-facing screens. Since that MVP, the project grew a real multi-tenant backend (companies/locations/users/roles, DB-backed catalog, stock ledger) — see Architecture below for how the two layers relate.
+`README.md` describes the product and how to run it.
 
 ## Commands
 
@@ -77,6 +77,7 @@ export const someFn = createServerFn({ method: "GET" | "POST" })
 ### Auth & sessions
 
 Custom cookie-session auth (migrated off Supabase auth) in `src/lib/auth/`:
+
 - `session.ts`: opaque random token stored in the `sessions` MySQL table, set as an httpOnly cookie; `getSessionUser()` joins `sessions` → `users` → `user_roles`.
 - `password.ts`: password hashing (bcryptjs).
 - Roles are a many-to-many table (`user_roles`: `superadmin` | `admin` | `kitchen`) — a user can hold multiple roles; check with `roles.includes(...)`, not equality.
@@ -93,7 +94,7 @@ Per-location overrides (`locationProducts`, `locationCategories`) flip availabil
 
 `orders`/`order_items` are now written by the kiosk checkout and read by `kitchen.tsx` through `src/lib/api/orders.functions.ts` (scoped to the caller's company via its locations). `order_items` snapshots product name and unit price, so editing a product later never rewrites past orders.
 
-`movements` is an append-only ledger (`type`: `stock` | `caja`, `actionCode` from `action_codes`, signed `amount`) that is the source of truth for both stock and cash; `artistock.stockActual` is a MySQL *generated* column (`ip_local - vp_local - ep_local`) derived from aggregated movement totals — don't write to `stockActual` directly, write a `movements` row and let the aggregates (`ipLocal`/`vpLocal`/`epLocal`) follow.
+`movements` is an append-only ledger (`type`: `stock` | `caja`, `actionCode` from `action_codes`, signed `amount`) that is the source of truth for both stock and cash; `artistock.stockActual` is a MySQL _generated_ column (`ip_local - vp_local - ep_local`) derived from aggregated movement totals — don't write to `stockActual` directly, write a `movements` row and let the aggregates (`ipLocal`/`vpLocal`/`epLocal`) follow.
 
 ### Routing (TanStack Start file-based)
 
@@ -102,6 +103,7 @@ See `src/routes/README.md` for the file-naming convention (`$id` dynamic, `{-$ca
 ### SSR error handling
 
 There's a deliberate two-layer error wrapper because h3 (TanStack Start's server) can swallow in-handler throws into an opaque `{"unhandled":true,"message":"HTTPError"}` 500 that a plain `try/catch` won't see:
+
 - `src/start.ts` registers `errorMiddleware` (catches request-level errors, renders `renderErrorPage()`).
 - `src/server.ts` wraps the whole `fetch` handler and additionally detects/normalizes the swallowed-h3-error JSON shape via `src/lib/error-capture.ts` + `src/lib/error-page.ts`.
 

@@ -39,15 +39,15 @@ import { FacturacionSection } from "@/components/admin/FacturacionSection";
 export const Route = createFileRoute("/superadmin")({
   head: () => ({
     meta: [
-      { title: "Superadmin — Burger Point" },
+      { title: "Superadmin — Totempoint" },
       {
         name: "description",
         content: "Panel del administrador general: empresas, altas y estado de cada cuenta.",
       },
-      { property: "og:title", content: "Superadmin — Burger Point" },
+      { property: "og:title", content: "Superadmin — Totempoint" },
       {
         property: "og:description",
-        content: "Panel del administrador general de la plataforma Burger Point.",
+        content: "Panel del administrador general de la plataforma Totempoint.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
