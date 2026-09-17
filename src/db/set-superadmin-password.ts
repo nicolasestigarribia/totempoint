@@ -13,6 +13,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "./index";
 import { users, userRoles, sessions } from "./schema";
 import { hashPassword } from "@/lib/auth/password";
+import { checkPassword, PASSWORD_HINT } from "@/lib/auth/password-policy";
 
 const password = process.env.SEED_PASSWORD;
 const email = process.env.SEED_EMAIL?.toLowerCase();

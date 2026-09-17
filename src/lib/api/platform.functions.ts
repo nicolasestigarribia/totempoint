@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { companies, locations, users, userRoles, userLocations, orders } from "@/db/schema";
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
+import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
 import { setActingCompany, clearActingCompany } from "@/lib/auth/session";
 
 function slugify(name: string) {
@@ -80,9 +81,9 @@ export const createBusiness = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       name: z.string().trim().min(2).max(80),
-      adminEmail: z.string().trim().email(),
+      adminEmail: emailSchema,
       adminUsername: usernameSchema,
-      adminPassword: z.string().min(6).max(100),
+      adminPassword: passwordSchema,
     }),
   )
   .handler(async ({ data }) => {
@@ -154,9 +155,9 @@ export const updateBusinessAdmin = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       userId: z.number().int(),
-      email: z.string().trim().email(),
+      email: emailSchema,
       username: usernameSchema,
-      password: z.string().min(6).max(100).optional().nullable(),
+      password: passwordSchema.optional().nullable(),
     }),
   )
   .handler(async ({ data }) => {

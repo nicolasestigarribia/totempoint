@@ -15,6 +15,7 @@ import { requireOwner } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 import type { SessionUser, PanelSection, PermissionLevel } from "@/lib/auth/session";
 import { companyIdOf } from "@/lib/auth/scope";
+import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
 
 /**
  * Operadores de una empresa: el owner da de alta encargados y les asigna los
@@ -27,8 +28,6 @@ const usernameSchema = z
   .min(3)
   .max(60)
   .regex(/^[a-zA-Z0-9_.-]+$/, "Usuario: solo letras, números, . _ -");
-
-const passwordSchema = z.string().min(6).max(100);
 
 // El owner no puede crear otros owners ni superadmins desde el panel.
 const assignableRoleSchema = z.enum(["encargado", "kitchen"]);
@@ -209,7 +208,7 @@ export const createOperator = createServerFn({ method: "POST" })
   .middleware([requireOwner])
   .inputValidator(
     z.object({
-      email: z.string().trim().email(),
+      email: emailSchema,
       username: usernameSchema,
       password: passwordSchema,
       role: assignableRoleSchema,
@@ -253,7 +252,7 @@ export const updateOperator = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       userId: z.number().int(),
-      email: z.string().trim().email(),
+      email: emailSchema,
       username: usernameSchema,
       password: passwordSchema.optional().nullable(),
       role: assignableRoleSchema,

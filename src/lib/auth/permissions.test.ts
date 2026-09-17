@@ -8,6 +8,7 @@ import {
   impliedBy,
   type PermissionMap,
 } from "./permissions";
+import { checkPassword, checkEmail } from "./password-policy";
 
 describe("permisos del panel", () => {
   test("sin permisos no ve ni edita nada", () => {
@@ -71,5 +72,32 @@ describe("permisos del panel", () => {
     for (const section of PANEL_SECTIONS) {
       expect(SECTION_LABEL[section]).toBeTruthy();
     }
+  });
+});
+
+describe("política de contraseñas y emails", () => {
+  test("rechaza las cortas, sin letra, sin número o con espacios", () => {
+    expect(checkPassword("abc123").ok).toBe(false);
+    expect(checkPassword("solo-letras").ok).toBe(false);
+    expect(checkPassword("12345678").ok).toBe(false);
+    expect(checkPassword("hola 1234").ok).toBe(false);
+  });
+
+  test("rechaza las de catálogo aunque cumplan la forma", () => {
+    expect(checkPassword("password1").ok).toBe(false);
+    expect(checkPassword("abcd1234").ok).toBe(false);
+  });
+
+  test("acepta una razonable y explica qué falta cuando no", () => {
+    expect(checkPassword("miga2026sanguches").ok).toBe(true);
+    expect(checkPassword("corta1").problemas).toContain("Al menos 8 caracteres");
+  });
+
+  test("el email tiene que poder recibir correo", () => {
+    expect(checkEmail("gerente@primorosas.com").ok).toBe(true);
+    expect(checkEmail("gerente@primorosas.con").ok).toBe(false);
+    expect(checkEmail("gerente@localhost").ok).toBe(false);
+    expect(checkEmail("sin-arroba.com").ok).toBe(false);
+    expect(checkEmail("  Gerente@PrimoRosas.com ".trim().toLowerCase()).ok).toBe(true);
   });
 });

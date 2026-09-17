@@ -35,6 +35,7 @@ import {
   type BusinessRow,
 } from "@/lib/api/platform.functions";
 import { FacturacionSection } from "@/components/admin/FacturacionSection";
+import { PASSWORD_HINT, PASSWORD_MIN } from "@/lib/auth/password-policy";
 
 export const Route = createFileRoute("/superadmin")({
   head: () => ({
@@ -367,8 +368,8 @@ function SuperadminPage() {
                           value={adminPassword}
                           onChange={(e) => setAdminPassword(e.target.value)}
                           required
-                          minLength={6}
-                          placeholder="mínimo 6 caracteres"
+                          minLength={PASSWORD_MIN}
+                          placeholder={PASSWORD_HINT}
                           className="h-11"
                         />
                       </div>
@@ -507,7 +508,7 @@ function SuperadminPage() {
                 type="text"
                 value={editPassword}
                 onChange={(e) => setEditPassword(e.target.value)}
-                minLength={6}
+                minLength={PASSWORD_MIN}
                 placeholder="Dejar vacío para no cambiar"
                 className="h-11"
               />

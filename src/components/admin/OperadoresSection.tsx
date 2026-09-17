@@ -25,6 +25,7 @@ import {
   type OperatorRow,
 } from "@/lib/api/users.functions";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
+import { checkPassword, checkEmail, PASSWORD_HINT } from "@/lib/auth/password-policy";
 import {
   PANEL_SECTIONS,
   SECTION_LABEL,
@@ -155,9 +156,17 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
       toast.error("El email y el usuario son obligatorios");
       return;
     }
-    if (!editing && password.length < 6) {
-      toast.error("La contraseña tiene que tener al menos 6 caracteres");
+    const emailCheck = checkEmail(email);
+    if (!emailCheck.ok) {
+      toast.error(emailCheck.problema!);
       return;
+    }
+    if (!editing || password.length > 0) {
+      const check = checkPassword(password);
+      if (!check.ok) {
+        toast.error(`Contraseña débil: ${check.problemas.join(", ").toLowerCase()}`);
+        return;
+      }
     }
     if (role === "encargado" && assigned.length === 0) {
       toast.error("Asigná al menos un negocio al encargado");
@@ -394,7 +403,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={editing ? "Dejar vacío para no cambiarla" : "Mínimo 6 caracteres"}
+                placeholder={editing ? "Dejar vacío para no cambiarla" : PASSWORD_HINT}
                 maxLength={100}
               />
             </div>
