@@ -1,11 +1,12 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { ImageOff, Plus, Check } from "lucide-react";
+import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
 import { getTotemMenu } from "@/lib/api/totem.functions";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemCart, useCartForSlug, formatPrice } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
+import { gridColsFor } from "@/components/totem/grid";
 
 export const Route = createFileRoute("/t/$slug/menu/$category")({
   loader: async ({ params }) => {
@@ -30,6 +31,7 @@ function MenuCategoryPage() {
   useTotemTheme(menu.accentColor, menu.theme);
   const accent = menu.accentColor || undefined;
   const add = useTotemCart((s) => s.add);
+  const removeOne = useTotemCart((s) => s.removeOne);
   const cart = useCartForSlug(menu.slug);
   useTotemIdleReset(menu.slug);
 
@@ -43,7 +45,7 @@ function MenuCategoryPage() {
         back="categorias"
       />
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-6 md:px-12">
+      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
         <div className="mb-6">
           {category.tagline && (
             <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: accent }}>
@@ -53,7 +55,7 @@ function MenuCategoryPage() {
           <h1 className="mt-1 font-display text-4xl md:text-6xl">{category.name}</h1>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={`grid auto-rows-fr gap-5 ${gridColsFor(items.length)}`}>
           {items.map((p) => {
             const inCart = cart.find((i) => i.productId === p.id)?.quantity ?? 0;
             return (
@@ -80,31 +82,62 @@ function MenuCategoryPage() {
                     <span className="font-display text-3xl" style={{ color: accent }}>
                       {formatPrice(p.price)}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        add(menu.slug, {
-                          productId: p.id,
-                          name: p.name,
-                          price: p.price,
-                          photoUrl: p.photoUrl,
-                        })
-                      }
-                      className="flex items-center gap-2 rounded-2xl px-6 py-3 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
-                      style={{ background: accent ?? "var(--primary)" }}
-                    >
-                      {inCart > 0 ? (
-                        <>
-                          <Check className="h-5 w-5" />
+                    {inCart > 0 ? (
+                      // Con unidades en el pedido el botón se abre en − cantidad +:
+                      // equivocarse tocando no puede obligar a ir hasta el carrito.
+                      <div
+                        className="flex items-center gap-1 rounded-2xl p-1"
+                        style={{ background: accent ?? "var(--primary)" }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => removeOne(p.id)}
+                          aria-label={inCart === 1 ? `Quitar ${p.name}` : `Quitar una unidad`}
+                          className="flex h-12 w-12 items-center justify-center rounded-xl text-white transition hover:bg-black/20 active:scale-95"
+                        >
+                          {inCart === 1 ? (
+                            <Trash2 className="h-5 w-5" />
+                          ) : (
+                            <Minus className="h-5 w-5" />
+                          )}
+                        </button>
+                        <span className="min-w-10 text-center font-display text-2xl text-white">
                           {inCart}
-                        </>
-                      ) : (
-                        <>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            add(menu.slug, {
+                              productId: p.id,
+                              name: p.name,
+                              price: p.price,
+                              photoUrl: p.photoUrl,
+                            })
+                          }
+                          aria-label="Agregar una unidad"
+                          className="flex h-12 w-12 items-center justify-center rounded-xl text-white transition hover:bg-black/20 active:scale-95"
+                        >
                           <Plus className="h-5 w-5" />
-                          Agregar
-                        </>
-                      )}
-                    </button>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          add(menu.slug, {
+                            productId: p.id,
+                            name: p.name,
+                            price: p.price,
+                            photoUrl: p.photoUrl,
+                          })
+                        }
+                        className="flex h-14 items-center gap-2 rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
+                        style={{ background: accent ?? "var(--primary)" }}
+                      >
+                        <Plus className="h-5 w-5" />
+                        Agregar
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>

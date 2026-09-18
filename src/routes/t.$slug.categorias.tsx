@@ -5,6 +5,7 @@ import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
+import { gridColsFor } from "@/components/totem/grid";
 
 export const Route = createFileRoute("/t/$slug/categorias")({
   loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
@@ -37,13 +38,13 @@ function CategoriasPage() {
             <p className="text-xl text-muted-foreground">Todavía no hay productos cargados</p>
           </div>
         ) : (
-          <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={`grid flex-1 auto-rows-fr gap-4 ${gridColsFor(menu.categories.length)}`}>
             {menu.categories.map((c) => (
               <Link
                 key={c.id}
                 to="/t/$slug/menu/$category"
                 params={{ slug: menu.slug, category: String(c.id) }}
-                className="group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary"
+                className="group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary"
               >
                 {c.photoUrl ? (
                   <img
