@@ -294,6 +294,44 @@ export const locationCategories = mysqlTable(
   ],
 );
 
+// Precio por local de un producto o combo (override). Ausencia = usa el precio base.
+export const locationPrices = mysqlTable(
+  "location_prices",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    locationId: int("location_id").notNull(),
+    itemType: mysqlEnum("item_type", ["product", "combo"]).notNull(),
+    itemId: int("item_id").notNull(),
+    price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [
+    unique("location_prices_uq").on(t.locationId, t.itemType, t.itemId),
+    index("location_prices_location_idx").on(t.locationId),
+  ],
+);
+
+// Auditoría de cambios de precio por local. oldPrice null = no había override (venía del base).
+export const priceChanges = mysqlTable(
+  "price_changes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    companyId: int("company_id").notNull(),
+    locationId: int("location_id").notNull(),
+    itemType: mysqlEnum("item_type", ["product", "combo"]).notNull(),
+    itemId: int("item_id").notNull(),
+    oldPrice: decimal("old_price", { precision: 10, scale: 2 }),
+    newPrice: decimal("new_price", { precision: 10, scale: 2 }).notNull(),
+    userId: int("user_id").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("price_changes_company_idx").on(t.companyId),
+    index("price_changes_location_idx").on(t.locationId),
+    index("price_changes_item_idx").on(t.itemType, t.itemId),
+  ],
+);
+
 // Stock por local de un ítem stockable: ingrediente O producto de reventa (exactamente uno).
 // stockActual = columna generada: ingresos - ventas - egresos.
 export const artistock = mysqlTable(

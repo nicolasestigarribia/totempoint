@@ -21,6 +21,7 @@ import {
   Warehouse,
   ScrollText,
   Tags,
+  DollarSign,
   PanelLeft,
   PanelLeftClose,
   Monitor,
@@ -43,6 +44,7 @@ import { DisponibilidadSection } from "@/components/admin/DisponibilidadSection"
 import { StockSection } from "@/components/admin/StockSection";
 import { MovimientosSection } from "@/components/admin/MovimientosSection";
 import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
+import { PreciosSection } from "@/components/admin/PreciosSection";
 import { PortadaSection } from "@/components/admin/PortadaSection";
 import { OperadoresSection } from "@/components/admin/OperadoresSection";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
@@ -66,6 +68,7 @@ type SectionId =
   | "stock"
   | "movimientos"
   | "codigos"
+  | "precios"
   | "operadores";
 
 interface SectionDef {
@@ -156,6 +159,13 @@ const SECTIONS: SectionDef[] = [
     icon: Tags,
     desc: "Motivos de ingresos y egresos",
     permission: "codigos",
+  },
+  {
+    id: "precios",
+    label: "Precios",
+    icon: DollarSign,
+    desc: "Precios de productos y combos por negocio",
+    permission: "precios",
   },
   {
     id: "operadores",
@@ -504,6 +514,8 @@ function SectionContent({
       return <MovimientosSection panelClass={panelClass} />;
     case "codigos":
       return <CodigosAccionSection panelClass={panelClass} />;
+    case "precios":
+      return <PreciosSection panelClass={panelClass} />;
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
   }
