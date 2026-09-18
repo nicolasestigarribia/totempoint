@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { products, combos, locationPrices, priceChanges, users } from "@/db/schema";
+import { products, combos, categories, locationPrices, priceChanges, users } from "@/db/schema";
 import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { assertLocationAccess, companyIdOf } from "@/lib/auth/scope";
@@ -13,6 +13,7 @@ export interface PriceRow {
   itemType: ItemType;
   itemId: number;
   name: string;
+  categoryName: string | null; // solo productos; combos = null
   basePrice: string;
   override: string | null; // null = usa el precio base
   effectivePrice: string;
@@ -63,10 +64,12 @@ export const getLocationPricing = createServerFn({ method: "GET" })
       .select({
         id: products.id,
         name: products.name,
+        categoryName: categories.name,
         basePrice: products.price,
         override: locationPrices.price,
       })
       .from(products)
+      .leftJoin(categories, eq(categories.id, products.categoryId))
       .leftJoin(
         locationPrices,
         and(
@@ -98,12 +101,14 @@ export const getLocationPricing = createServerFn({ method: "GET" })
     const toRow = (itemType: ItemType) => (r: {
       id: number;
       name: string;
+      categoryName?: string | null;
       basePrice: string;
       override: string | null;
     }): PriceRow => ({
       itemType,
       itemId: r.id,
       name: r.name,
+      categoryName: r.categoryName ?? null,
       basePrice: r.basePrice,
       override: r.override,
       effectivePrice: r.override ?? r.basePrice,

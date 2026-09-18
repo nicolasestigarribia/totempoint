@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { MapPin, Package, Boxes, Loader2, History, RotateCcw, Percent } from "lucide-react";
+import { MapPin, Package, Boxes, Loader2, History, RotateCcw, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,14 @@ import {
 } from "@/lib/api/location-prices.functions";
 
 type ItemType = "product" | "combo";
+type OverrideFilter = "todos" | "propio" | "base";
+
+interface ChangeTarget {
+  itemType: ItemType;
+  scope: "all" | "one";
+  itemId: number | null; // solo scope === "one"
+  itemName?: string;
+}
 
 export function PreciosSection({ panelClass }: { panelClass: string }) {
   const fetchLocations = useServerFn(listLocations);
@@ -45,10 +53,17 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
 
-  // Ajuste porcentual masivo por tabla.
-  const [pctProduct, setPctProduct] = useState("");
-  const [pctCombo, setPctCombo] = useState("");
-  const [bulking, setBulking] = useState(false);
+  // Filtros
+  const [prodOverride, setProdOverride] = useState<OverrideFilter>("todos");
+  const [prodCat, setProdCat] = useState<string>("todas");
+  const [comboOverride, setComboOverride] = useState<OverrideFilter>("todos");
+
+  // Modal de cambio de precio
+  const [modalOpen, setModalOpen] = useState(false);
+  const [target, setTarget] = useState<ChangeTarget | null>(null);
+  const [mode, setMode] = useState<"fijo" | "porcentual">("fijo");
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Dialog historial
   const [histItem, setHistItem] = useState<{ type: ItemType; id: number; name: string } | null>(
@@ -95,23 +110,77 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId]);
 
-  // Guarda un override (o lo borra si el input queda vacío = vuelve al base).
-  const commitPrice = async (row: PriceRow, raw: string) => {
-    if (locationId === null) return;
-    const trimmed = raw.trim();
-    const price = trimmed === "" ? null : Number(trimmed);
-    if (price !== null && (Number.isNaN(price) || price < 0)) {
-      toast.error("Precio inválido");
+  const productCategories = useMemo(
+    () => [...new Set(products.map((p) => p.categoryName).filter((n): n is string => !!n))].sort(),
+    [products],
+  );
+
+  const rowsFor = (t: ItemType) => (t === "product" ? products : combos);
+
+  const openBulkModal = (itemType: ItemType) => {
+    setTarget({ itemType, scope: "all", itemId: null });
+    setMode("fijo");
+    setValue("");
+    setModalOpen(true);
+  };
+
+  const openItemModal = (row: PriceRow) => {
+    setTarget({ itemType: row.itemType, scope: "one", itemId: row.itemId, itemName: row.name });
+    setMode("fijo");
+    setValue("");
+    setModalOpen(true);
+  };
+
+  const applyChange = async () => {
+    if (locationId === null || !target) return;
+    const num = Number(value);
+    if (Number.isNaN(num)) {
+      toast.error("Ingresá un número");
       return;
     }
-    // No-op si no cambió.
-    const current = row.override ?? "";
-    if (trimmed === current) return;
+    if (mode === "fijo" && num < 0) {
+      toast.error("El precio no puede ser negativo");
+      return;
+    }
+    if (mode === "porcentual" && num === 0) {
+      toast.error("El porcentaje no puede ser 0");
+      return;
+    }
+
+    const itemIds =
+      target.scope === "one" && target.itemId !== null
+        ? [target.itemId]
+        : rowsFor(target.itemType).map((r) => r.itemId);
+    if (itemIds.length === 0) {
+      toast.error("No hay ítems para cambiar");
+      return;
+    }
+
+    setSaving(true);
     try {
-      await savePrice({ data: { locationId, itemType: row.itemType, itemId: row.itemId, price } });
+      if (mode === "fijo" && target.scope === "one" && target.itemId !== null) {
+        // Precio fijo a un solo ítem: setLocationPrice directo.
+        await savePrice({
+          data: { locationId, itemType: target.itemType, itemId: target.itemId, price: num },
+        });
+      } else {
+        await bulkAdjust({
+          data: {
+            locationId,
+            itemType: target.itemType,
+            itemIds,
+            mode: mode === "fijo" ? "unit" : "percent",
+            value: num,
+          },
+        });
+      }
+      toast.success("Precio actualizado");
+      setModalOpen(false);
       await reload(locationId);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo guardar");
+      toast.error(err instanceof Error ? err.message : "No se pudo cambiar el precio");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -124,36 +193,6 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
       await reload(locationId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo restablecer");
-    }
-  };
-
-  const applyPercent = async (itemType: ItemType, rows: PriceRow[], raw: string) => {
-    if (locationId === null) return;
-    const value = Number(raw);
-    if (Number.isNaN(value) || value === 0) {
-      toast.error("Ingresá un porcentaje (ej: 10 o -5)");
-      return;
-    }
-    if (rows.length === 0) return;
-    setBulking(true);
-    try {
-      await bulkAdjust({
-        data: {
-          locationId,
-          itemType,
-          itemIds: rows.map((r) => r.itemId),
-          mode: "percent",
-          value,
-        },
-      });
-      toast.success(`Ajuste de ${value}% aplicado a ${rows.length} ítems`);
-      if (itemType === "product") setPctProduct("");
-      else setPctCombo("");
-      await reload(locationId);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo aplicar el ajuste");
-    } finally {
-      setBulking(false);
     }
   };
 
@@ -174,112 +213,109 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
     }
   };
 
-  const makeColumns = (): Column<PriceRow>[] => [
-    {
-      key: "name",
-      header: "Nombre",
-      sortable: true,
-      sortAccessor: (r) => r.name.toLowerCase(),
-      cell: (r) => <span className="font-medium">{r.name}</span>,
-    },
-    {
-      key: "base",
-      header: "Base",
-      sortable: true,
-      sortAccessor: (r) => Number(r.basePrice),
-      cell: (r) => <span className="text-muted-foreground">${r.basePrice}</span>,
-    },
-    {
-      key: "override",
-      header: "Precio en este negocio",
-      cell: (r) => (
-        <Input
-          key={`${r.itemType}-${r.itemId}-${r.override ?? "base"}`}
-          type="number"
-          step="0.01"
-          min="0"
-          defaultValue={r.override ?? ""}
-          placeholder={r.basePrice}
-          className="h-9 w-28"
-          onBlur={(e) => commitPrice(r, e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-        />
-      ),
-    },
-    {
-      key: "effective",
-      header: "Efectivo",
-      sortable: true,
-      sortAccessor: (r) => Number(r.effectivePrice),
-      cell: (r) => (
-        <span className={r.override !== null ? "font-semibold text-primary" : "text-foreground"}>
-          ${r.effectivePrice}
-        </span>
-      ),
-    },
-    {
-      key: "actions",
-      header: "",
-      align: "right",
-      cell: (r) => (
-        <div className="flex justify-end gap-1">
-          {r.override !== null && (
+  const makeColumns = (showCategory: boolean): Column<PriceRow>[] => {
+    const cols: Column<PriceRow>[] = [
+      {
+        key: "name",
+        header: "Nombre",
+        sortable: true,
+        sortAccessor: (r) => r.name.toLowerCase(),
+        cell: (r) => <span className="font-medium">{r.name}</span>,
+      },
+    ];
+    if (showCategory) {
+      cols.push({
+        key: "category",
+        header: "Categoría",
+        sortable: true,
+        sortAccessor: (r) => (r.categoryName ?? "").toLowerCase(),
+        cell: (r) => <span className="text-muted-foreground">{r.categoryName ?? "Sin categoría"}</span>,
+      });
+    }
+    cols.push(
+      {
+        key: "base",
+        header: "Base",
+        sortable: true,
+        sortAccessor: (r) => Number(r.basePrice),
+        cell: (r) => <span className="text-muted-foreground">${r.basePrice}</span>,
+      },
+      {
+        key: "override",
+        header: "Propio",
+        cell: (r) => <span className="text-muted-foreground">{r.override ? `$${r.override}` : "—"}</span>,
+      },
+      {
+        key: "effective",
+        header: "Efectivo",
+        sortable: true,
+        sortAccessor: (r) => Number(r.effectivePrice),
+        cell: (r) => (
+          <span className={r.override !== null ? "font-semibold text-primary" : "text-foreground"}>
+            ${r.effectivePrice}
+          </span>
+        ),
+      },
+      {
+        key: "actions",
+        header: "",
+        align: "right",
+        cell: (r) => (
+          <div className="flex justify-end gap-1">
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              title="Volver al precio base"
-              onClick={() => resetToBase(r)}
+              title="Cambiar precio"
+              onClick={() => openItemModal(r)}
             >
-              <RotateCcw className="h-4 w-4" />
+              <Pencil className="h-4 w-4" />
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            title="Historial de cambios"
-            onClick={() => openHistory(r)}
-          >
-            <History className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+            {r.override !== null && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Volver al precio base"
+                onClick={() => resetToBase(r)}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title="Historial de cambios"
+              onClick={() => openHistory(r)}
+            >
+              <History className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    );
+    return cols;
+  };
 
-  const productColumns = useMemo(makeColumns, [locationId]);
-  const comboColumns = useMemo(makeColumns, [locationId]);
+  const productColumns = useMemo(() => makeColumns(true), [locationId]);
+  const comboColumns = useMemo(() => makeColumns(false), [locationId]);
 
-  const bulkBar = (
-    itemType: ItemType,
-    rows: PriceRow[],
-    value: string,
-    setValue: (v: string) => void,
-  ) => (
-    <div className="flex items-center gap-2">
-      <Percent className="h-4 w-4 text-muted-foreground" />
-      <Input
-        type="number"
-        step="0.1"
-        value={value}
-        placeholder="% (ej: 10 / -5)"
-        className="h-10 w-36"
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <Button
-        variant="outline"
-        className="gap-2"
-        disabled={bulking || !value.trim()}
-        onClick={() => applyPercent(itemType, rows, value)}
-      >
-        {bulking && <Loader2 className="h-4 w-4 animate-spin" />}
-        Aplicar a todos
-      </Button>
-    </div>
+  const overrideSelect = (v: OverrideFilter, onChange: (v: OverrideFilter) => void) => (
+    <Select value={v} onValueChange={(x) => onChange(x as OverrideFilter)}>
+      <SelectTrigger className="h-10 w-44">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="todos">Todos</SelectItem>
+        <SelectItem value="propio">Con precio propio</SelectItem>
+        <SelectItem value="base">Con precio base</SelectItem>
+      </SelectContent>
+    </Select>
   );
+
+  const overrideFilterFn = (v: OverrideFilter) => (r: PriceRow) =>
+    v === "todos" ? true : v === "propio" ? r.override !== null : r.override === null;
 
   if (loadingLocations) {
     return (
@@ -320,7 +356,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          El precio de este negocio pisa al precio base. Dejá el campo vacío para volver al base.
+          El precio de este negocio pisa al precio base.
         </p>
       </div>
 
@@ -330,7 +366,10 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
             <Package className="h-4 w-4 text-primary" />
             <h3 className="text-lg font-bold">Productos</h3>
           </div>
-          {bulkBar("product", products, pctProduct, setPctProduct)}
+          <Button className="gap-2" onClick={() => openBulkModal("product")}>
+            <Pencil className="h-4 w-4" />
+            Cambiar precios
+          </Button>
         </div>
         <DataTable<PriceRow>
           rows={products}
@@ -339,8 +378,37 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
           panelClass={panelClass}
           loading={loadingData}
           emptyMessage="No hay productos."
-          searchKeys={[(r) => r.name]}
+          searchKeys={[(r) => r.name, (r) => r.categoryName ?? ""]}
           searchPlaceholder="Buscar producto..."
+          toolbar={
+            <>
+              <Select value={prodCat} onValueChange={setProdCat}>
+                <SelectTrigger className="h-10 w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas las categorías</SelectItem>
+                  <SelectItem value="sin">Sin categoría</SelectItem>
+                  {productCategories.map((n) => (
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {overrideSelect(prodOverride, setProdOverride)}
+            </>
+          }
+          filter={(r) => {
+            const okOv = overrideFilterFn(prodOverride)(r);
+            const okCat =
+              prodCat === "todas"
+                ? true
+                : prodCat === "sin"
+                  ? r.categoryName === null
+                  : r.categoryName === prodCat;
+            return okOv && okCat;
+          }}
           initialSort={{ key: "name", dir: "asc" }}
           pageSize={10}
         />
@@ -352,7 +420,10 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
             <Boxes className="h-4 w-4 text-primary" />
             <h3 className="text-lg font-bold">Combos</h3>
           </div>
-          {bulkBar("combo", combos, pctCombo, setPctCombo)}
+          <Button className="gap-2" onClick={() => openBulkModal("combo")}>
+            <Pencil className="h-4 w-4" />
+            Cambiar precios
+          </Button>
         </div>
         <DataTable<PriceRow>
           rows={combos}
@@ -363,11 +434,82 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
           emptyMessage="No hay combos."
           searchKeys={[(r) => r.name]}
           searchPlaceholder="Buscar combo..."
+          toolbar={overrideSelect(comboOverride, setComboOverride)}
+          filter={overrideFilterFn(comboOverride)}
           initialSort={{ key: "name", dir: "asc" }}
           pageSize={10}
         />
       </div>
 
+      {/* Modal cambiar precio */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cambiar precio</DialogTitle>
+          </DialogHeader>
+          {target && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+                {target.scope === "one" ? (
+                  <>
+                    Ítem: <span className="font-semibold">{target.itemName}</span>
+                  </>
+                ) : (
+                  <>
+                    Aplicar a <span className="font-semibold">todos los {target.itemType === "product" ? "productos" : "combos"}</span> de este negocio
+                    {" "}({rowsFor(target.itemType).length}).
+                  </>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tipo de cambio</Label>
+                <Select value={mode} onValueChange={(v) => setMode(v as "fijo" | "porcentual")}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fijo">Precio fijo ($)</SelectItem>
+                    <SelectItem value="porcentual">Ajuste porcentual (%)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="price-value">
+                  {mode === "fijo" ? "Nuevo precio" : "Porcentaje (ej: 10 sube, -5 baja)"}
+                </Label>
+                <Input
+                  id="price-value"
+                  type="number"
+                  step="0.01"
+                  value={value}
+                  autoFocus
+                  placeholder={mode === "fijo" ? "0.00" : "10"}
+                  onChange={(e) => setValue(e.target.value)}
+                />
+                {mode === "porcentual" && (
+                  <p className="text-xs text-muted-foreground">
+                    Se aplica sobre el precio efectivo actual de cada ítem.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
+                  Cancelar
+                </Button>
+                <Button className="gap-2" onClick={applyChange} disabled={saving || !value.trim()}>
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Aplicar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog historial */}
       <Dialog open={histItem !== null} onOpenChange={(o) => !o && setHistItem(null)}>
         <DialogContent>
           <DialogHeader>
