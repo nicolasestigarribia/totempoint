@@ -38,22 +38,22 @@ Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive
 - The old single-brand Burger Point demo (`src/lib/menu.ts`, `src/lib/store.ts`, `TotemHeader`, and the bare `categories` / `menu.$category` / `cart` / `checkout` / `confirmation.$orderId` routes) **was deleted**: it served a hardcoded menu whose orders never reached the database, and a tablet left on `/` could take fake orders. Don't reintroduce a demo flow at the root.
 - **`/` is the platform's landing page**, not a business: the Totempoint pitch plus a link to `/login`. A totem is always opened by its own slug URL.
 
-### The public kiosk layer (`src/lib/api/kiosk.functions.ts`)
+### The public totem layer (`src/lib/api/totem.functions.ts`)
 
 This is the **only file with server functions that have no auth middleware** — the totem runs without a session. Everything else in `src/lib/api/` requires `requireAuth`/`requireSuperadmin`, so keep authenticated helpers out of this file to avoid accidentally exposing them.
 
-- A business is resolved by `companies.slug` from the URL (`/k/primorosas`). The slug is generated from the name in `createBusiness` and is not editable from any panel.
-- `getKioskHome` (cover), `getKioskMenu` (catalog), `createKioskOrder`, `getKioskOrder`.
-- `createKioskOrder` receives only product ids and quantities; **prices and the total are recomputed server-side** from the DB. Never trust amounts sent by the client.
+- A business is resolved by `companies.slug` from the URL (`/t/primorosas`). The slug is generated from the name in `createBusiness` and is not editable from any panel.
+- `getTotemHome` (cover), `getTotemMenu` (catalog + combos), `createTotemOrder`, `getTotemOrder`.
+- `createTotemOrder` receives lines of `{kind: "producto" | "combo", id, quantity}`; **prices and the total are recomputed server-side** from the DB. Never trust amounts sent by the client. A combo is stored as one `order_items` row with `product_id` null and the combo's name and price, which `order_items` already freezes.
 - Products with no `categoryId` are grouped under a synthetic category with id `0` (`UNCATEGORIZED`, shown as "Otros") so they can't become invisible.
 - Order numbers are `MAX(order_number) + 1` per location inside a transaction, starting at 100. The totem only knows the company, so orders are attached to the company's first active location.
-- Per-location availability (`locationProducts`/`locationCategories`) is **not** applied by the kiosk yet — it reads the company-level catalog.
+- Per-location availability (`locationProducts`/`locationCategories`) is **not** applied by the totem yet — it reads the company-level catalog.
 
-### Totem cover and kiosk behaviour
+### Totem cover and behaviour
 
-`kioskSettings` holds one row per company (template, hero image, eyebrow, title + accent, subtitle, CTA label, two badges, accent color) and is edited in the admin's "Portada" section, which renders a live scaled preview of the real `KioskHome` component. Three templates live in `src/components/kiosk/KioskHome.tsx`: `clasico`, `completo`, `split`.
+`totemSettings` holds one row per company (template, colour base, hero image, eyebrow, title + accent, subtitle, CTA label, two badges, accent colour) and is edited in the admin's "Portada" section, which renders the real `TotemHome` inside `PreviewFrame` — an iframe with its own 1280x800 window, because the cover's `min-h-dvh` and `lg:` classes measure the window and a scaled div showed the phone layout. Three templates live in `src/components/totem/TotemHome.tsx`: `clasico`, `completo`, `split`. `useTotemTheme` tints every totem screen with the company's colour over the chosen base.
 
-`useKioskIdleReset` sends the totem back to the cover and clears the cart after 90s without interaction, so one customer never inherits another's order. The cart (`src/lib/kiosk-cart.ts`) stores the slug it belongs to and empties itself if the tablet switches businesses.
+`useTotemIdleReset` sends the totem back to the cover and clears the cart after 90s without interaction, so one customer never inherits another's order. The cart (`src/lib/totem-cart.ts`) stores the slug it belongs to, empties itself if the tablet switches businesses, and keys each line by `kind + refId` so a product and a combo with the same id never collide.
 
 ### Images are stored in MySQL, not in object storage
 
@@ -125,10 +125,9 @@ Built with the Dockerfile (bun for install/build → `node:22-slim` runtime runn
 
 Verified working end to end: business signup → owner login → cover setup → image upload → catalog on the totem → cart → checkout → order in the DB → kitchen panel. What is still missing:
 
-- **Combos never reach the totem.** `getKioskMenu` returns categories and products only.
-- **The slug can't be edited** from any panel, and no screen shows the full totem URL. A "copy link + QR" block in the Portada section was proposed and not built — installing a new totem currently means typing a long Railway URL on a tablet.
-- **No kitchen users.** `createBusiness` only creates an `admin`; the `kitchen` role exists in `user_roles` but nothing creates users with it, so `/kitchen` is reached with the admin account.
-- **A logged-in session on the totem tablet is a hole**: `/k/$slug` has no way out, but if the owner logs in on that tablet and doesn't log out, anyone typing `/admin` gets the panel. Mitigated only by procedure (administer from a phone/PC, lock the tablet with the OS kiosk mode).
+- **The slug can't be edited** from any panel. The full totem URL and its QR do show in the Portada section (`TotemLinkCard`), so installing a totem no longer means typing a long URL.
+- **Payments, cash closing and cancellations don't exist** (points 8, 11 and 12 of the business rules). This is the one thing that still separates the product from being installable in a real shop, and it belongs to Nicolás.
+- **A logged-in session on the totem tablet is a hole**: `/t/$slug` has no way out, but if the owner logs in on that tablet and doesn't log out, anyone typing `/admin` gets the panel. Mitigated only by procedure (administer from a phone/PC, lock the tablet with the OS kiosk mode).
 - **Location is implicit.** Orders go to the company's first active location; a multi-branch business needs the totem to know which branch it is (device pairing was discussed as the eventual fix).
 - **`.env` is committed to the repo**, so its keys are in git history. Pre-existing, flagged to the user, untouched — removing it means rewriting history and rotating keys.
 

@@ -61,7 +61,7 @@ function CarritoPage() {
             <ul className="space-y-4">
               {items.map((i) => (
                 <li
-                  key={i.productId}
+                  key={`${i.kind}-${i.refId}`}
                   className="flex flex-wrap items-center gap-4 rounded-3xl border border-border/60 bg-card/40 p-4"
                 >
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
@@ -83,7 +83,7 @@ function CarritoPage() {
                     <button
                       type="button"
                       aria-label="Quitar uno"
-                      onClick={() => removeOne(i.productId)}
+                      onClick={() => removeOne(i.kind, i.refId)}
                       className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
                     >
                       <Minus className="h-5 w-5" />
@@ -94,7 +94,8 @@ function CarritoPage() {
                       aria-label="Agregar uno"
                       onClick={() =>
                         add(menu.slug, {
-                          productId: i.productId,
+                          kind: i.kind,
+                          refId: i.refId,
                           name: i.name,
                           price: i.price,
                           photoUrl: i.photoUrl,
@@ -107,7 +108,7 @@ function CarritoPage() {
                     <button
                       type="button"
                       aria-label="Quitar del pedido"
-                      onClick={() => removeAll(i.productId)}
+                      onClick={() => removeAll(i.kind, i.refId)}
                       className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-5 w-5" />

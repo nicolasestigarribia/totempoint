@@ -53,7 +53,7 @@ function CheckoutPage() {
           customerName,
           deliveryMethod: delivery,
           comments: comments.trim() || undefined,
-          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          items: items.map((i) => ({ kind: i.kind, id: i.refId, quantity: i.quantity })),
         },
       });
       clear();

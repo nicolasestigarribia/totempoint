@@ -5,7 +5,7 @@ import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
-import { gridColsFor } from "@/components/totem/grid";
+import { gridColsFor, lastSpanFor } from "@/components/totem/grid";
 
 export const Route = createFileRoute("/t/$slug/categorias")({
   loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
@@ -32,19 +32,68 @@ function CategoriasPage() {
           <p className="mt-1 text-muted-foreground">Tocá una tarjeta para ver los productos</p>
         </div>
 
-        {menu.categories.length === 0 ? (
+        {menu.categories.length === 0 && menu.combos.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <UtensilsCrossed className="h-14 w-14 text-muted-foreground" />
             <p className="text-xl text-muted-foreground">Todavía no hay productos cargados</p>
           </div>
         ) : (
-          <div className={`grid flex-1 auto-rows-fr gap-4 ${gridColsFor(menu.categories.length)}`}>
-            {menu.categories.map((c) => (
+          <div
+            className={`grid flex-1 auto-rows-fr gap-4 ${gridColsFor(
+              menu.categories.length + (menu.combos.length > 0 ? 1 : 0),
+            )}`}
+          >
+            {/* Los combos van primeros y con borde de color: son la oferta que
+                conviene, no una categoría más perdida entre las otras. */}
+            {menu.combos.length > 0 && (
+              <Link
+                to="/t/$slug/combos"
+                params={{ slug: menu.slug }}
+                className="group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border-2 shadow-card transition hover:-translate-y-1"
+                style={{ borderColor: accent ?? "var(--primary)" }}
+              >
+                {menu.combos[0].photoUrl ? (
+                  <img
+                    src={menu.combos[0].photoUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-muted" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
+
+                <div className="relative z-10 flex items-end justify-between gap-4 p-6">
+                  <div>
+                    <div
+                      className="text-[11px] font-bold uppercase tracking-[0.3em]"
+                      style={{ color: accent }}
+                    >
+                      Más barato que por separado
+                    </div>
+                    <h2 className="mt-2 font-display text-4xl text-white">Combos</h2>
+                    <p className="mt-1 text-sm text-white/70">
+                      {menu.combos.length} {menu.combos.length === 1 ? "combo" : "combos"}
+                    </p>
+                  </div>
+                  <div
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-glow transition group-hover:translate-x-1"
+                    style={{ background: accent ?? "var(--primary)" }}
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </div>
+                </div>
+              </Link>
+            )}
+            {menu.categories.map((c, i) => (
               <Link
                 key={c.id}
                 to="/t/$slug/menu/$category"
                 params={{ slug: menu.slug, category: String(c.id) }}
-                className="group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary"
+                className={`group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary ${lastSpanFor(
+                  menu.categories.length + (menu.combos.length > 0 ? 1 : 0),
+                  i + (menu.combos.length > 0 ? 1 : 0),
+                )}`}
               >
                 {c.photoUrl ? (
                   <img

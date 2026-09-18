@@ -7,6 +7,8 @@ import {
   totemSettings,
   categories,
   products,
+  combos,
+  comboProducts,
   locations,
   orders,
   orderItems,
@@ -59,6 +61,21 @@ export interface TotemProduct {
   photoUrl: string | null;
 }
 
+export interface TotemComboItem {
+  name: string;
+  quantity: number;
+}
+
+export interface TotemCombo {
+  id: number;
+  name: string;
+  description: string | null;
+  price: string;
+  photoUrl: string | null;
+  /** Qué trae el combo, para que el cliente sepa qué está comprando. */
+  items: TotemComboItem[];
+}
+
 export interface TotemMenu {
   name: string;
   slug: string;
@@ -67,6 +84,7 @@ export interface TotemMenu {
   theme: TotemThemeName;
   categories: TotemCategory[];
   products: TotemProduct[];
+  combos: TotemCombo[];
 }
 
 export const getTotemHome = createServerFn({ method: "GET" })
@@ -158,6 +176,44 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       productCount: visibleProducts.filter((p) => p.categoryId === c.id).length,
     }));
 
+    // Combos: van con el detalle de lo que traen, para que el cliente sepa qué
+    // está comprando sin tener que abrir nada.
+    const comboRows = await db
+      .select({
+        id: combos.id,
+        name: combos.name,
+        description: combos.description,
+        price: combos.price,
+        photoUrl: combos.photoUrl,
+      })
+      .from(combos)
+      .where(and(eq(combos.companyId, companyId), eq(combos.active, true)))
+      .orderBy(asc(combos.sort), asc(combos.name));
+
+    const comboItems = comboRows.length
+      ? await db
+          .select({
+            comboId: comboProducts.comboId,
+            quantity: comboProducts.quantity,
+            name: products.name,
+          })
+          .from(comboProducts)
+          .innerJoin(products, eq(products.id, comboProducts.productId))
+          .where(
+            inArray(
+              comboProducts.comboId,
+              comboRows.map((c) => c.id),
+            ),
+          )
+      : [];
+
+    const totemCombos: TotemCombo[] = comboRows.map((c) => ({
+      ...c,
+      items: comboItems
+        .filter((i) => i.comboId === c.id)
+        .map((i) => ({ name: i.name, quantity: i.quantity })),
+    }));
+
     const looseCount = visibleProducts.filter((p) => p.categoryId === UNCATEGORIZED).length;
     if (looseCount > 0) {
       totemCategories.push({
@@ -177,6 +233,7 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       theme: row.theme ?? "oscuro",
       categories: totemCategories.filter((c) => c.productCount > 0),
       products: visibleProducts,
+      combos: totemCombos,
     };
   });
 
@@ -189,8 +246,16 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       customerName: z.string().trim().min(1).max(120),
       deliveryMethod: z.enum(["local", "mostrador"]),
       comments: z.string().trim().max(500).optional(),
+      // Cada línea es un producto suelto o un combo. El precio no viaja nunca:
+      // se recalcula acá contra la base.
       items: z
-        .array(z.object({ productId: z.number().int(), quantity: z.number().int().min(1).max(50) }))
+        .array(
+          z.object({
+            kind: z.enum(["producto", "combo"]),
+            id: z.number().int(),
+            quantity: z.number().int().min(1).max(50),
+          }),
+        )
         .min(1),
     }),
   )
@@ -213,24 +278,53 @@ export const createTotemOrder = createServerFn({ method: "POST" })
 
     if (!location) throw new Error("El comercio no tiene un local activo");
 
-    const ids = data.items.map((i) => i.productId);
-    const rows = await db
-      .select({ id: products.id, name: products.name, price: products.price })
-      .from(products)
-      .where(
-        and(
-          eq(products.companyId, company.id),
-          eq(products.active, true),
-          inArray(products.id, ids),
-        ),
-      );
+    const productIds = data.items.filter((i) => i.kind === "producto").map((i) => i.id);
+    const comboIds = data.items.filter((i) => i.kind === "combo").map((i) => i.id);
 
-    if (rows.length !== ids.length) {
-      throw new Error("Alguno de los productos ya no está disponible");
+    const productRows = productIds.length
+      ? await db
+          .select({ id: products.id, name: products.name, price: products.price })
+          .from(products)
+          .where(
+            and(
+              eq(products.companyId, company.id),
+              eq(products.active, true),
+              inArray(products.id, productIds),
+            ),
+          )
+      : [];
+
+    const comboRows = comboIds.length
+      ? await db
+          .select({ id: combos.id, name: combos.name, price: combos.price })
+          .from(combos)
+          .where(
+            and(
+              eq(combos.companyId, company.id),
+              eq(combos.active, true),
+              inArray(combos.id, comboIds),
+            ),
+          )
+      : [];
+
+    if (productRows.length !== productIds.length || comboRows.length !== comboIds.length) {
+      throw new Error("Algo de tu pedido ya no está disponible");
     }
 
+    // El combo se guarda como una línea con su propio precio y sin product_id:
+    // order_items ya congela nombre y precio, así que el pedido queda fiel
+    // aunque después se cambie el combo.
     const priced = data.items.map((item) => {
-      const product = rows.find((r) => r.id === item.productId)!;
+      if (item.kind === "combo") {
+        const combo = comboRows.find((c) => c.id === item.id)!;
+        return {
+          productId: null,
+          productName: combo.name,
+          unitPrice: combo.price,
+          quantity: item.quantity,
+        };
+      }
+      const product = productRows.find((r) => r.id === item.id)!;
       return {
         productId: product.id,
         productName: product.name,

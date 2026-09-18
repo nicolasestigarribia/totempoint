@@ -15,6 +15,7 @@ import { Route as KitchenRouteImport } from './routes/kitchen'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TSlugIndexRouteImport } from './routes/t.$slug.index'
+import { Route as TSlugCombosRouteImport } from './routes/t.$slug.combos'
 import { Route as TSlugCheckoutRouteImport } from './routes/t.$slug.checkout'
 import { Route as TSlugCategoriasRouteImport } from './routes/t.$slug.categorias'
 import { Route as TSlugCarritoRouteImport } from './routes/t.$slug.carrito'
@@ -49,6 +50,11 @@ const IndexRoute = IndexRouteImport.update({
 const TSlugIndexRoute = TSlugIndexRouteImport.update({
   id: '/t/$slug/',
   path: '/t/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TSlugCombosRoute = TSlugCombosRouteImport.update({
+  id: '/t/$slug/combos',
+  path: '/t/$slug/combos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TSlugCheckoutRoute = TSlugCheckoutRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/t/$slug/carrito': typeof TSlugCarritoRoute
   '/t/$slug/categorias': typeof TSlugCategoriasRoute
   '/t/$slug/checkout': typeof TSlugCheckoutRoute
+  '/t/$slug/combos': typeof TSlugCombosRoute
   '/t/$slug/': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/t/$slug/carrito': typeof TSlugCarritoRoute
   '/t/$slug/categorias': typeof TSlugCategoriasRoute
   '/t/$slug/checkout': typeof TSlugCheckoutRoute
+  '/t/$slug/combos': typeof TSlugCombosRoute
   '/t/$slug': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/t/$slug/carrito': typeof TSlugCarritoRoute
   '/t/$slug/categorias': typeof TSlugCategoriasRoute
   '/t/$slug/checkout': typeof TSlugCheckoutRoute
+  '/t/$slug/combos': typeof TSlugCombosRoute
   '/t/$slug/': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/t/$slug/carrito'
     | '/t/$slug/categorias'
     | '/t/$slug/checkout'
+    | '/t/$slug/combos'
     | '/t/$slug/'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/t/$slug/carrito'
     | '/t/$slug/categorias'
     | '/t/$slug/checkout'
+    | '/t/$slug/combos'
     | '/t/$slug'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/t/$slug/carrito'
     | '/t/$slug/categorias'
     | '/t/$slug/checkout'
+    | '/t/$slug/combos'
     | '/t/$slug/'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   TSlugCarritoRoute: typeof TSlugCarritoRoute
   TSlugCategoriasRoute: typeof TSlugCategoriasRoute
   TSlugCheckoutRoute: typeof TSlugCheckoutRoute
+  TSlugCombosRoute: typeof TSlugCombosRoute
   TSlugIndexRoute: typeof TSlugIndexRoute
   TSlugListoOrderIdRoute: typeof TSlugListoOrderIdRoute
   TSlugMenuCategoryRoute: typeof TSlugMenuCategoryRoute
@@ -217,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/t/$slug/combos': {
+      id: '/t/$slug/combos'
+      path: '/t/$slug/combos'
+      fullPath: '/t/$slug/combos'
+      preLoaderRoute: typeof TSlugCombosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/t/$slug/checkout': {
       id: '/t/$slug/checkout'
       path: '/t/$slug/checkout'
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   TSlugCarritoRoute: TSlugCarritoRoute,
   TSlugCategoriasRoute: TSlugCategoriasRoute,
   TSlugCheckoutRoute: TSlugCheckoutRoute,
+  TSlugCombosRoute: TSlugCombosRoute,
   TSlugIndexRoute: TSlugIndexRoute,
   TSlugListoOrderIdRoute: TSlugListoOrderIdRoute,
   TSlugMenuCategoryRoute: TSlugMenuCategoryRoute,

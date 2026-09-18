@@ -18,3 +18,15 @@ export function gridColsFor(n: number): string {
   if (n <= 8) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
   return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 }
+
+/**
+ * La última tarjeta ocupa las dos columnas cuando la cantidad es impar.
+ *
+ * En una tablet vertical la grilla es de dos columnas: con cinco tarjetas la
+ * quinta quedaba sola, con un hueco al lado, que es justo lo que se ve
+ * desprolijo. Ancha, la fila cierra.
+ */
+export function lastSpanFor(n: number, index: number): string {
+  const esUltima = index === n - 1;
+  return esUltima && n > 1 && n % 2 === 1 ? "sm:col-span-2 lg:col-span-1" : "";
+}
