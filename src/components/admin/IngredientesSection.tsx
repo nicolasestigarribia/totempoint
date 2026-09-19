@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { useReadOnly } from "@/components/admin/readonly";
 import {
   listIngredients,
   createIngredient,
@@ -39,6 +40,7 @@ import {
 const UNITS = ["Grs", "Kg", "Mg", "Ml", "Lts", "Cc", "Cm", "Mm", "Mts", "Unidad"] as const;
 
 export function IngredientesSection({ panelClass }: { panelClass: string }) {
+  const readOnly = useReadOnly();
   const fetchIngredients = useServerFn(listIngredients);
   const doCreate = useServerFn(createIngredient);
   const doUpdate = useServerFn(updateIngredient);
@@ -282,21 +284,23 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-bold">Ingredientes</h3>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setCatManagerOpen(true)}>
-            <FolderCog className="h-4 w-4" />
-            Categorías
-          </Button>
-          <Button className="gap-2" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Nuevo ingrediente
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setCatManagerOpen(true)}>
+              <FolderCog className="h-4 w-4" />
+              Categorías
+            </Button>
+            <Button className="gap-2" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Nuevo ingrediente
+            </Button>
+          </div>
+        )}
       </div>
 
       <DataTable
         rows={rows}
-        columns={columns}
+        columns={readOnly ? columns.filter((c) => c.key !== "actions") : columns}
         getRowId={(r) => r.id}
         panelClass={panelClass}
         loading={loading}

@@ -21,6 +21,7 @@ import {
   type OrderStatus,
 } from "@/lib/api/orders.functions";
 import { formatPrice } from "@/lib/totem-cart";
+import { canEditSection } from "@/lib/auth/permissions";
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({ meta: [{ title: "Panel de cocina" }] }),
@@ -78,6 +79,10 @@ function Kitchen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
+  // Mirar la comandera y mover los pedidos son cosas distintas: al encargado
+  // con "solo ver" el servidor le rechaza el cambio, así que no le mostramos
+  // botones que no va a poder usar. El personal de cocina siempre puede.
+  const [puedeOperar, setPuedeOperar] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -94,6 +99,14 @@ function Kitchen() {
       if (!user) {
         navigate({ to: "/login", replace: true });
         return;
+      }
+      if (alive) {
+        setPuedeOperar(
+          user.roles.includes("kitchen") ||
+            user.roles.includes("owner") ||
+            user.roles.includes("superadmin") ||
+            canEditSection(user.permissions, "comandera"),
+        );
       }
       await load();
       if (alive) setLoading(false);
@@ -258,7 +271,7 @@ function Kitchen() {
                             <span className="font-display text-xl">{formatPrice(o.total)}</span>
                           </div>
 
-                          {next && (
+                          {next && puedeOperar && (
                             <button
                               onClick={() => changeStatus(o, next)}
                               className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition hover:scale-[1.02] active:scale-95"
@@ -267,7 +280,7 @@ function Kitchen() {
                               <ChevronRight className="h-4 w-4" />
                             </button>
                           )}
-                          {o.status === "entregado" && (
+                          {o.status === "entregado" && puedeOperar && (
                             <button
                               onClick={() => changeStatus(o, "preparacion")}
                               className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"

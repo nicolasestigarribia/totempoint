@@ -35,6 +35,7 @@ import type { PanelSection, PermissionLevel, PermissionMap } from "@/lib/auth/pe
 import { canViewSection, canEditSection } from "@/lib/auth/permissions";
 import { exitBusiness } from "@/lib/api/platform.functions";
 import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
+import { ReadOnlyContext } from "@/components/admin/readonly";
 import { LocalesSection } from "@/components/admin/LocalesSection";
 import { CategoriasSection } from "@/components/admin/CategoriasSection";
 import { ProductosSection } from "@/components/admin/ProductosSection";
@@ -475,12 +476,14 @@ function AdminPage() {
           </div>
         </div>
         <div className="p-6 md:p-8">
-          <SectionContent
-            section={section}
-            business={business!}
-            branding={branding}
-            panelClass={PANEL}
-          />
+          <ReadOnlyContext.Provider value={readOnly}>
+            <SectionContent
+              section={section}
+              business={business!}
+              branding={branding}
+              panelClass={PANEL}
+            />
+          </ReadOnlyContext.Provider>
         </div>
       </main>
     </div>

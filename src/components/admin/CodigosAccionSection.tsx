@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { useReadOnly } from "@/components/admin/readonly";
 import {
   listActionCodesAll,
   createActionCode,
@@ -29,6 +30,7 @@ type Kind = "stock" | "caja";
 type Dir = "ingreso" | "egreso";
 
 export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
+  const readOnly = useReadOnly();
   const fetchAll = useServerFn(listActionCodesAll);
   const doCreate = useServerFn(createActionCode);
   const doUpdate = useServerFn(updateActionCode);
@@ -188,7 +190,11 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
         sortAccessor: (r) => (r.active ? 1 : 0),
         cell: (r) => (
           <div className="flex items-center gap-2">
-            <Switch checked={r.active} onCheckedChange={(v) => toggleActive(r, v)} />
+            <Switch
+              checked={r.active}
+              onCheckedChange={(v) => toggleActive(r, v)}
+              disabled={readOnly}
+            />
             <span className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}>
               {r.active ? "Activo" : "Inactivo"}
             </span>
@@ -224,10 +230,12 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="text-lg font-bold">Códigos de acción</h3>
-        <Button className="gap-2" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Nuevo código
-        </Button>
+        {!readOnly && (
+          <Button className="gap-2" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Nuevo código
+          </Button>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
             <SelectTrigger className="h-10 w-36">
@@ -244,7 +252,7 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
 
       <DataTable<ActionCodeRow>
         rows={rows}
-        columns={columns}
+        columns={readOnly ? columns.filter((c) => c.key !== "actions") : columns}
         getRowId={(r) => r.id}
         panelClass={panelClass}
         loading={loading}

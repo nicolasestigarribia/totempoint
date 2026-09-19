@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { useReadOnly } from "@/components/admin/readonly";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   listCombos,
@@ -34,6 +35,7 @@ interface DraftProduct {
 }
 
 export function CombosSection({ panelClass }: { panelClass: string }) {
+  const readOnly = useReadOnly();
   const list = useServerFn(listCombos);
   const create = useServerFn(createCombo);
   const update = useServerFn(updateCombo);
@@ -259,6 +261,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
           <Switch
             checked={r.active}
             onCheckedChange={(v) => toggleActive(r, v)}
+            disabled={readOnly}
             aria-label={r.active ? "Desactivar" : "Activar"}
           />
           <span className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}>
@@ -307,15 +310,17 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-bold">Combos</h3>
-        <Button className="gap-2" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Nuevo combo
-        </Button>
+        {!readOnly && (
+          <Button className="gap-2" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Nuevo combo
+          </Button>
+        )}
       </div>
 
       <DataTable
         rows={rows}
-        columns={columns}
+        columns={readOnly ? columns.filter((c) => c.key !== "actions") : columns}
         getRowId={(row) => row.id}
         panelClass={panelClass}
         loading={loading}

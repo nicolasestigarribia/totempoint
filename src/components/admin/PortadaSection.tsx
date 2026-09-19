@@ -16,6 +16,7 @@ import {
 import { TotemHome } from "@/components/totem/TotemHome";
 import { PreviewFrame } from "@/components/admin/PreviewFrame";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { useReadOnly } from "@/components/admin/readonly";
 import { TotemLinkCard } from "@/components/admin/TotemLinkCard";
 import {
   getMyTotemSettings,
@@ -67,6 +68,7 @@ export function PortadaSection({
   panelClass: string;
   business: MyBusiness;
 }) {
+  const readOnly = useReadOnly();
   const fetchSettings = useServerFn(getMyTotemSettings);
   const save = useServerFn(updateMyTotemSettings);
 
@@ -301,10 +303,12 @@ export function PortadaSection({
             </div>
           </div>
 
-          <Button type="submit" disabled={saving} className="h-12 gap-2 px-8 font-bold">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Guardar portada
-          </Button>
+          {!readOnly && (
+            <Button type="submit" disabled={saving} className="h-12 gap-2 px-8 font-bold">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Guardar portada
+            </Button>
+          )}
         </form>
 
         <div className={`space-y-4 p-6 ${panelClass}`}>
