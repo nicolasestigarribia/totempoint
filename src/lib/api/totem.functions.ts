@@ -480,7 +480,8 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           externalReference: String(creado.orderId),
           backUrl: volverA,
           notificationUrl: aviso,
-          descripcion: company.name,
+          negocio: company.name,
+          numeroPedido: creado.orderNumber,
         });
 
         await db

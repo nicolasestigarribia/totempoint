@@ -56,6 +56,15 @@ async function main() {
     console.log("Las columnas de Mercado Pago ya existían.");
   }
 
+  if (!(await tieneColumna("payment_settings", "mp_test_account"))) {
+    await db.execute(
+      sql`ALTER TABLE payment_settings ADD COLUMN mp_test_account BOOLEAN NOT NULL DEFAULT FALSE`,
+    );
+    console.log("Columna mp_test_account agregada.");
+  } else {
+    console.log("mp_test_account ya existía.");
+  }
+
   process.exit(0);
 }
 

@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Save, Trash2, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+  ExternalLink,
+  FlaskConical,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,9 +101,11 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
   // guardado nada.
   const estado = !settings?.mpConfigurado
     ? ({ texto: "Sin configurar", clase: "bg-muted text-muted-foreground" } as const)
-    : settings.mpEnabled
-      ? ({ texto: "Cobrando", clase: "bg-green-500/15 text-green-500" } as const)
-      : ({ texto: "Apagado", clase: "bg-amber-500/15 text-amber-400" } as const);
+    : settings.mpDePrueba
+      ? ({ texto: "Modo prueba", clase: "bg-sky-500/15 text-sky-400" } as const)
+      : settings.mpEnabled
+        ? ({ texto: "Cobrando", clase: "bg-green-500/15 text-green-500" } as const)
+        : ({ texto: "Apagado", clase: "bg-amber-500/15 text-amber-400" } as const);
   const listo = settings?.mpConfigurado && settings.mpEnabled;
 
   return (
@@ -170,6 +180,22 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               Falta el access token: sin eso no se puede cobrar.
             </p>
+          )}
+
+          {settings?.mpDePrueba && (
+            <div className="rounded-2xl border border-sky-500/40 bg-sky-500/10 p-4 text-sm">
+              <p className="flex items-start gap-2 font-medium text-sky-300">
+                <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
+                Estas credenciales son de una cuenta de prueba de Mercado Pago.
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                Sirven para probar el circuito sin mover plata, pero{" "}
+                <strong className="text-foreground">no pueden cobrarle a un cliente real</strong>: a
+                una cuenta de prueba solo le puede pagar otra cuenta de prueba, y cualquier otro
+                intento falla con un error genérico de Mercado Pago. Antes de abrir, cambiá el token
+                por el de la cuenta real del negocio.
+              </p>
+            </div>
           )}
 
           {settings?.mpConfigurado && !settings.mpEnabled && (

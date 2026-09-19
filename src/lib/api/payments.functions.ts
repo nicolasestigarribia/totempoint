@@ -21,6 +21,8 @@ export interface PaymentSettingsView {
   mpConfigurado: boolean;
   /** Los últimos caracteres, solo para reconocer cuál está puesto. */
   mpTokenPista: string | null;
+  /** Si el token es de una cuenta de prueba: no puede cobrarle a nadie real. */
+  mpDePrueba: boolean;
 }
 
 /** Deja ver que hay un token sin mostrarlo: "…a1b2c3". */
@@ -44,6 +46,7 @@ export const getPaymentSettings = createServerFn({ method: "GET" })
       mpEnabled: row?.mpEnabled ?? false,
       mpConfigurado: Boolean(row?.mpAccessToken),
       mpTokenPista: pista(row?.mpAccessToken ?? null),
+      mpDePrueba: row?.mpTestAccount ?? false,
     };
   });
 
@@ -92,20 +95,29 @@ export const updatePaymentSettings = createServerFn({ method: "POST" })
 
     // Se prueba contra Mercado Pago antes de guardar: si la credencial no
     // sirve, tiene que enterarse ahora el dueño y no después un cliente.
+    let esDePrueba = existente?.mpTestAccount ?? false;
     if (token) {
       const prueba = await verificarCredencial(token);
       if (!prueba.ok) throw new Error(prueba.motivo);
+      esDePrueba = prueba.esDePrueba;
     }
 
     if (existente) {
       await db
         .update(paymentSettings)
-        .set({ mpAccessToken: tokenFinal, mpEnabled: data.mpEnabled })
+        .set({
+          mpAccessToken: tokenFinal,
+          mpEnabled: data.mpEnabled,
+          mpTestAccount: esDePrueba,
+        })
         .where(eq(paymentSettings.companyId, companyId));
     } else {
-      await db
-        .insert(paymentSettings)
-        .values({ companyId, mpAccessToken: tokenFinal, mpEnabled: data.mpEnabled });
+      await db.insert(paymentSettings).values({
+        companyId,
+        mpAccessToken: tokenFinal,
+        mpEnabled: data.mpEnabled,
+        mpTestAccount: esDePrueba,
+      });
     }
 
     return { ok: true };
@@ -118,7 +130,7 @@ export const clearPaymentSettings = createServerFn({ method: "POST" })
     const companyId = companyIdOf(context.user as SessionUser);
     await db
       .update(paymentSettings)
-      .set({ mpAccessToken: null, mpEnabled: false })
+      .set({ mpAccessToken: null, mpEnabled: false, mpTestAccount: false })
       .where(eq(paymentSettings.companyId, companyId));
     return { ok: true };
   });

@@ -174,6 +174,12 @@ export const paymentSettings = mysqlTable(
     mpAccessToken: varchar("mp_access_token", { length: 255 }),
     /** Apagar el cobro sin borrar las credenciales, por ejemplo si falla. */
     mpEnabled: boolean("mp_enabled").notNull().default(false),
+    /**
+     * Si el token es de una cuenta de prueba de Mercado Pago. Se resuelve al
+     * guardarlo, porque por el token no se distingue de uno real y la
+     * diferencia importa: una cuenta de prueba no puede cobrarle a nadie real.
+     */
+    mpTestAccount: boolean("mp_test_account").notNull().default(false),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [unique("payment_settings_company_uq").on(t.companyId)],

@@ -32,7 +32,10 @@ interface OpcionesPreferencia {
   backUrl: string;
   /** Dónde nos avisa Mercado Pago. Se omite si no hay URL pública. */
   notificationUrl?: string;
-  descripcion: string;
+  /** Nombre del negocio. Es lo que el cliente tiene que reconocer al pagar. */
+  negocio: string;
+  /** Número visible del pedido, el que el cliente ve en pantalla. */
+  numeroPedido: number;
 }
 
 async function pedir(url: string, accessToken: string, init?: RequestInit) {
@@ -72,15 +75,29 @@ async function pedir(url: string, accessToken: string, init?: RequestInit) {
  * a la espera de que alguien revise la operación.
  */
 export async function crearPreferencia(o: OpcionesPreferencia): Promise<PreferenciaCreada> {
+  const total = o.items.reduce((t, i) => t + i.unitPrice * i.quantity, 0);
+
+  // Un solo ítem, a nombre del negocio, en vez de la lista de productos.
+  //
+  // Mercado Pago muestra el título del ítem como encabezado de la compra, así
+  // que con la lista el cliente veía "Agua saborizada 500 ml" y no sabía a
+  // quién le estaba pagando. Lo que tiene que reconocer en su celular es el
+  // comercio; el detalle de lo que pidió ya lo tiene en la pantalla del tótem
+  // y en la comanda, y acá va en la descripción.
+  const detalle = o.items.map((i) => `${i.quantity}x ${i.title}`).join(", ");
+
   const cuerpo = {
-    items: o.items.map((i) => ({
-      title: i.title.slice(0, 250),
-      quantity: i.quantity,
-      unit_price: Number(i.unitPrice.toFixed(2)),
-      currency_id: "ARS",
-    })),
+    items: [
+      {
+        title: `${o.negocio} · Pedido #${o.numeroPedido}`.slice(0, 250),
+        description: detalle.slice(0, 250),
+        quantity: 1,
+        unit_price: Number(total.toFixed(2)),
+        currency_id: "ARS",
+      },
+    ],
     external_reference: o.externalReference,
-    statement_descriptor: o.descripcion.slice(0, 22),
+    statement_descriptor: o.negocio.slice(0, 22),
     binary_mode: true,
     back_urls: { success: o.backUrl, pending: o.backUrl, failure: o.backUrl },
     ...(o.notificationUrl ? { notification_url: o.notificationUrl } : {}),
@@ -176,7 +193,7 @@ export function pareceClavePublica(token: string): boolean {
  */
 export async function verificarCredencial(
   accessToken: string,
-): Promise<{ ok: true; cuenta: string } | { ok: false; motivo: string }> {
+): Promise<{ ok: true; cuenta: string; esDePrueba: boolean } | { ok: false; motivo: string }> {
   try {
     const res = await fetch(`${API}/users/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -192,10 +209,24 @@ export async function verificarCredencial(
       return { ok: false, motivo: `Mercado Pago respondió ${res.status} al validar la credencial` };
     }
 
-    const cuenta = (await res.json()) as { nickname?: string; email?: string };
-    return { ok: true, cuenta: cuenta.nickname ?? cuenta.email ?? "tu cuenta" };
+    const cuenta = (await res.json()) as {
+      nickname?: string;
+      email?: string;
+      tags?: string[];
+    };
+
+    // Las credenciales de un usuario de prueba empiezan igual que las reales,
+    // así que por el token no se distinguen. La cuenta sí lo dice, y conviene
+    // saberlo: a un usuario de prueba solo le puede pagar otro usuario de
+    // prueba, nunca una cuenta real, y eso desde afuera se ve como un error
+    // genérico de Mercado Pago justo cuando alguien intenta pagar.
+    return {
+      ok: true,
+      cuenta: cuenta.nickname ?? cuenta.email ?? "tu cuenta",
+      esDePrueba: (cuenta.tags ?? []).includes("test_user"),
+    };
   } catch {
     // Sin internet o Mercado Pago caído: no es motivo para no dejar guardar.
-    return { ok: true, cuenta: "" };
+    return { ok: true, cuenta: "", esDePrueba: false };
   }
 }
