@@ -328,7 +328,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
             Encargados de tus negocios. Cada uno ve solamente los negocios que le asignes.
           </p>
         </div>
-        <Button className="gap-2" onClick={openCreate}>
+        <Button className="gap-2" onClick={openCreate} disabled={loading}>
           <Plus className="h-4 w-4" />
           Nuevo operador
         </Button>
@@ -423,7 +423,9 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
               <Label>Negocios asignados</Label>
               {locations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No hay negocios cargados todavía. Creá uno en la sección Negocios.
+                  {loading
+                    ? "Cargando negocios…"
+                    : "No hay negocios cargados todavía. Creá uno en la sección Negocios."}
                 </p>
               ) : (
                 <div className="space-y-2 rounded-md border border-border p-3">
@@ -484,8 +486,9 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Quien puede cargar productos también puede crear categorías: sin eso no tendría
-                dónde ponerlos.
+                Algunas secciones se abren solas: quien puede cargar productos también puede crear
+                categorías, porque si no no tendría dónde ponerlos, y quien entra a la comandera ve
+                el cierre de caja, que es la suma de los cobros que marca ahí.
               </p>
             </div>
           </div>

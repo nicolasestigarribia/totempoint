@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import { getTotemOrder } from "@/lib/api/totem.functions";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -15,10 +16,32 @@ export const Route = createFileRoute("/t/$slug/listo/$orderId")({
   component: ListoPage,
 });
 
+/**
+ * Cuánto se queda la pantalla del número antes de volver sola a la portada.
+ *
+ * El tótem tiene que quedar libre para el que viene atrás, pero no tan rápido
+ * como para que el cliente no llegue a leer su número o sacarle una foto. Por
+ * eso además se muestra la cuenta regresiva: que vuelva solo no puede ser una
+ * sorpresa mientras alguien está mirando.
+ */
+const SEGUNDOS = 25;
+
 function ListoPage() {
   const order = Route.useLoaderData();
+  const navigate = useNavigate();
   useTotemTheme(order.accentColor, order.theme);
   const accent = order.accentColor || undefined;
+  const [restan, setRestan] = useState(SEGUNDOS);
+
+  useEffect(() => {
+    const id = setInterval(() => setRestan((s) => s - 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (restan > 0) return;
+    navigate({ to: "/t/$slug", params: { slug: order.slug }, replace: true });
+  }, [restan, navigate, order.slug]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
@@ -47,6 +70,10 @@ function ListoPage() {
       >
         Nuevo pedido
       </Link>
+
+      <p className="mt-6 text-sm text-muted-foreground">
+        Volvemos al inicio en {Math.max(restan, 0)}s
+      </p>
     </div>
   );
 }

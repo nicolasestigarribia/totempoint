@@ -10,6 +10,7 @@ import {
   mysqlEnum,
   text,
   mediumtext,
+  date,
   unique,
   index,
 } from "drizzle-orm/mysql-core";
@@ -153,6 +154,37 @@ export const images = mysqlTable(
 // Portada del tótem, una fila por empresa. Reemplaza lo que antes estaba
 // hardcodeado en la home: cada rubro (hamburguesería, discoteca, sanguchería)
 // carga su propia imagen, textos y plantilla desde el panel admin.
+/**
+ * Credenciales de cobro de cada empresa.
+ *
+ * Va en su propia tabla y no en `companies` a propósito: acá vive un secreto
+ * que cobra plata, y separarlo hace evidente que no se puede devolver junto
+ * con los datos de marca. Ninguna consulta del tótem, que es pública, toca
+ * esta tabla más que para preguntar si hay algo configurado.
+ *
+ * El dinero entra en la cuenta de cada negocio, no en una de la plataforma:
+ * cada empresa pega su propio access token.
+ */
+export const paymentSettings = mysqlTable(
+  "payment_settings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    companyId: int("company_id").notNull(),
+    /** Access token de Mercado Pago. Nunca sale del servidor. */
+    mpAccessToken: varchar("mp_access_token", { length: 255 }),
+    /** Apagar el cobro sin borrar las credenciales, por ejemplo si falla. */
+    mpEnabled: boolean("mp_enabled").notNull().default(false),
+    /**
+     * Si el token es de una cuenta de prueba de Mercado Pago. Se resuelve al
+     * guardarlo, porque por el token no se distingue de uno real y la
+     * diferencia importa: una cuenta de prueba no puede cobrarle a nadie real.
+     */
+    mpTestAccount: boolean("mp_test_account").notNull().default(false),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [unique("payment_settings_company_uq").on(t.companyId)],
+);
+
 export const totemSettings = mysqlTable(
   "totem_settings",
   {
@@ -467,16 +499,38 @@ export const orders = mysqlTable(
     customerName: varchar("customer_name", { length: 120 }).notNull(),
     deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador"]).notNull(),
     comments: text("comments"),
-    status: mysqlEnum("status", ["recibido", "preparacion", "entregado"])
+    status: mysqlEnum("status", ["recibido", "preparacion", "entregado", "cancelado"])
       .notNull()
       .default("recibido"),
     total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-    paid: boolean("paid").notNull().default(false),
+    /**
+     * Día al que pertenece el pedido. No se deriva de createdAt porque la
+     * numeración visible se reinicia cada mañana y el cierre de caja se hace
+     * por jornada: hace falta poder agrupar por ese día sin depender de la hora.
+     */
+    businessDate: date("business_date", { mode: "string" }).notNull(),
+    paymentMethod: mysqlEnum("payment_method", ["efectivo", "mercadopago"])
+      .notNull()
+      .default("efectivo"),
+    /**
+     * "reembolso_pendiente" es el caso del pedido pagado por Mercado Pago que se
+     * cancela: la plata se devuelve a mano, el sistema solo lo deja anotado.
+     */
+    paymentStatus: mysqlEnum("payment_status", ["pendiente", "pagado", "reembolso_pendiente"])
+      .notNull()
+      .default("pendiente"),
+    cancelledAt: timestamp("cancelled_at"),
+    cancelledBy: int("cancelled_by"),
+    /** Preferencia de Mercado Pago creada para este pedido, si se paga por ahí. */
+    mpPreferenceId: varchar("mp_preference_id", { length: 80 }),
+    /** Pago concreto que confirmó Mercado Pago, para no acreditar dos veces. */
+    mpPaymentId: varchar("mp_payment_id", { length: 40 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
     index("orders_location_idx").on(t.locationId),
-    unique("orders_location_number_uq").on(t.locationId, t.orderNumber),
+    // El número se repite todos los días, así que la unicidad es por jornada.
+    unique("orders_location_date_number_uq").on(t.locationId, t.businessDate, t.orderNumber),
   ],
 );
 

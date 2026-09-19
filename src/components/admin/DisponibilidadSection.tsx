@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { useReadOnly } from "@/components/admin/readonly";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
 import {
   getLocationAvailability,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/api/availability.functions";
 
 export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
+  const readOnly = useReadOnly();
   const fetchLocations = useServerFn(listLocations);
   const fetchAvailability = useServerFn(getLocationAvailability);
   const toggleCategory = useServerFn(setCategoryAvailability);
@@ -143,7 +145,11 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
             <span className={`text-xs ${r.available ? "text-green-400" : "text-muted-foreground"}`}>
               {r.available ? "Disponible" : "Oculta"}
             </span>
-            <Switch checked={r.available} onCheckedChange={(v) => onToggleCategory(r, v)} />
+            <Switch
+              checked={r.available}
+              onCheckedChange={(v) => onToggleCategory(r, v)}
+              disabled={readOnly}
+            />
           </div>
         ),
       },
@@ -178,7 +184,11 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
             <span className={`text-xs ${r.available ? "text-green-400" : "text-muted-foreground"}`}>
               {r.available ? "Disponible" : "Oculto"}
             </span>
-            <Switch checked={r.available} onCheckedChange={(v) => onToggleProduct(r, v)} />
+            <Switch
+              checked={r.available}
+              onCheckedChange={(v) => onToggleProduct(r, v)}
+              disabled={readOnly}
+            />
           </div>
         ),
       },

@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { useReadOnly } from "@/components/admin/readonly";
 import { manualCodes, actionLabel, type ActionCode } from "@/lib/actionCodes";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
 import {
@@ -52,6 +53,7 @@ function itemRef(r: Pick<StockRow, "kind" | "itemId">) {
 }
 
 export function StockSection({ panelClass }: { panelClass: string }) {
+  const readOnly = useReadOnly();
   const fetchLocations = useServerFn(listLocations);
   const fetchStock = useServerFn(getLocationStock);
   const doRegister = useServerFn(createMovement);
@@ -328,16 +330,19 @@ export function StockSection({ panelClass }: { panelClass: string }) {
       header: "Mínimo",
       sortable: true,
       sortAccessor: (r) => (r.minStock === null ? -1 : Number(r.minStock)),
-      cell: (r) => (
-        <button
-          type="button"
-          onClick={() => openMin(r)}
-          className="inline-flex items-center gap-1 text-muted-foreground transition hover:text-foreground"
-        >
-          {r.minStock ?? "—"}
-          <SlidersHorizontal className="h-3 w-3 opacity-60" />
-        </button>
-      ),
+      cell: (r) =>
+        readOnly ? (
+          <span className="text-muted-foreground">{r.minStock ?? "—"}</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openMin(r)}
+            className="inline-flex items-center gap-1 text-muted-foreground transition hover:text-foreground"
+          >
+            {r.minStock ?? "—"}
+            <SlidersHorizontal className="h-3 w-3 opacity-60" />
+          </button>
+        ),
     },
     {
       key: "actions",
@@ -412,15 +417,17 @@ export function StockSection({ panelClass }: { panelClass: string }) {
           Stock = ingresos − ventas − egresos. Ventas se cargan solas al vender; registrá ingresos y
           egresos.
         </p>
-        <Button className="ml-auto gap-2" onClick={openNewMovement}>
-          <Plus className="h-4 w-4" />
-          Nuevo movimiento
-        </Button>
+        {!readOnly && (
+          <Button className="ml-auto gap-2" onClick={openNewMovement}>
+            <Plus className="h-4 w-4" />
+            Nuevo movimiento
+          </Button>
+        )}
       </div>
 
       <DataTable<StockRow>
         rows={rows}
-        columns={columns}
+        columns={readOnly ? columns.filter((c) => c.key !== "actions") : columns}
         getRowId={(r) => rowKey(r)}
         panelClass={panelClass}
         loading={loadingData}

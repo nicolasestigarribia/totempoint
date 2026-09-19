@@ -115,6 +115,17 @@ export const createMovement = createServerFn({ method: "POST" })
     if (!def) throw new Error("Código de acción inválido");
     if (def.auto) throw new Error("Ese código lo genera el sistema, no se carga a mano");
 
+    // Cargar un movimiento es escribir, así que hay que tener edición en alguna
+    // de las dos secciones desde las que se carga: Stock (el mostrador de
+    // ingredientes) o Movimientos (el libro completo). Sin esto, cualquier
+    // encargado con acceso al negocio podía mover stock y caja aunque el dueño
+    // le hubiera dado las secciones en "solo ver".
+    const puedeRegistrar =
+      def.type === "stock"
+        ? canEdit(user, "stock") || canEdit(user, "movimientos")
+        : canEdit(user, "movimientos");
+    if (!puedeRegistrar) throw new Error("No tenés permiso para registrar movimientos");
+
     await assertLocationAccess(user, data.locationId);
 
     // Movimiento de stock: apunta a un ingrediente O a un producto de reventa (exactamente uno).

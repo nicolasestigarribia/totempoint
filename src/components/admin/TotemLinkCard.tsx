@@ -20,7 +20,12 @@ export function TotemLinkCard({ slug, panelClass }: { slug: string; panelClass: 
   }, []);
 
   const path = `/t/${slug}`;
-  const url = origin ? `${origin}${path}` : path;
+  // El enlace que va a la tablet lleva el marcador: desde ahí el tótem cierra
+  // cualquier sesión de panel que quede abierta en ese dispositivo. El botón
+  // "Abrir" de acá al lado usa el enlace pelado, para mirar el tótem desde la
+  // computadora sin quedar afuera de tu propia sesión.
+  const pathTablet = `${path}?totem=1`;
+  const url = origin ? `${origin}${pathTablet}` : pathTablet;
 
   const copy = async () => {
     try {
@@ -71,9 +76,12 @@ export function TotemLinkCard({ slug, panelClass }: { slug: string; panelClass: 
           </div>
 
           <p className="text-xs text-muted-foreground">
-            No inicies sesión en el panel desde esa tablet: si queda la sesión abierta, cualquiera
-            que escriba <code className="rounded bg-white/10 px-1">/admin</code> entra. Administrá
-            desde tu teléfono o tu computadora, y dejá la tablet en modo kiosco.
+            Abierta con este enlace, la tablet queda marcada como tótem: cada vez que vuelve a la
+            portada cierra la sesión de panel que haya quedado abierta ahí, así nadie entra a{" "}
+            <code className="rounded bg-white/10 px-1">/admin</code> desde el mostrador. Para
+            sacarle la marca, abrila una vez con{" "}
+            <code className="rounded bg-white/10 px-1">?totem=0</code>. Igual conviene administrar
+            desde tu teléfono o tu computadora y dejar la tablet en modo kiosco.
           </p>
         </div>
 

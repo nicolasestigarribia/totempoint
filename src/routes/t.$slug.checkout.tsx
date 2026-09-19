@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Store, UtensilsCrossed } from "lucide-react";
+import { Loader2, Store, UtensilsCrossed, Banknote, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { getTotemMenu, createTotemOrder } from "@/lib/api/totem.functions";
 import { TotemError } from "@/components/totem/TotemError";
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/t/$slug/checkout")({
 });
 
 type Delivery = "local" | "mostrador";
+type Pago = "efectivo" | "mercadopago";
 
 function CheckoutPage() {
   const menu = Route.useLoaderData();
@@ -34,6 +35,7 @@ function CheckoutPage() {
 
   const [customerName, setCustomerName] = useState("");
   const [delivery, setDelivery] = useState<Delivery>("local");
+  const [pago, setPago] = useState<Pago>("efectivo");
   const [comments, setComments] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -47,16 +49,29 @@ function CheckoutPage() {
     }
     setSending(true);
     try {
-      const { orderId } = await placeOrder({
+      const { orderId, pagarEn } = await placeOrder({
         data: {
           slug: menu.slug,
           customerName,
           deliveryMethod: delivery,
+          paymentMethod: pago,
           comments: comments.trim() || undefined,
           items: items.map((i) => ({ kind: i.kind, id: i.refId, quantity: i.quantity })),
         },
       });
       clear();
+      // Con Mercado Pago el pedido ya existe pero todavía no se cobró: el
+      // cliente pasa por el QR. Si algo falló al generarlo, cae igual en la
+      // pantalla del número y lo cobran en la caja.
+      if (pagarEn) {
+        navigate({
+          to: "/t/$slug/pagar/$orderId",
+          params: { slug: menu.slug, orderId: String(orderId) },
+          search: { url: pagarEn },
+          replace: true,
+        });
+        return;
+      }
       navigate({
         to: "/t/$slug/listo/$orderId",
         params: { slug: menu.slug, orderId: String(orderId) },
@@ -71,6 +86,27 @@ function CheckoutPage() {
   const options: { value: Delivery; label: string; icon: typeof Store }[] = [
     { value: "local", label: "Comer en el local", icon: UtensilsCrossed },
     { value: "mostrador", label: "Retirar en mostrador", icon: Store },
+  ];
+
+  const pagos: { value: Pago; label: string; detalle: string; icon: typeof Store }[] = [
+    {
+      value: "efectivo",
+      label: "Efectivo",
+      detalle: "Pagás al retirar",
+      icon: Banknote,
+    },
+    // Mercado Pago aparece solo si la empresa tiene el cobro configurado: no
+    // tiene sentido ofrecer un botón que después no va a poder cobrar.
+    ...(menu.mercadoPago
+      ? [
+          {
+            value: "mercadopago" as Pago,
+            label: "Mercado Pago",
+            detalle: "Escaneás un QR con tu celular",
+            icon: Smartphone,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -122,6 +158,38 @@ function CheckoutPage() {
                   >
                     <o.icon className="h-6 w-6" />
                     <span className="font-display text-xl">{o.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <span className="font-display text-2xl">¿Cómo pagás?</span>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {pagos.map((o) => {
+                const selected = pago === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setPago(o.value)}
+                    className={`flex items-center gap-3 rounded-2xl border px-5 py-5 text-left transition ${
+                      selected
+                        ? "border-transparent text-white"
+                        : "border-border hover:border-primary"
+                    }`}
+                    style={selected ? { background: accent ?? "var(--primary)" } : undefined}
+                  >
+                    <o.icon className="h-6 w-6 shrink-0" />
+                    <span>
+                      <span className="block font-display text-xl">{o.label}</span>
+                      <span
+                        className={`block text-sm ${selected ? "text-white/80" : "text-muted-foreground"}`}
+                      >
+                        {o.detalle}
+                      </span>
+                    </span>
                   </button>
                 );
               })}

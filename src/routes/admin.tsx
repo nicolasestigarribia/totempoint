@@ -28,6 +28,10 @@ import {
   Users,
   ShieldCheck,
   Eye,
+  ChefHat,
+  KeyRound,
+  CircleDollarSign,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -35,6 +39,7 @@ import type { PanelSection, PermissionLevel, PermissionMap } from "@/lib/auth/pe
 import { canViewSection, canEditSection } from "@/lib/auth/permissions";
 import { exitBusiness } from "@/lib/api/platform.functions";
 import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
+import { ReadOnlyContext } from "@/components/admin/readonly";
 import { LocalesSection } from "@/components/admin/LocalesSection";
 import { CategoriasSection } from "@/components/admin/CategoriasSection";
 import { ProductosSection } from "@/components/admin/ProductosSection";
@@ -47,6 +52,8 @@ import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
 import { PreciosSection } from "@/components/admin/PreciosSection";
 import { PortadaSection } from "@/components/admin/PortadaSection";
 import { OperadoresSection } from "@/components/admin/OperadoresSection";
+import { CajaSection } from "@/components/admin/CajaSection";
+import { PagosSection } from "@/components/admin/PagosSection";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -69,6 +76,8 @@ type SectionId =
   | "movimientos"
   | "codigos"
   | "precios"
+  | "caja"
+  | "pagos"
   | "operadores";
 
 interface SectionDef {
@@ -166,6 +175,20 @@ const SECTIONS: SectionDef[] = [
     icon: DollarSign,
     desc: "Precios de productos y combos por negocio",
     permission: "precios",
+  },
+  {
+    id: "caja",
+    label: "Cierre de caja",
+    icon: CircleDollarSign,
+    desc: "Lo cobrado en la jornada",
+    permission: "caja",
+  },
+  {
+    id: "pagos",
+    label: "Cobros",
+    icon: CreditCard,
+    desc: "Cómo cobra tu tótem",
+    ownerOnly: true,
   },
   {
     id: "operadores",
@@ -305,6 +328,7 @@ function AdminPage() {
     if (!s.permission || isOwner) return true;
     return canViewSection(permissions, s.permission);
   });
+  const puedeVerComandera = isOwner || canViewSection(permissions, "comandera");
   const current = SECTIONS.find((s) => s.id === section)!;
   const firstVisible = visibleSections[0]?.id;
   const sectionAllowed = visibleSections.some((s) => s.id === section);
@@ -423,6 +447,31 @@ function AdminPage() {
             </button>
           ))}
         </nav>
+        {/*
+          La comandera no es una sección del panel sino otra pantalla (/kitchen),
+          así que no entra en el nav de arriba. Sin este enlace, a quien le
+          habilitan "Comandera" no le queda forma de llegar.
+        */}
+        <div className="px-3 pb-1">
+          <a
+            href="/cuenta"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
+          >
+            <KeyRound className="h-5 w-5" />
+            Mi cuenta
+          </a>
+        </div>
+        {puedeVerComandera && (
+          <div className="px-3 pb-1">
+            <a
+              href="/kitchen"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
+            >
+              <ChefHat className="h-5 w-5" />
+              Comandera
+            </a>
+          </div>
+        )}
         <div className="border-t border-border p-3">
           <Button variant="outline" className="w-full gap-2" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
@@ -467,12 +516,14 @@ function AdminPage() {
           </div>
         </div>
         <div className="p-6 md:p-8">
-          <SectionContent
-            section={section}
-            business={business!}
-            branding={branding}
-            panelClass={PANEL}
-          />
+          <ReadOnlyContext.Provider value={readOnly}>
+            <SectionContent
+              section={section}
+              business={business!}
+              branding={branding}
+              panelClass={PANEL}
+            />
+          </ReadOnlyContext.Provider>
         </div>
       </main>
     </div>
@@ -516,6 +567,10 @@ function SectionContent({
       return <CodigosAccionSection panelClass={panelClass} />;
     case "precios":
       return <PreciosSection panelClass={panelClass} />;
+    case "caja":
+      return <CajaSection panelClass={panelClass} />;
+    case "pagos":
+      return <PagosSection panelClass={panelClass} />;
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
   }

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getTotemHome } from "@/lib/api/totem.functions";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
+import { useTotemDevice } from "@/lib/use-totem-device";
 import { TotemHome } from "@/components/totem/TotemHome";
 import { TotemError } from "@/components/totem/TotemError";
 
@@ -16,5 +17,6 @@ export const Route = createFileRoute("/t/$slug/")({
 function TotemHomePage() {
   const data = Route.useLoaderData();
   useTotemTheme(data.accentColor, data.theme);
+  useTotemDevice();
   return <TotemHome data={data} />;
 }

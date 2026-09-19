@@ -14,6 +14,7 @@ import {
 import { requireOwner } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 import type { SessionUser, PanelSection, PermissionLevel } from "@/lib/auth/session";
+import { destroyUserSessions } from "@/lib/auth/session";
 import { companyIdOf } from "@/lib/auth/scope";
 import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
 
@@ -287,6 +288,11 @@ export const updateOperator = createServerFn({ method: "POST" })
 
     await db.update(users).set(set).where(eq(users.id, data.userId));
 
+    // Cambiarle la contraseña a alguien es, casi siempre, sacarlo: se fue de la
+    // empresa o se la vieron. Si la sesión que tenía abierta sigue viva, el
+    // cambio no hizo nada hasta que esa sesión caduque sola.
+    if (data.password) await destroyUserSessions(data.userId);
+
     await db.delete(userRoles).where(eq(userRoles.userId, data.userId));
     await db.insert(userRoles).values({ userId: data.userId, role: data.role });
 
@@ -306,5 +312,7 @@ export const setOperatorActive = createServerFn({ method: "POST" })
     await loadTargetUser(data.userId, companyId, user);
 
     await db.update(users).set({ active: data.active }).where(eq(users.id, data.userId));
+    // Desactivar tiene que surtir efecto ya, no en el próximo login.
+    if (!data.active) await destroyUserSessions(data.userId);
     return { ok: true };
   });

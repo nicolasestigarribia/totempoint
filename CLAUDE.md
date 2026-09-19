@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `README.md` describes the product and how to run it.
 
+`PARA-NICOLAS.md` is a handoff briefing in Spanish: the business rules and invariants that must not be changed, and the work still pending. Keep it in sync when either of those moves.
+
 ## Commands
 
 Package manager is **bun** (`bun.lock`, `bunfig.toml`), not npm/pnpm.
@@ -24,7 +26,7 @@ bun run format       # prettier --write .
 
 Tests run with bun's built-in runner (`bun run test`). Coverage is deliberately narrow: `src/lib/auth/permissions.test.ts` pins the permission rules, which are the part that fails silently. Everything else is still verified by hand.
 
-Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive `drizzle-kit` directly, e.g. `bunx drizzle-kit push` or `bunx drizzle-kit generate`. `drizzle.config.ts` reads `DATABASE_URL` from `.env.local` (not `.env`). Seed a superadmin user with `bun run src/db/seed.ts` (reads optional `SEED_EMAIL`/`SEED_PASSWORD` env vars, defaults exist).
+Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive `drizzle-kit` directly, e.g. `bunx drizzle-kit push` or `bunx drizzle-kit generate`. `drizzle.config.ts` reads `DATABASE_URL` from `.env.local` (not `.env`). Seed a superadmin user with `bun run src/db/seed.ts` (reads optional `SEED_EMAIL`/`SEED_PASSWORD` env vars, defaults exist). `bun run src/db/seed-action-codes.ts [slug]` loads a company's movement reasons; without them the Stock section shows its button but the "Motivo" dropdown is empty and nothing can be registered by hand.
 
 `bunfig.toml` enforces a 24h supply-chain guard on new package versions (`minimumReleaseAge`). Don't add entries to `minimumReleaseAgeExcludes` without confirming with the user first.
 
@@ -71,7 +73,7 @@ export const someFn = createServerFn({ method: "GET" | "POST" })
 ```
 
 - `src/lib/auth/middleware.ts`: `requireAuth` attaches `context.user: SessionUser` or throws; `requireSuperadmin` builds on `requireAuth` and additionally checks `user.roles.includes("superadmin")`.
-- Handlers throw plain `Error`s with user-facing Spanish messages (e.g. `"Usuario o contraseña incorrectos"`) — these propagate to the client as the server-fn error and are shown via `sonner` toasts / inline alerts. Follow this convention rather than introducing structured error codes.
+- Handlers throw plain `Error`s with user-facing Spanish messages (e.g. `"Usuario o contraseña incorrectos"`) — these propagate to the client as the server-fn error and are shown via `sonner` toasts / inline alerts. Follow this convention rather than introducing structured error codes. What a handler throws arrives readable; what the `inputValidator` rejects arrives as zod's serialized issue array, so show it through `mensajeDeError` (`src/lib/error-message.ts`) instead of printing `err.message`, which would put raw JSON on screen.
 - Route-level auth is enforced **client-side**, not via router `beforeLoad`: pages call `me()` in a `useEffect` and `navigate()` away if the user/role doesn't match (see `routes/login.tsx`'s `destinationFor`, `routes/admin.tsx`). The server functions are still the real security boundary via `requireAuth`/`requireSuperadmin`.
 
 ### Auth & sessions
@@ -83,7 +85,8 @@ Custom cookie-session auth (migrated off Supabase auth) in `src/lib/auth/`:
 - The superadmin password is changed with `SEED_PASSWORD="..." bun run src/db/set-superadmin-password.ts`, which also drops that user's sessions.
 - `password.ts`: password hashing (bcryptjs).
 - `password-policy.ts`: the single rule for credentials — 8+ characters with a letter and a digit, no catalogue passwords, and an email that can actually receive mail. Every path that creates or changes a user must use `passwordSchema`/`emailSchema`; the user asked for this explicitly and it is covered by tests.
-- **There is no password recovery by email yet.** The user chose to keep resets manual rather than add a mail provider: an owner resets his operators from Operadores, and the superadmin resets an owner from Credenciales. The email is validated because that flow is meant to arrive later; the login page says who to ask meanwhile.
+- **There is no password recovery by email yet.** The user chose to keep resets manual rather than add a mail provider: an owner resets his operators from Operadores, and the superadmin resets an owner from Credenciales. The email is validated because that flow is meant to arrive later; the login page says who to ask meanwhile. What does exist is `/cuenta` (`changeMyPassword`), where anyone logged in changes their own password — it asks for the current one even with a session open, so a tablet left unlocked can't lock its owner out.
+- **Changing or revoking access must kill the open sessions.** `destroyUserSessions(userId, keepToken?)` in `session.ts` is called when an operator's password is reset, when a user is deactivated, when the superadmin changes an owner's credentials and when a company is deactivated (the session only checks whether the *user* is active, not the company). Without it, resetting the password of someone who just left changes nothing until their session expires on its own. Changing your own password keeps the current session and drops the rest.
 - Roles are a many-to-many table (`user_roles`: `superadmin` | `admin` | `kitchen`) — a user can hold multiple roles; check with `roles.includes(...)`, not equality.
 
 ### Multi-tenant data model (`src/db/schema.ts`)
@@ -94,9 +97,15 @@ Custom cookie-session auth (migrated off Supabase auth) in `src/lib/auth/`:
 
 Roles are `superadmin | owner | encargado | kitchen`. The superadmin has access to everything: `enterBusiness`/`exitBusiness` (`platform.functions.ts`) store the company being visited in an `acting_company` httpOnly cookie, and `getSessionUser` resolves `companyId` from it, so every company-scoped server function works unchanged while the superadmin is inside a business. An `encargado` is assigned one or more locations through `user_locations`; `src/lib/auth/scope.ts` (`accessibleLocationIds`, `assertLocationAccess`) is the single place that decides which locations a caller may touch, and `requireOwner` in `src/lib/auth/middleware.ts` guards owner-only operations (operators, locations).
 
+Every server function that writes must check the permission, not just the company: `requireCompany` answers "do you belong here?", never "were you allowed to do this?". Two of them were missing it — `createMovement` let a read-only encargado move stock and cash, and `setOrderStatus` let any operator advance orders — so when adding a mutation, gate it with `requireEdit(section)` or an explicit `canEdit` check. The kitchen is the one place the permission matrix isn't enough: the `kitchen` role works there and has no sections ticked, so `assertCanViewKitchen`/`assertCanOperateKitchen` in `scope.ts` own that rule.
+
+On the client, `ReadOnlyContext` (`src/components/admin/readonly.ts`) tells a section it is being viewed with "solo ver": sections hide the create button, the actions column and the status switches, and keep search, filters, sorting and paging. It is cosmetic — the server is still the boundary — but without it the panel offers buttons that always fail. `admin.tsx` computes the value and provides it; Comandera is not a panel section but its own screen, so it gets a plain link in the sidebar instead of a nav entry.
+
 Per-location overrides (`locationProducts`, `locationCategories`) flip availability off for a specific branch; absence of a row means "available" (inherits from `product.active`/`category.active`).
 
-`orders`/`order_items` are now written by the kiosk checkout and read by `kitchen.tsx` through `src/lib/api/orders.functions.ts` (scoped to the caller's company via its locations). `order_items` snapshots product name and unit price, so editing a product later never rewrites past orders.
+`orders`/`order_items` are written by the totem checkout and read by `kitchen.tsx` through `src/lib/api/orders.functions.ts` (scoped to the caller's company via its locations). `order_items` snapshots product name and unit price, so editing a product later never rewrites past orders.
+
+An order also carries the money side: `businessDate` (the jornada it belongs to), `paymentMethod` (`efectivo` | `mercadopago`) and `paymentStatus` (`pendiente` | `pagado` | `reembolso_pendiente`). `orderNumber` restarts at 1 every morning per location — that is why the unique key is `(location, businessDate, orderNumber)` and why `businessDate` is stored instead of derived from `createdAt`. Cancelling is its own server function (`cancelOrder`), not a status change: it decides what happens to money already taken, and a cancelled order never goes back so the day's cash close doesn't change after the fact. `getCashClose` sums only what someone marked as cobrado, which is what you compare against the physical till.
 
 `movements` is an append-only ledger (`type`: `stock` | `caja`, `actionCode` from `action_codes`, signed `amount`) that is the source of truth for both stock and cash; `artistock.stockActual` is a MySQL _generated_ column (`ip_local - vp_local - ep_local`) derived from aggregated movement totals — don't write to `stockActual` directly, write a `movements` row and let the aggregates (`ipLocal`/`vpLocal`/`epLocal`) follow.
 
@@ -125,9 +134,14 @@ Built with the Dockerfile (bun for install/build → `node:22-slim` runtime runn
 
 Verified working end to end: business signup → owner login → cover setup → image upload → catalog on the totem → cart → checkout → order in the DB → kitchen panel. What is still missing:
 
-- **The slug can't be edited** from any panel. The full totem URL and its QR do show in the Portada section (`TotemLinkCard`), so installing a totem no longer means typing a long URL.
-- **Payments, cash closing and cancellations don't exist** (points 8, 11 and 12 of the business rules). This is the one thing that still separates the product from being installable in a real shop, and it belongs to Nicolás.
-- **A logged-in session on the totem tablet is a hole**: `/t/$slug` has no way out, but if the owner logs in on that tablet and doesn't log out, anyone typing `/admin` gets the panel. Mitigated only by procedure (administer from a phone/PC, lock the tablet with the OS kiosk mode).
+- The slug **is** editable, but only by the superadmin (`updateBusinessSlug`), because changing it breaks the previous link and any printed QR. The full totem URL and its QR show in the Portada section (`TotemLinkCard`). A company left without an owner is no longer a dead end either: `assignBusinessOwner` creates one.
+- **Mercado Pago charges per company, into the company's own account.** Each owner pastes their access token in the Cobros section; it lives in `payment_settings`, never leaves the server, and `getTotemMenu` only exposes a boolean so the totem knows whether to offer the button. Paying is a QR on the totem screen that the customer scans with their phone (`/t/$slug/pagar/$orderId`), built from a Checkout Pro preference. The order is saved **before** asking Mercado Pago for the preference, so if Mercado Pago is down the order is still taken and the counter can charge cash.
+
+  Two things confirm a payment: the webhook at `/api/mp/webhook` (intercepted in `src/server.ts`, like `/img/`), and the totem asking every few seconds while the customer pays. The poll is not a development crutch — the webhook can be lost in production too, and there is someone standing in front of the screen. The webhook takes **only the payment id** from the notification and asks Mercado Pago for the rest, because that endpoint is public and anyone can hit it claiming an order was paid.
+
+  **Never export a plain function that touches the database from a `*.functions.ts` file.** Only server functions get stripped from the client bundle; an ordinary export stays and drags drizzle and the MySQL driver into the browser, which throws on load and leaves the whole app without JavaScript. That is why `acreditarPedido` lives in `src/lib/payments/acreditar.ts` and not next to the totem's server functions.
+- **Prices are per company, not per location** (point 6 of the business rules), and neither is the price-change audit. Same for a location's own products and for per-product customisation (points 5 and 7).
+- A logged-in session on the totem tablet used to be a hole — `/t/$slug` has no way out, but the address bar does. The link the panel hands out for the tablet now ends in `?totem=1`: `useTotemDevice` marks that browser and, every time the cover loads, calls `leaveStaffSession` to drop any panel session left open there. `?totem=0` removes the mark, and the panel's own "Abrir" button uses the bare link so previewing from a PC doesn't log you out. It is still worth locking the tablet in the OS kiosk mode.
 - **Location is implicit.** Orders go to the company's first active location; a multi-branch business needs the totem to know which branch it is (device pairing was discussed as the eventual fix).
 - **`.env` is committed to the repo**, so its keys are in git history. Pre-existing, flagged to the user, untouched — removing it means rewriting history and rotating keys.
 

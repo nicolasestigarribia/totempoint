@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KitchenRouteImport } from './routes/kitchen'
+import { Route as CuentaRouteImport } from './routes/cuenta'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TSlugIndexRouteImport } from './routes/t.$slug.index'
@@ -19,6 +20,7 @@ import { Route as TSlugCombosRouteImport } from './routes/t.$slug.combos'
 import { Route as TSlugCheckoutRouteImport } from './routes/t.$slug.checkout'
 import { Route as TSlugCategoriasRouteImport } from './routes/t.$slug.categorias'
 import { Route as TSlugCarritoRouteImport } from './routes/t.$slug.carrito'
+import { Route as TSlugPagarOrderIdRouteImport } from './routes/t.$slug.pagar.$orderId'
 import { Route as TSlugMenuCategoryRouteImport } from './routes/t.$slug.menu.$category'
 import { Route as TSlugListoOrderIdRouteImport } from './routes/t.$slug.listo.$orderId'
 
@@ -35,6 +37,11 @@ const LoginRoute = LoginRouteImport.update({
 const KitchenRoute = KitchenRouteImport.update({
   id: '/kitchen',
   path: '/kitchen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CuentaRoute = CuentaRouteImport.update({
+  id: '/cuenta',
+  path: '/cuenta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -72,6 +79,11 @@ const TSlugCarritoRoute = TSlugCarritoRouteImport.update({
   path: '/t/$slug/carrito',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TSlugPagarOrderIdRoute = TSlugPagarOrderIdRouteImport.update({
+  id: '/t/$slug/pagar/$orderId',
+  path: '/t/$slug/pagar/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TSlugMenuCategoryRoute = TSlugMenuCategoryRouteImport.update({
   id: '/t/$slug/menu/$category',
   path: '/t/$slug/menu/$category',
@@ -86,6 +98,7 @@ const TSlugListoOrderIdRoute = TSlugListoOrderIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/cuenta': typeof CuentaRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -96,10 +109,12 @@ export interface FileRoutesByFullPath {
   '/t/$slug/': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
+  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/cuenta': typeof CuentaRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -110,11 +125,13 @@ export interface FileRoutesByTo {
   '/t/$slug': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
+  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/cuenta': typeof CuentaRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -125,12 +142,14 @@ export interface FileRoutesById {
   '/t/$slug/': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
+  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
+    | '/cuenta'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -141,10 +160,12 @@ export interface FileRouteTypes {
     | '/t/$slug/'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
+    | '/t/$slug/pagar/$orderId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
+    | '/cuenta'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -155,10 +176,12 @@ export interface FileRouteTypes {
     | '/t/$slug'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
+    | '/t/$slug/pagar/$orderId'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/cuenta'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -169,11 +192,13 @@ export interface FileRouteTypes {
     | '/t/$slug/'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
+    | '/t/$slug/pagar/$orderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  CuentaRoute: typeof CuentaRoute
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
@@ -184,6 +209,7 @@ export interface RootRouteChildren {
   TSlugIndexRoute: typeof TSlugIndexRoute
   TSlugListoOrderIdRoute: typeof TSlugListoOrderIdRoute
   TSlugMenuCategoryRoute: typeof TSlugMenuCategoryRoute
+  TSlugPagarOrderIdRoute: typeof TSlugPagarOrderIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -207,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/kitchen'
       fullPath: '/kitchen'
       preLoaderRoute: typeof KitchenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cuenta': {
+      id: '/cuenta'
+      path: '/cuenta'
+      fullPath: '/cuenta'
+      preLoaderRoute: typeof CuentaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -258,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TSlugCarritoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/t/$slug/pagar/$orderId': {
+      id: '/t/$slug/pagar/$orderId'
+      path: '/t/$slug/pagar/$orderId'
+      fullPath: '/t/$slug/pagar/$orderId'
+      preLoaderRoute: typeof TSlugPagarOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/t/$slug/menu/$category': {
       id: '/t/$slug/menu/$category'
       path: '/t/$slug/menu/$category'
@@ -278,6 +318,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  CuentaRoute: CuentaRoute,
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
@@ -288,6 +329,7 @@ const rootRouteChildren: RootRouteChildren = {
   TSlugIndexRoute: TSlugIndexRoute,
   TSlugListoOrderIdRoute: TSlugListoOrderIdRoute,
   TSlugMenuCategoryRoute: TSlugMenuCategoryRoute,
+  TSlugPagarOrderIdRoute: TSlugPagarOrderIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { useReadOnly } from "@/components/admin/readonly";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
 import { listIngredients, type IngredientRow } from "@/lib/api/ingredients.functions";
 import {
@@ -31,6 +32,7 @@ import {
 } from "@/lib/actionCodes";
 
 export function MovimientosSection({ panelClass }: { panelClass: string }) {
+  const readOnly = useReadOnly();
   const fetchLocations = useServerFn(listLocations);
   const fetchIngredients = useServerFn(listIngredients);
   const fetchMovements = useServerFn(listMovements);
@@ -267,10 +269,12 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
           <ScrollText className="h-4 w-4 text-primary" />
           <h3 className="text-lg font-bold">Movimientos</h3>
         </div>
-        <Button className="gap-2" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Nuevo movimiento
-        </Button>
+        {!readOnly && (
+          <Button className="gap-2" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Nuevo movimiento
+          </Button>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Label className="text-sm text-muted-foreground">Negocio:</Label>
           <Select value={locationFilter} onValueChange={setLocationFilter}>
@@ -301,7 +305,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
 
       <DataTable<MovementListRow>
         rows={rows}
-        columns={columns}
+        columns={readOnly ? columns.filter((c) => c.key !== "actions") : columns}
         getRowId={(r) => r.id}
         panelClass={panelClass}
         loading={loading}
