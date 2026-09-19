@@ -15,7 +15,6 @@ import {
   Ban,
   Banknote,
   Smartphone,
-  CircleDollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -230,32 +229,32 @@ function Kitchen() {
   return (
     <div className="min-h-dvh bg-background">
       <main className="mx-auto max-w-[1700px] px-6 py-8 md:px-10">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-gold">
-              Operaciones
-            </div>
-            <h1 className="mt-2 font-display text-5xl md:text-6xl">Cocina</h1>
-            <p className="mt-1 text-muted-foreground">
-              {orders.length} {orders.length === 1 ? "pedido" : "pedidos"} en total
+        {/* Encabezado al mínimo: cada píxel que se lleva el título es un pedido
+            menos a la vista, y acá lo que importa son los pedidos. */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <h1 className="font-display text-3xl md:text-4xl">Cocina</h1>
+            <p className="text-sm text-muted-foreground">
+              {orders.length} {orders.length === 1 ? "pedido" : "pedidos"}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleRefresh}
-              className="flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-bold transition hover:border-primary"
+              className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Actualizar
             </button>
             <a
               href="/cuenta"
-              className="flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-bold transition hover:border-primary"
+              className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary"
+              title="Mi cuenta"
             >
               <KeyRound className="h-4 w-4" />
-              Mi cuenta
+              <span className="hidden sm:inline">Mi cuenta</span>
             </a>
             <button
               type="button"
@@ -263,10 +262,11 @@ function Kitchen() {
                 await doLogout();
                 navigate({ to: "/login", replace: true });
               }}
-              className="flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-bold transition hover:border-primary"
+              className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary"
+              title="Salir"
             >
               <LogOut className="h-4 w-4" />
-              Salir
+              <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
         </div>
@@ -316,11 +316,22 @@ function Kitchen() {
                                 <span className="text-gold">{timeAgo(o.createdAt)}</span>
                               </div>
                             </div>
-                            <span
-                              className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${statusMeta[o.status].pill}`}
-                            >
-                              {statusMeta[o.status].label}
-                            </span>
+                            {/* Acá iba un cartelito con el estado, que decía lo
+                                mismo que la columna donde está la tarjeta. El
+                                borde de color ya lo indica, así que el lugar
+                                queda para cancelar: una acción destructiva que
+                                no merece un botón de ancho completo. */}
+                            {o.status !== "cancelado" && puedeOperar && (
+                              <button
+                                type="button"
+                                onClick={() => setACancelar(o)}
+                                aria-label={`Cancelar el pedido #${o.orderNumber}`}
+                                title="Cancelar pedido"
+                                className="shrink-0 rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <Ban className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
 
                           <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
@@ -340,41 +351,44 @@ function Kitchen() {
                             </div>
                           )}
 
-                          <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              {(() => {
-                                const P = pagoMeta[o.paymentMethod].icon;
-                                return <P className="h-3.5 w-3.5" />;
-                              })()}
-                              {pagoMeta[o.paymentMethod].label}
-                            </span>
-                            <span className="font-display text-xl">{formatPrice(o.total)}</span>
-                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                {(() => {
+                                  const P = pagoMeta[o.paymentMethod].icon;
+                                  return <P className="h-3.5 w-3.5" />;
+                                })()}
+                                {pagoMeta[o.paymentMethod].label}
+                              </span>
 
-                          {/* El cobro se marca a mano porque el tótem todavía no cobra. */}
-                          <div className="mt-2">
-                            {o.paymentStatus === "reembolso_pendiente" ? (
-                              <span className="flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 py-2 text-[11px] font-bold uppercase tracking-wider text-amber-400">
-                                <CircleDollarSign className="h-3.5 w-3.5" />
-                                Devolver la plata
-                              </span>
-                            ) : o.status === "cancelado" ? null : puedeOperar ? (
-                              <button
-                                onClick={() => togglePagado(o)}
-                                className={`flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border text-[11px] font-bold uppercase tracking-wider transition ${
-                                  o.paymentStatus === "pagado"
-                                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                                    : "border-border text-muted-foreground hover:text-foreground"
-                                }`}
-                              >
-                                <CircleDollarSign className="h-3.5 w-3.5" />
-                                {o.paymentStatus === "pagado" ? "Cobrado" : "Marcar cobrado"}
-                              </button>
-                            ) : (
-                              <span className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                {o.paymentStatus === "pagado" ? "Cobrado" : "Sin cobrar"}
-                              </span>
-                            )}
+                              {/* El cobro se marca a mano: el tótem solo cobra
+                                  por Mercado Pago, el efectivo entra acá. */}
+                              {o.paymentStatus === "reembolso_pendiente" ? (
+                                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                                  Devolver
+                                </span>
+                              ) : o.status === "cancelado" ? null : puedeOperar ? (
+                                <button
+                                  type="button"
+                                  onClick={() => togglePagado(o)}
+                                  className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${
+                                    o.paymentStatus === "pagado"
+                                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                      : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                                  }`}
+                                >
+                                  {o.paymentStatus === "pagado" ? "Cobrado" : "Sin cobrar"}
+                                </button>
+                              ) : (
+                                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  {o.paymentStatus === "pagado" ? "Cobrado" : "Sin cobrar"}
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="shrink-0 font-display text-xl">
+                              {formatPrice(o.total)}
+                            </span>
                           </div>
 
                           {next && puedeOperar && (
@@ -392,14 +406,6 @@ function Kitchen() {
                               className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                             >
                               <Undo2 className="h-4 w-4" /> Revertir
-                            </button>
-                          )}
-                          {o.status !== "cancelado" && puedeOperar && (
-                            <button
-                              onClick={() => setACancelar(o)}
-                              className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-xl text-[11px] font-bold uppercase tracking-wider text-muted-foreground transition hover:text-destructive"
-                            >
-                              <Ban className="h-3.5 w-3.5" /> Cancelar pedido
                             </button>
                           )}
                         </article>
