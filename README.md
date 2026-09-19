@@ -10,7 +10,7 @@ Es multiempresa: una sola instalación atiende a varias marcas, cada una con su 
 
 - **Empresa**: la marca, por ejemplo PrimoRosas. La da de alta el superadmin y le asigna un dueño.
 - **Negocio**: cada sucursal de esa empresa — PrimoRosas Cariló, PrimoRosas Mar del Plata. Los crea el dueño.
-- **Tótem**: la tablet del mostrador. Se abre en `/t/<slug>` y no pide ningún login: es una URL pública que el negocio deja abierta.
+- **Tótem**: la tablet del mostrador. Se abre en `/t/<slug>` y no pide ningún login: es una URL pública que el negocio deja abierta. El enlace que el panel entrega para la tablet termina en `?totem=1`, y con eso el dispositivo queda marcado: cada vez que vuelve a la portada cierra cualquier sesión del panel que haya quedado abierta ahí.
 
 ## Quién puede qué
 
@@ -40,6 +40,13 @@ Para poblar una empresa de prueba con catálogo, combos y portada:
 
 ```sh
 bun run src/db/seed-primorosas.ts <slug>
+```
+
+Y para cargarle los motivos de movimiento de stock y caja, sin los cuales la sección Stock no
+deja registrar nada a mano:
+
+```sh
+bun run src/db/seed-action-codes.ts <slug>
 ```
 
 ## Deploy

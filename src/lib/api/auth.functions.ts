@@ -3,9 +3,18 @@ import { z } from "zod";
 import { eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { users, userRoles, userLocations, userPermissions } from "@/db/schema";
-import { verifyPassword } from "@/lib/auth/password";
+import { verifyPassword, hashPassword } from "@/lib/auth/password";
+import { passwordSchema } from "@/lib/auth/password-policy";
+import { requireAuth } from "@/lib/auth/middleware";
 import { checkLock, registerFailure, clearFailures, LOCK_MESSAGE } from "@/lib/auth/throttle";
-import { createSession, destroySession, getSessionUser } from "@/lib/auth/session";
+import {
+  createSession,
+  destroySession,
+  getSessionUser,
+  destroyUserSessions,
+  currentSessionToken,
+} from "@/lib/auth/session";
+import type { SessionUser } from "@/lib/auth/session";
 import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
 
 export interface AuthUser {
@@ -91,3 +100,50 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
 export const me = createServerFn({ method: "GET" }).handler(async (): Promise<AuthUser | null> => {
   return getSessionUser();
 });
+
+/**
+ * Cambiar la propia contraseña.
+ *
+ * Hasta acá la única forma de cambiarla era pedírselo a alguien de arriba: el
+ * dueño reseteaba a sus encargados y el superadmin a los dueños. Eso obliga a
+ * decir la contraseña en voz alta y a que alguien más la conozca.
+ *
+ * Pide la actual aunque haya sesión iniciada: si alguien se sienta en la
+ * tablet que quedó abierta, no tiene que poder dejar al dueño afuera de su
+ * propia empresa. Y al terminar se cierran las demás sesiones, que es lo que
+ * uno espera cuando cambia una contraseña porque piensa que se la vieron.
+ */
+export const changeMyPassword = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator(
+    z.object({
+      currentPassword: z.string().min(1, "Escribí tu contraseña actual"),
+      newPassword: passwordSchema,
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    const session = context.user as SessionUser;
+
+    const [row] = await db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, session.id))
+      .limit(1);
+    if (!row) throw new Error("No encontramos tu usuario");
+
+    if (!(await verifyPassword(data.currentPassword, row.passwordHash))) {
+      throw new Error("La contraseña actual no es correcta");
+    }
+    if (await verifyPassword(data.newPassword, row.passwordHash)) {
+      throw new Error("La nueva contraseña tiene que ser distinta de la actual");
+    }
+
+    await db
+      .update(users)
+      .set({ passwordHash: await hashPassword(data.newPassword) })
+      .where(eq(users.id, session.id));
+
+    await destroyUserSessions(session.id, currentSessionToken());
+
+    return { ok: true };
+  });

@@ -11,6 +11,7 @@ import {
   Loader2,
   LogOut,
   RefreshCw,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -181,6 +182,13 @@ function Kitchen() {
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Actualizar
             </button>
+            <a
+              href="/cuenta"
+              className="flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-bold transition hover:border-primary"
+            >
+              <KeyRound className="h-4 w-4" />
+              Mi cuenta
+            </a>
             <button
               type="button"
               onClick={async () => {

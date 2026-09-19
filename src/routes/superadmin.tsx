@@ -23,6 +23,8 @@ import {
   PanelLeft,
   PanelLeftClose,
   LogIn,
+  UserPlus,
+  Link2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -31,11 +33,14 @@ import {
   listBusinesses,
   setBusinessActive,
   updateBusinessAdmin,
+  assignBusinessOwner,
+  updateBusinessSlug,
   enterBusiness,
   type BusinessRow,
 } from "@/lib/api/platform.functions";
 import { FacturacionSection } from "@/components/admin/FacturacionSection";
 import { PASSWORD_HINT, PASSWORD_MIN } from "@/lib/auth/password-policy";
+import { mensajeDeError } from "@/lib/error-message";
 
 export const Route = createFileRoute("/superadmin")({
   head: () => ({
@@ -82,6 +87,8 @@ function SuperadminPage() {
   const create = useServerFn(createBusiness);
   const toggleActive = useServerFn(setBusinessActive);
   const updateAdmin = useServerFn(updateBusinessAdmin);
+  const assignOwner = useServerFn(assignBusinessOwner);
+  const changeSlug = useServerFn(updateBusinessSlug);
   const doEnterBusiness = useServerFn(enterBusiness);
   const doMe = useServerFn(me);
   const doLogout = useServerFn(logout);
@@ -97,6 +104,18 @@ function SuperadminPage() {
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [email, setEmail] = useState("");
+
+  // Empresa a la que se le está dando dueño, y empresa a la que se le está
+  // cambiando la dirección del tótem.
+  const [ownerRow, setOwnerRow] = useState<BusinessRow | null>(null);
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerUsername, setOwnerUsername] = useState("");
+  const [ownerPassword, setOwnerPassword] = useState("");
+  const [assigning, setAssigning] = useState(false);
+
+  const [slugRow, setSlugRow] = useState<BusinessRow | null>(null);
+  const [slugValue, setSlugValue] = useState("");
+  const [savingSlug, setSavingSlug] = useState(false);
 
   const [editRow, setEditRow] = useState<BusinessRow | null>(null);
   const [editEmail, setEditEmail] = useState("");
@@ -150,7 +169,7 @@ function SuperadminPage() {
       setOpen(false);
       await reload();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "No se pudo crear la empresa");
+      toast.error(mensajeDeError(err, "No se pudo crear la empresa"));
     } finally {
       setSaving(false);
     }
@@ -180,9 +199,60 @@ function SuperadminPage() {
       setEditRow(null);
       await reload();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "No se pudo actualizar");
+      toast.error(mensajeDeError(err, "No se pudo actualizar"));
     } finally {
       setEditing(false);
+    }
+  };
+
+  const openAssignOwner = (row: BusinessRow) => {
+    setOwnerRow(row);
+    setOwnerEmail("");
+    setOwnerUsername("");
+    setOwnerPassword("");
+  };
+
+  const handleAssignOwner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ownerRow) return;
+    setAssigning(true);
+    try {
+      await assignOwner({
+        data: {
+          companyId: ownerRow.id,
+          email: ownerEmail,
+          username: ownerUsername,
+          password: ownerPassword,
+        },
+      });
+      toast.success("Dueño asignado");
+      setOwnerRow(null);
+      await reload();
+    } catch (err: unknown) {
+      toast.error(mensajeDeError(err, "No se pudo asignar el dueño"));
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const openSlug = (row: BusinessRow) => {
+    setSlugRow(row);
+    setSlugValue(row.slug);
+  };
+
+  const handleSlug = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!slugRow) return;
+    setSavingSlug(true);
+    try {
+      await changeSlug({ data: { companyId: slugRow.id, slug: slugValue } });
+      toast.success("Dirección del tótem actualizada");
+      setSlugRow(null);
+      await reload();
+    } catch (err: unknown) {
+      toast.error(mensajeDeError(err, "No se pudo cambiar la dirección"));
+    } finally {
+      setSavingSlug(false);
     }
   };
 
@@ -192,7 +262,7 @@ function SuperadminPage() {
       await doEnterBusiness({ data: { companyId: row.id } });
       navigate({ to: "/admin" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo entrar a la empresa");
+      toast.error(mensajeDeError(err, "No se pudo entrar a la empresa"));
     }
   };
 
@@ -281,6 +351,15 @@ function SuperadminPage() {
             </button>
           ))}
         </nav>
+        <div className="px-3 pb-1">
+          <a
+            href="/cuenta"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
+          >
+            <KeyRound className="h-5 w-5" />
+            Mi cuenta
+          </a>
+        </div>
         <div className="border-t border-border p-3">
           <Button variant="outline" className="w-full gap-2" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
@@ -447,7 +526,7 @@ function SuperadminPage() {
                               <LogIn className="h-3.5 w-3.5" />
                               Entrar
                             </Button>
-                            {b.admin_user_id && (
+                            {b.admin_user_id ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -457,7 +536,25 @@ function SuperadminPage() {
                                 <KeyRound className="h-3.5 w-3.5" />
                                 Credenciales
                               </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="gap-1"
+                                onClick={() => openAssignOwner(b)}
+                              >
+                                <UserPlus className="h-3.5 w-3.5" />
+                                Asignar dueño
+                              </Button>
                             )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => openSlug(b)}
+                            >
+                              <Link2 className="h-3.5 w-3.5" />
+                              Dirección
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => handleToggle(b)}>
                               {b.active ? "Desactivar" : "Activar"}
                             </Button>
@@ -472,6 +569,103 @@ function SuperadminPage() {
           )}
         </div>
       </main>
+
+      <Dialog open={ownerRow !== null} onOpenChange={(o) => !o && setOwnerRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Asignar dueño — {ownerRow?.name}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAssignOwner} className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Esta empresa no tiene dueño, así que nadie del negocio puede entrar al panel. El
+              usuario que crees acá queda como dueño y administra todo lo suyo.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="owner-email">Email</Label>
+              <Input
+                id="owner-email"
+                type="email"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="owner-username">Usuario</Label>
+              <Input
+                id="owner-username"
+                value={ownerUsername}
+                onChange={(e) => setOwnerUsername(e.target.value)}
+                required
+                minLength={3}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="owner-password">Contraseña</Label>
+              <Input
+                id="owner-password"
+                type="text"
+                value={ownerPassword}
+                onChange={(e) => setOwnerPassword(e.target.value)}
+                required
+                minLength={PASSWORD_MIN}
+                placeholder={PASSWORD_HINT}
+                className="h-11"
+              />
+            </div>
+            <Button type="submit" disabled={assigning} className="w-full gap-2">
+              {assigning && <Loader2 className="h-4 w-4 animate-spin" />}
+              Crear dueño
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={slugRow !== null} onOpenChange={(o) => !o && setSlugRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dirección del tótem — {slugRow?.name}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSlug} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="slug-value">Dirección</Label>
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-sm text-muted-foreground">/t/</span>
+                <Input
+                  id="slug-value"
+                  value={slugValue}
+                  onChange={(e) =>
+                    // Se normaliza al tipear: así nadie manda espacios ni
+                    // mayúsculas y ve el error recién al guardar.
+                    setSlugValue(
+                      e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]+/g, "-")
+                        .replace(/-{2,}/g, "-")
+                        .replace(/^-+/, ""),
+                    )
+                  }
+                  required
+                  minLength={3}
+                  placeholder="sangucheria-primorosas"
+                  className="h-11"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Minúsculas, números y guiones.</p>
+            </div>
+            <p className="text-sm text-amber-400">
+              Si la cambiás, el enlace anterior deja de funcionar y hay que volver a cargar la
+              dirección en la tablet. Los QR ya impresos quedan sin uso.
+            </p>
+            <Button type="submit" disabled={savingSlug} className="w-full gap-2">
+              {savingSlug && <Loader2 className="h-4 w-4 animate-spin" />}
+              Guardar dirección
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editRow !== null} onOpenChange={(o) => !o && setEditRow(null)}>
         <DialogContent>

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KitchenRouteImport } from './routes/kitchen'
+import { Route as CuentaRouteImport } from './routes/cuenta'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TSlugIndexRouteImport } from './routes/t.$slug.index'
@@ -35,6 +36,11 @@ const LoginRoute = LoginRouteImport.update({
 const KitchenRoute = KitchenRouteImport.update({
   id: '/kitchen',
   path: '/kitchen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CuentaRoute = CuentaRouteImport.update({
+  id: '/cuenta',
+  path: '/cuenta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -86,6 +92,7 @@ const TSlugListoOrderIdRoute = TSlugListoOrderIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/cuenta': typeof CuentaRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/cuenta': typeof CuentaRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/cuenta': typeof CuentaRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/cuenta'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/cuenta'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/cuenta'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -174,6 +186,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  CuentaRoute: typeof CuentaRoute
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/kitchen'
       fullPath: '/kitchen'
       preLoaderRoute: typeof KitchenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cuenta': {
+      id: '/cuenta'
+      path: '/cuenta'
+      fullPath: '/cuenta'
+      preLoaderRoute: typeof CuentaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -278,6 +298,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  CuentaRoute: CuentaRoute,
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,

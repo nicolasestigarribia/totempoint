@@ -24,7 +24,7 @@ bun run format       # prettier --write .
 
 Tests run with bun's built-in runner (`bun run test`). Coverage is deliberately narrow: `src/lib/auth/permissions.test.ts` pins the permission rules, which are the part that fails silently. Everything else is still verified by hand.
 
-Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive `drizzle-kit` directly, e.g. `bunx drizzle-kit push` or `bunx drizzle-kit generate`. `drizzle.config.ts` reads `DATABASE_URL` from `.env.local` (not `.env`). Seed a superadmin user with `bun run src/db/seed.ts` (reads optional `SEED_EMAIL`/`SEED_PASSWORD` env vars, defaults exist).
+Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive `drizzle-kit` directly, e.g. `bunx drizzle-kit push` or `bunx drizzle-kit generate`. `drizzle.config.ts` reads `DATABASE_URL` from `.env.local` (not `.env`). Seed a superadmin user with `bun run src/db/seed.ts` (reads optional `SEED_EMAIL`/`SEED_PASSWORD` env vars, defaults exist). `bun run src/db/seed-action-codes.ts [slug]` loads a company's movement reasons; without them the Stock section shows its button but the "Motivo" dropdown is empty and nothing can be registered by hand.
 
 `bunfig.toml` enforces a 24h supply-chain guard on new package versions (`minimumReleaseAge`). Don't add entries to `minimumReleaseAgeExcludes` without confirming with the user first.
 
@@ -71,7 +71,7 @@ export const someFn = createServerFn({ method: "GET" | "POST" })
 ```
 
 - `src/lib/auth/middleware.ts`: `requireAuth` attaches `context.user: SessionUser` or throws; `requireSuperadmin` builds on `requireAuth` and additionally checks `user.roles.includes("superadmin")`.
-- Handlers throw plain `Error`s with user-facing Spanish messages (e.g. `"Usuario o contraseña incorrectos"`) — these propagate to the client as the server-fn error and are shown via `sonner` toasts / inline alerts. Follow this convention rather than introducing structured error codes.
+- Handlers throw plain `Error`s with user-facing Spanish messages (e.g. `"Usuario o contraseña incorrectos"`) — these propagate to the client as the server-fn error and are shown via `sonner` toasts / inline alerts. Follow this convention rather than introducing structured error codes. What a handler throws arrives readable; what the `inputValidator` rejects arrives as zod's serialized issue array, so show it through `mensajeDeError` (`src/lib/error-message.ts`) instead of printing `err.message`, which would put raw JSON on screen.
 - Route-level auth is enforced **client-side**, not via router `beforeLoad`: pages call `me()` in a `useEffect` and `navigate()` away if the user/role doesn't match (see `routes/login.tsx`'s `destinationFor`, `routes/admin.tsx`). The server functions are still the real security boundary via `requireAuth`/`requireSuperadmin`.
 
 ### Auth & sessions
@@ -83,7 +83,8 @@ Custom cookie-session auth (migrated off Supabase auth) in `src/lib/auth/`:
 - The superadmin password is changed with `SEED_PASSWORD="..." bun run src/db/set-superadmin-password.ts`, which also drops that user's sessions.
 - `password.ts`: password hashing (bcryptjs).
 - `password-policy.ts`: the single rule for credentials — 8+ characters with a letter and a digit, no catalogue passwords, and an email that can actually receive mail. Every path that creates or changes a user must use `passwordSchema`/`emailSchema`; the user asked for this explicitly and it is covered by tests.
-- **There is no password recovery by email yet.** The user chose to keep resets manual rather than add a mail provider: an owner resets his operators from Operadores, and the superadmin resets an owner from Credenciales. The email is validated because that flow is meant to arrive later; the login page says who to ask meanwhile.
+- **There is no password recovery by email yet.** The user chose to keep resets manual rather than add a mail provider: an owner resets his operators from Operadores, and the superadmin resets an owner from Credenciales. The email is validated because that flow is meant to arrive later; the login page says who to ask meanwhile. What does exist is `/cuenta` (`changeMyPassword`), where anyone logged in changes their own password — it asks for the current one even with a session open, so a tablet left unlocked can't lock its owner out.
+- **Changing or revoking access must kill the open sessions.** `destroyUserSessions(userId, keepToken?)` in `session.ts` is called when an operator's password is reset, when a user is deactivated, when the superadmin changes an owner's credentials and when a company is deactivated (the session only checks whether the *user* is active, not the company). Without it, resetting the password of someone who just left changes nothing until their session expires on its own. Changing your own password keeps the current session and drops the rest.
 - Roles are a many-to-many table (`user_roles`: `superadmin` | `admin` | `kitchen`) — a user can hold multiple roles; check with `roles.includes(...)`, not equality.
 
 ### Multi-tenant data model (`src/db/schema.ts`)
@@ -129,9 +130,9 @@ Built with the Dockerfile (bun for install/build → `node:22-slim` runtime runn
 
 Verified working end to end: business signup → owner login → cover setup → image upload → catalog on the totem → cart → checkout → order in the DB → kitchen panel. What is still missing:
 
-- **The slug can't be edited** from any panel. The full totem URL and its QR do show in the Portada section (`TotemLinkCard`), so installing a totem no longer means typing a long URL.
+- The slug **is** editable, but only by the superadmin (`updateBusinessSlug`), because changing it breaks the previous link and any printed QR. The full totem URL and its QR show in the Portada section (`TotemLinkCard`). A company left without an owner is no longer a dead end either: `assignBusinessOwner` creates one.
 - **Payments, cash closing and cancellations don't exist** (points 8, 11 and 12 of the business rules). This is the one thing that still separates the product from being installable in a real shop, and it belongs to Nicolás.
-- **A logged-in session on the totem tablet is a hole**: `/t/$slug` has no way out, but if the owner logs in on that tablet and doesn't log out, anyone typing `/admin` gets the panel. Mitigated only by procedure (administer from a phone/PC, lock the tablet with the OS kiosk mode).
+- A logged-in session on the totem tablet used to be a hole — `/t/$slug` has no way out, but the address bar does. The link the panel hands out for the tablet now ends in `?totem=1`: `useTotemDevice` marks that browser and, every time the cover loads, calls `leaveStaffSession` to drop any panel session left open there. `?totem=0` removes the mark, and the panel's own "Abrir" button uses the bare link so previewing from a PC doesn't log you out. It is still worth locking the tablet in the OS kiosk mode.
 - **Location is implicit.** Orders go to the company's first active location; a multi-branch business needs the totem to know which branch it is (device pairing was discussed as the eventual fix).
 - **`.env` is committed to the repo**, so its keys are in git history. Pre-existing, flagged to the user, untouched — removing it means rewriting history and rotating keys.
 

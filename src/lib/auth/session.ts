@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { setCookie, getCookie, deleteCookie } from "@tanstack/react-start/server";
 import { db } from "@/db";
 import { sessions, users, userRoles, userLocations, userPermissions } from "@/db/schema";
@@ -170,6 +170,27 @@ export async function destroySession(): Promise<void> {
     await db.delete(sessions).where(eq(sessions.id, token));
   }
   deleteCookie(COOKIE_NAME, { path: "/" });
+}
+
+/**
+ * Cierra todas las sesiones de un usuario, opcionalmente salvando una.
+ *
+ * Cambiar una contraseña sin esto no sirve de mucho: la sesión vieja sigue
+ * viva hasta doce horas sin uso, así que a quien le reseteás la clave porque
+ * se fue de la empresa le queda la tablet adentro igual. Cuando alguien
+ * cambia su propia contraseña se salva la sesión desde la que lo hizo, para
+ * no echarlo de la pantalla en la que está.
+ */
+export async function destroyUserSessions(userId: number, keepToken?: string): Promise<void> {
+  const cond = keepToken
+    ? and(eq(sessions.userId, userId), ne(sessions.id, keepToken))
+    : eq(sessions.userId, userId);
+  await db.delete(sessions).where(cond);
+}
+
+/** El token de la sesión en curso, para poder salvarla al cerrar las demás. */
+export function currentSessionToken(): string | undefined {
+  return getCookie(COOKIE_NAME);
 }
 
 export function newId(): string {

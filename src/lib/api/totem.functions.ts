@@ -13,6 +13,7 @@ import {
   orders,
   orderItems,
 } from "@/db/schema";
+import { destroySession } from "@/lib/auth/session";
 
 // Capa pública: el tótem no tiene sesión, resuelve la empresa por slug de la URL.
 // No usa requireAuth a propósito — devolvé sólo datos que puedan verse en pantalla.
@@ -411,3 +412,20 @@ export const getTotemOrder = createServerFn({ method: "GET" })
       theme: row.theme ?? "oscuro",
     };
   });
+
+/**
+ * Cierra la sesión de panel que haya quedado abierta en este dispositivo.
+ *
+ * La llama la portada del tótem cuando la tablet está marcada como tótem. Sin
+ * esto, el dueño que entra al panel desde la tablet del mostrador para tocar
+ * algo y no cierra sesión deja el panel a mano de cualquiera que escriba
+ * /admin: la pantalla del tótem no tiene salida, pero la barra de direcciones
+ * sí.
+ *
+ * Es pública a propósito, como el resto de este archivo: lo único que puede
+ * hacer quien la llame es desloguearse a sí mismo.
+ */
+export const leaveStaffSession = createServerFn({ method: "POST" }).handler(async () => {
+  await destroySession();
+  return { ok: true };
+});

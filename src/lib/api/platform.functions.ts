@@ -7,7 +7,7 @@ import { companies, locations, users, userRoles, userLocations, orders } from "@
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
-import { setActingCompany, clearActingCompany } from "@/lib/auth/session";
+import { setActingCompany, clearActingCompany, destroyUserSessions } from "@/lib/auth/session";
 
 function slugify(name: string) {
   return name
@@ -42,6 +42,9 @@ export const listBusinesses = createServerFn({ method: "GET" })
   .handler(async (): Promise<BusinessRow[]> => {
     const rows = await db.select().from(companies).orderBy(desc(companies.createdAt));
 
+    // El dueño es el que tiene el rol owner, no el primer usuario que aparezca
+    // de esa empresa: si el encargado se creó antes, "Credenciales" terminaba
+    // editando a la persona equivocada.
     const admins = await db
       .select({
         id: users.id,
@@ -49,7 +52,10 @@ export const listBusinesses = createServerFn({ method: "GET" })
         username: users.username,
         companyId: users.companyId,
       })
-      .from(users);
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .where(eq(userRoles.role, "owner"))
+      .orderBy(users.id);
 
     const adminByCompany = new Map<
       number,
@@ -182,6 +188,114 @@ export const updateBusinessAdmin = createServerFn({ method: "POST" })
     if (data.password) set.passwordHash = await hashPassword(data.password);
 
     await db.update(users).set(set).where(eq(users.id, data.userId));
+    // Si le cambiamos la clave al dueño, su sesión abierta deja de valer.
+    if (data.password) await destroyUserSessions(data.userId);
+    return { ok: true };
+  });
+
+/**
+ * Le da un dueño a una empresa que no tiene.
+ *
+ * Pasa cuando el alta quedó a medias, o cuando el dueño se borró. Sin esto la
+ * empresa queda muerta: el superadmin puede entrar, pero nadie del negocio.
+ * Si ya hay un owner no se crea otro — para cambiarle el mail o la clave está
+ * Credenciales.
+ */
+export const assignBusinessOwner = createServerFn({ method: "POST" })
+  .middleware([requireSuperadmin])
+  .inputValidator(
+    z.object({
+      companyId: z.number().int(),
+      email: emailSchema,
+      username: usernameSchema,
+      password: passwordSchema,
+    }),
+  )
+  .handler(async ({ data }) => {
+    const [company] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(eq(companies.id, data.companyId))
+      .limit(1);
+    if (!company) throw new Error("No encontramos esa empresa");
+
+    const [yaHay] = await db
+      .select({ id: users.id })
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .where(and(eq(users.companyId, data.companyId), eq(userRoles.role, "owner")))
+      .limit(1);
+    if (yaHay) throw new Error("Esa empresa ya tiene dueño. Cambiale los datos desde Credenciales");
+
+    const email = data.email.toLowerCase();
+    const username = data.username.toLowerCase();
+    const [dup] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(or(eq(users.email, email), eq(users.username, username)))
+      .limit(1);
+    if (dup) throw new Error("Ese email o usuario ya está en uso");
+
+    // Lo dejamos parado en el primer negocio de la empresa, como en el alta.
+    const [primerNegocio] = await db
+      .select({ id: locations.id })
+      .from(locations)
+      .where(eq(locations.companyId, data.companyId))
+      .orderBy(locations.id)
+      .limit(1);
+
+    const [{ id: userId }] = await db
+      .insert(users)
+      .values({
+        email,
+        username,
+        passwordHash: await hashPassword(data.password),
+        companyId: data.companyId,
+        locationId: primerNegocio?.id ?? null,
+      })
+      .$returningId();
+
+    await db.insert(userRoles).values({ userId, role: "owner" });
+    if (primerNegocio) {
+      await db.insert(userLocations).values({ userId, locationId: primerNegocio.id });
+    }
+
+    return { ok: true };
+  });
+
+/**
+ * Cambia la dirección del tótem de una empresa.
+ *
+ * El slug se genera del nombre al dar de alta y hasta ahora no se podía tocar,
+ * así que un negocio que se renombraba quedaba con la URL vieja para siempre.
+ * Cambiarlo rompe el enlace anterior y el QR impreso: eso se avisa en pantalla
+ * y por eso lo hace el superadmin, no el dueño.
+ */
+export const updateBusinessSlug = createServerFn({ method: "POST" })
+  .middleware([requireSuperadmin])
+  .inputValidator(
+    z.object({
+      companyId: z.number().int(),
+      slug: z
+        .string()
+        .trim()
+        .toLowerCase()
+        .min(3, "Al menos 3 caracteres")
+        .max(50)
+        .regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones")
+        .regex(/^[a-z0-9]/, "Tiene que empezar con letra o número")
+        .regex(/[a-z0-9]$/, "No puede terminar en guion"),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const [ocupado] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.slug, data.slug), ne(companies.id, data.companyId)))
+      .limit(1);
+    if (ocupado) throw new Error("Esa dirección ya la usa otra empresa");
+
+    await db.update(companies).set({ slug: data.slug }).where(eq(companies.id, data.companyId));
     return { ok: true };
   });
 
@@ -190,6 +304,17 @@ export const setBusinessActive = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ data }) => {
     await db.update(companies).set({ active: data.active }).where(eq(companies.id, data.id));
+
+    // Dar de baja una empresa tiene que sacar a su gente del panel ahora, no
+    // cuando venza la sesión: la sesión solo mira si el usuario está activo, no
+    // si la empresa lo está.
+    if (!data.active) {
+      const gente = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.companyId, data.id));
+      for (const u of gente) await destroyUserSessions(u.id);
+    }
     return { ok: true };
   });
 

@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Eye,
   ChefHat,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -421,6 +422,15 @@ function AdminPage() {
           así que no entra en el nav de arriba. Sin este enlace, a quien le
           habilitan "Comandera" no le queda forma de llegar.
         */}
+        <div className="px-3 pb-1">
+          <a
+            href="/cuenta"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
+          >
+            <KeyRound className="h-5 w-5" />
+            Mi cuenta
+          </a>
+        </div>
         {puedeVerComandera && (
           <div className="px-3 pb-1">
             <a
