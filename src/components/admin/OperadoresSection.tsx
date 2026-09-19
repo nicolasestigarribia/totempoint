@@ -486,8 +486,9 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Quien puede cargar productos también puede crear categorías: sin eso no tendría
-                dónde ponerlos.
+                Algunas secciones se abren solas: quien puede cargar productos también puede crear
+                categorías, porque si no no tendría dónde ponerlos, y quien entra a la comandera ve
+                el cierre de caja, que es la suma de los cobros que marca ahí.
               </p>
             </div>
           </div>
