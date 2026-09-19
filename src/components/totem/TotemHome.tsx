@@ -24,7 +24,14 @@ function Badges({ data, className = "" }: { data: TotemHomeData; className?: str
   );
 }
 
-function Logo({ data }: { data: TotemHomeData }) {
+/**
+ * El logo con el nombre del negocio, y encima el eyebrow.
+ *
+ * `conEyebrow` existe porque la plantilla Clásica ya lo muestra como cartelito
+ * aparte: repetirlo acá hacía que "Sanguchería de miga" apareciera dos veces
+ * en la misma pantalla, a dos centímetros de distancia.
+ */
+function Logo({ data, conEyebrow = true }: { data: TotemHomeData; conEyebrow?: boolean }) {
   const accent = data.accentColor || data.primaryColor || undefined;
   return (
     <div className="flex items-center gap-4">
@@ -39,7 +46,7 @@ function Logo({ data }: { data: TotemHomeData }) {
         )}
       </div>
       <div>
-        {data.eyebrow && (
+        {conEyebrow && data.eyebrow && (
           <div
             className="text-xs font-semibold uppercase tracking-[0.3em]"
             style={{ color: accent }}
@@ -119,7 +126,7 @@ function Clasico({ data }: { data: TotemHomeData }) {
                 </span>
               </div>
             )}
-            <Logo data={data} />
+            <Logo data={data} conEyebrow={false} />
             <Title data={data} className="text-7xl sm:text-8xl md:text-9xl" />
             {data.subtitle && (
               <p className="max-w-md text-balance text-lg text-muted-foreground md:text-xl">

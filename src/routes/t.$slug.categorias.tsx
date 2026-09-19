@@ -64,14 +64,14 @@ function CategoriasPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
 
                 <div className="relative z-10 flex items-end justify-between gap-4 p-6">
-                  <div>
+                  <div className="min-w-0">
                     <div
-                      className="text-[11px] font-bold uppercase tracking-[0.3em]"
+                      className="line-clamp-2 text-[11px] font-bold uppercase leading-tight tracking-[0.12em]"
                       style={{ color: accent }}
                     >
                       Más barato que por separado
                     </div>
-                    <h2 className="mt-2 font-display text-4xl text-white">Combos</h2>
+                    <h2 className="mt-1.5 font-display text-4xl text-white">Combos</h2>
                     <p className="mt-1 text-sm text-white/70">
                       {menu.combos.length} {menu.combos.length === 1 ? "combo" : "combos"}
                     </p>
@@ -107,16 +107,16 @@ function CategoriasPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
 
                 <div className="relative z-10 flex items-end justify-between gap-4 p-6">
-                  <div>
+                  <div className="min-w-0">
                     {c.tagline && (
                       <div
-                        className="text-[11px] font-bold uppercase tracking-[0.3em]"
+                        className="line-clamp-2 text-[11px] font-bold uppercase leading-tight tracking-[0.12em]"
                         style={{ color: accent }}
                       >
                         {c.tagline}
                       </div>
                     )}
-                    <h2 className="mt-2 font-display text-4xl text-white">{c.name}</h2>
+                    <h2 className="mt-1.5 font-display text-4xl text-white">{c.name}</h2>
                     <p className="mt-1 text-sm text-white/70">
                       {c.productCount} {c.productCount === 1 ? "producto" : "productos"}
                     </p>
