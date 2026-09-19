@@ -87,6 +87,15 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
     );
   }
 
+  // Tres estados, no dos: tener las credenciales cargadas y tener el cobro
+  // prendido son cosas distintas, y juntarlas hacía que después de pegar el
+  // token el cartel siguiera diciendo "sin configurar" como si no se hubiera
+  // guardado nada.
+  const estado = !settings?.mpConfigurado
+    ? ({ texto: "Sin configurar", clase: "bg-muted text-muted-foreground" } as const)
+    : settings.mpEnabled
+      ? ({ texto: "Cobrando", clase: "bg-green-500/15 text-green-500" } as const)
+      : ({ texto: "Apagado", clase: "bg-amber-500/15 text-amber-400" } as const);
   const listo = settings?.mpConfigurado && settings.mpEnabled;
 
   return (
@@ -101,12 +110,10 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
             </p>
           </div>
           <span
-            className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
-              listo ? "bg-green-500/15 text-green-500" : "bg-muted text-muted-foreground"
-            }`}
+            className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${estado.clase}`}
           >
             {listo ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
-            {listo ? "Cobrando" : "Sin configurar"}
+            {estado.texto}
           </span>
         </div>
 
@@ -117,7 +124,13 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
               id="mp-token"
               type="password"
               value={token}
-              onChange={(e) => setToken(e.target.value)}
+              onChange={(e) => {
+                setToken(e.target.value);
+                // Nadie carga credenciales para dejarlas apagadas. El switch
+                // queda para apagar el cobro después, no para tener que
+                // acordarse de prenderlo la primera vez.
+                if (e.target.value && !settings?.mpConfigurado) setEnabled(true);
+              }}
               placeholder={
                 settings?.mpConfigurado
                   ? `Guardado (${settings.mpTokenPista}). Escribí uno nuevo para reemplazarlo.`
@@ -156,6 +169,14 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
             <p className="flex items-start gap-2 text-sm text-amber-400">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               Falta el access token: sin eso no se puede cobrar.
+            </p>
+          )}
+
+          {settings?.mpConfigurado && !settings.mpEnabled && (
+            <p className="flex items-start gap-2 text-sm text-amber-400">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              Las credenciales están guardadas, pero el cobro está apagado: el tótem sigue
+              ofreciendo solo efectivo. Prendé el interruptor de arriba y guardá.
             </p>
           )}
 
