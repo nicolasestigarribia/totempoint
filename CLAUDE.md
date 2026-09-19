@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `README.md` describes the product and how to run it.
 
+`PARA-NICOLAS.md` is a handoff briefing in Spanish: the business rules and invariants that must not be changed, and the work still pending. Keep it in sync when either of those moves.
+
 ## Commands
 
 Package manager is **bun** (`bun.lock`, `bunfig.toml`), not npm/pnpm.
