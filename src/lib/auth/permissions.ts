@@ -16,6 +16,7 @@ export const PANEL_SECTIONS = [
   "movimientos",
   "codigos",
   "comandera",
+  "caja",
 ] as const;
 
 export type PanelSection = (typeof PANEL_SECTIONS)[number];
@@ -33,6 +34,7 @@ export const SECTION_LABEL: Record<PanelSection, string> = {
   movimientos: "Movimientos",
   codigos: "Códigos de acción",
   comandera: "Comandera",
+  caja: "Cierre de caja",
 };
 
 /**
@@ -46,6 +48,9 @@ export const SECTION_LABEL: Record<PanelSection, string> = {
  */
 export const IMPLIED_BY: Partial<Record<PanelSection, PanelSection[]>> = {
   categorias: ["productos"],
+  // El cierre de caja es la suma de lo que se cobró en la comandera: quien
+  // marca los cobros tiene que poder ver el total que le da.
+  caja: ["comandera"],
 };
 
 const RANK: Record<PermissionLevel, number> = { ver: 1, editar: 2 };

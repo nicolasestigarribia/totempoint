@@ -12,16 +12,31 @@ import {
   LogOut,
   RefreshCw,
   KeyRound,
+  Ban,
+  Banknote,
+  Smartphone,
+  CircleDollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
 import {
   listKitchenOrders,
   setOrderStatus,
+  setOrderPaid,
+  cancelOrder,
   type KitchenOrder,
   type OrderStatus,
+  type PaymentMethod,
 } from "@/lib/api/orders.functions";
 import { formatPrice } from "@/lib/totem-cart";
+import { mensajeDeError } from "@/lib/error-message";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { canEditSection } from "@/lib/auth/permissions";
 
 export const Route = createFileRoute("/kitchen")({
@@ -51,15 +66,29 @@ const statusMeta: Record<
     icon: PackageCheck,
     accent: "border-l-emerald-500",
   },
+  cancelado: {
+    label: "Cancelado",
+    pill: "bg-destructive/20 text-destructive border-destructive/40",
+    icon: Ban,
+    accent: "border-l-destructive",
+  },
 };
 
-const flow: Record<OrderStatus, OrderStatus | null> = {
+const flow: Record<OrderStatus, "recibido" | "preparacion" | "entregado" | null> = {
   recibido: "preparacion",
   preparacion: "entregado",
   entregado: null,
+  // Un pedido cancelado no vuelve atrás: si el cliente se arrepiente se toma
+  // uno nuevo, así el cierre de caja del día no cambia después de hecho.
+  cancelado: null,
 };
 
-const columns: OrderStatus[] = ["recibido", "preparacion", "entregado"];
+const columns: OrderStatus[] = ["recibido", "preparacion", "entregado", "cancelado"];
+
+const pagoMeta: Record<PaymentMethod, { label: string; icon: typeof Clock }> = {
+  efectivo: { label: "Efectivo", icon: Banknote },
+  mercadopago: { label: "Mercado Pago", icon: Smartphone },
+};
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -76,6 +105,8 @@ function Kitchen() {
   const doLogout = useServerFn(logout);
   const fetchOrders = useServerFn(listKitchenOrders);
   const updateStatus = useServerFn(setOrderStatus);
+  const updatePaid = useServerFn(setOrderPaid);
+  const doCancel = useServerFn(cancelOrder);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,6 +115,11 @@ function Kitchen() {
   // con "solo ver" el servidor le rechaza el cambio, así que no le mostramos
   // botones que no va a poder usar. El personal de cocina siempre puede.
   const [puedeOperar, setPuedeOperar] = useState(true);
+  // Cancelar se confirma con un diálogo propio y no con window.confirm: la
+  // comandera vive en una tablet en modo kiosco, donde el cartel del navegador
+  // queda fuera de lugar y a veces ni aparece.
+  const [aCancelar, setACancelar] = useState<KitchenOrder | null>(null);
+  const [cancelando, setCancelando] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -129,12 +165,18 @@ function Kitchen() {
       recibido: [],
       preparacion: [],
       entregado: [],
+      cancelado: [],
     };
     for (const o of orders) g[o.status].push(o);
     return g;
   }, [orders]);
 
-  const changeStatus = async (order: KitchenOrder, status: OrderStatus) => {
+  // Cancelar no pasa por acá: tiene su propia función porque además decide qué
+  // hacer con la plata ya cobrada.
+  const changeStatus = async (
+    order: KitchenOrder,
+    status: "recibido" | "preparacion" | "entregado",
+  ) => {
     const previous = order.status;
     setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status } : o)));
     try {
@@ -142,6 +184,32 @@ function Kitchen() {
     } catch (err) {
       setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: previous } : o)));
       toast.error(err instanceof Error ? err.message : "No se pudo cambiar el estado");
+    }
+  };
+
+  const togglePagado = async (order: KitchenOrder) => {
+    const pagado = order.paymentStatus === "pagado";
+    try {
+      await updatePaid({ data: { orderId: order.id, paid: !pagado } });
+      await load();
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo cambiar el estado del cobro"));
+    }
+  };
+
+  const confirmarCancelacion = async () => {
+    if (!aCancelar) return;
+    const cobrado = aCancelar.paymentStatus === "pagado";
+    setCancelando(true);
+    try {
+      await doCancel({ data: { orderId: aCancelar.id } });
+      setACancelar(null);
+      await load();
+      toast.success(cobrado ? "Cancelado, queda pendiente de reembolso" : "Pedido cancelado");
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo cancelar el pedido"));
+    } finally {
+      setCancelando(false);
     }
   };
 
@@ -273,10 +341,40 @@ function Kitchen() {
                           )}
 
                           <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Total
+                            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              {(() => {
+                                const P = pagoMeta[o.paymentMethod].icon;
+                                return <P className="h-3.5 w-3.5" />;
+                              })()}
+                              {pagoMeta[o.paymentMethod].label}
                             </span>
                             <span className="font-display text-xl">{formatPrice(o.total)}</span>
+                          </div>
+
+                          {/* El cobro se marca a mano porque el tótem todavía no cobra. */}
+                          <div className="mt-2">
+                            {o.paymentStatus === "reembolso_pendiente" ? (
+                              <span className="flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 py-2 text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                                <CircleDollarSign className="h-3.5 w-3.5" />
+                                Devolver la plata
+                              </span>
+                            ) : o.status === "cancelado" ? null : puedeOperar ? (
+                              <button
+                                onClick={() => togglePagado(o)}
+                                className={`flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border text-[11px] font-bold uppercase tracking-wider transition ${
+                                  o.paymentStatus === "pagado"
+                                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                    : "border-border text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                <CircleDollarSign className="h-3.5 w-3.5" />
+                                {o.paymentStatus === "pagado" ? "Cobrado" : "Marcar cobrado"}
+                              </button>
+                            ) : (
+                              <span className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                {o.paymentStatus === "pagado" ? "Cobrado" : "Sin cobrar"}
+                              </span>
+                            )}
                           </div>
 
                           {next && puedeOperar && (
@@ -296,6 +394,14 @@ function Kitchen() {
                               <Undo2 className="h-4 w-4" /> Revertir
                             </button>
                           )}
+                          {o.status !== "cancelado" && puedeOperar && (
+                            <button
+                              onClick={() => setACancelar(o)}
+                              className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-xl text-[11px] font-bold uppercase tracking-wider text-muted-foreground transition hover:text-destructive"
+                            >
+                              <Ban className="h-3.5 w-3.5" /> Cancelar pedido
+                            </button>
+                          )}
                         </article>
                       );
                     })}
@@ -311,6 +417,45 @@ function Kitchen() {
           </div>
         )}
       </main>
+
+      <Dialog open={aCancelar !== null} onOpenChange={(o) => !o && setACancelar(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar el pedido #{aCancelar?.orderNumber}</DialogTitle>
+            <DialogDescription>
+              {aCancelar?.paymentStatus === "pagado"
+                ? "Este pedido ya está cobrado. Al cancelarlo queda marcado como pendiente de reembolso y la plata se devuelve a mano, por caja o por Mercado Pago."
+                : "El pedido deja de contar para el cierre de caja del día."}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            No se puede deshacer: si el cliente se arrepiente, se toma un pedido nuevo.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setACancelar(null)}
+              disabled={cancelando}
+              className="flex h-11 items-center rounded-xl border border-border px-5 text-sm font-bold transition hover:border-primary"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              onClick={confirmarCancelacion}
+              disabled={cancelando}
+              className="flex h-11 items-center gap-2 rounded-xl bg-destructive px-5 text-sm font-bold text-destructive-foreground transition hover:brightness-110"
+            >
+              {cancelando ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Ban className="h-4 w-4" />
+              )}
+              Cancelar el pedido
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

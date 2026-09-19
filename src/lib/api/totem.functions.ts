@@ -15,6 +15,20 @@ import {
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
 
+/**
+ * La jornada de hoy como "YYYY-MM-DD", en la hora del servidor.
+ *
+ * Los pedidos se agrupan por día para la numeración y para el cierre de caja,
+ * y eso tiene que salir del reloj del negocio, no del de la tablet: si no, dos
+ * tótems con la hora corrida arrancarían jornadas distintas.
+ */
+function diaDeHoy(): string {
+  const ahora = new Date();
+  const mes = String(ahora.getMonth() + 1).padStart(2, "0");
+  const dia = String(ahora.getDate()).padStart(2, "0");
+  return `${ahora.getFullYear()}-${mes}-${dia}`;
+}
+
 // Capa pública: el tótem no tiene sesión, resuelve la empresa por slug de la URL.
 // No usa requireAuth a propósito — devolvé sólo datos que puedan verse en pantalla.
 
@@ -246,6 +260,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       slug: z.string().trim().min(1).max(60),
       customerName: z.string().trim().min(1).max(120),
       deliveryMethod: z.enum(["local", "mostrador"]),
+      paymentMethod: z.enum(["efectivo", "mercadopago"]),
       comments: z.string().trim().max(500).optional(),
       // Cada línea es un producto suelto o un combo. El precio no viaja nunca:
       // se recalcula acá contra la base.
@@ -336,24 +351,34 @@ export const createTotemOrder = createServerFn({ method: "POST" })
 
     const total = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
 
+    const jornada = diaDeHoy();
+
     return db.transaction(async (tx) => {
+      // La numeración arranca en 1 cada mañana y por local: el cliente ve un
+      // número corto y el local no arrastra los miles del mes pasado. El id
+      // interno sigue siendo el autoincremental, que nunca se repite.
       const [{ last }] = await tx
         .select({ last: sql<number | null>`MAX(${orders.orderNumber})` })
         .from(orders)
-        .where(eq(orders.locationId, location.id));
+        .where(and(eq(orders.locationId, location.id), eq(orders.businessDate, jornada)));
 
-      const orderNumber = (last ?? 99) + 1;
+      const orderNumber = (last ?? 0) + 1;
 
       const [{ id: orderId }] = await tx
         .insert(orders)
         .values({
           locationId: location.id,
           orderNumber,
+          businessDate: jornada,
           customerName: data.customerName.trim(),
           deliveryMethod: data.deliveryMethod,
           comments: data.comments?.trim() || null,
           status: "recibido",
           total: total.toFixed(2),
+          paymentMethod: data.paymentMethod,
+          // Nada se cobra desde el tótem todavía: el efectivo se cobra en el
+          // mostrador y Mercado Pago no está integrado.
+          paymentStatus: "pendiente",
         })
         .$returningId();
 
@@ -366,7 +391,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
 export interface TotemOrderSummary {
   orderNumber: number;
   customerName: string;
-  status: "recibido" | "preparacion" | "entregado";
+  status: "recibido" | "preparacion" | "entregado" | "cancelado";
   total: string;
   companyName: string;
   slug: string;

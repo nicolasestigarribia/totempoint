@@ -29,6 +29,7 @@ import {
   Eye,
   ChefHat,
   KeyRound,
+  CircleDollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -48,6 +49,7 @@ import { MovimientosSection } from "@/components/admin/MovimientosSection";
 import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
 import { PortadaSection } from "@/components/admin/PortadaSection";
 import { OperadoresSection } from "@/components/admin/OperadoresSection";
+import { CajaSection } from "@/components/admin/CajaSection";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -69,6 +71,7 @@ type SectionId =
   | "stock"
   | "movimientos"
   | "codigos"
+  | "caja"
   | "operadores";
 
 interface SectionDef {
@@ -159,6 +162,13 @@ const SECTIONS: SectionDef[] = [
     icon: Tags,
     desc: "Motivos de ingresos y egresos",
     permission: "codigos",
+  },
+  {
+    id: "caja",
+    label: "Cierre de caja",
+    icon: CircleDollarSign,
+    desc: "Lo cobrado en la jornada",
+    permission: "caja",
   },
   {
     id: "operadores",
@@ -535,6 +545,8 @@ function SectionContent({
       return <MovimientosSection panelClass={panelClass} />;
     case "codigos":
       return <CodigosAccionSection panelClass={panelClass} />;
+    case "caja":
+      return <CajaSection panelClass={panelClass} />;
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
   }

@@ -61,11 +61,24 @@ describe("permisos del panel", () => {
     expect(canEditSection(perms, "productos")).toBe(false);
   });
 
-  test("productos es la única sección que arrastra a otra", () => {
+  test("solo productos y comandera arrastran a otra sección", () => {
+    // Quien carga productos necesita poder crear la categoría donde ponerlos, y
+    // quien marca los cobros necesita ver el cierre que esos cobros arman.
     expect(impliedBy("productos")).toEqual(["categorias"]);
+    expect(impliedBy("comandera")).toEqual(["caja"]);
     for (const section of PANEL_SECTIONS) {
-      if (section !== "productos") expect(impliedBy(section)).toEqual([]);
+      if (section !== "productos" && section !== "comandera") {
+        expect(impliedBy(section)).toEqual([]);
+      }
     }
+  });
+
+  test("marcar cobros alcanza para ver el cierre de caja", () => {
+    const perms: PermissionMap = { comandera: "editar" };
+    expect(canViewSection(perms, "caja")).toBe(true);
+    // Pero ver la comandera sin poder operarla no debería dar edición del cierre.
+    expect(canEditSection({ comandera: "ver" }, "caja")).toBe(false);
+    expect(canViewSection({ comandera: "ver" }, "caja")).toBe(true);
   });
 
   test("toda sección del panel tiene nombre para mostrar", () => {

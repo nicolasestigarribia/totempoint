@@ -10,6 +10,7 @@ import {
   mysqlEnum,
   text,
   mediumtext,
+  date,
   unique,
   index,
 } from "drizzle-orm/mysql-core";
@@ -429,16 +430,34 @@ export const orders = mysqlTable(
     customerName: varchar("customer_name", { length: 120 }).notNull(),
     deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador"]).notNull(),
     comments: text("comments"),
-    status: mysqlEnum("status", ["recibido", "preparacion", "entregado"])
+    status: mysqlEnum("status", ["recibido", "preparacion", "entregado", "cancelado"])
       .notNull()
       .default("recibido"),
     total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-    paid: boolean("paid").notNull().default(false),
+    /**
+     * Día al que pertenece el pedido. No se deriva de createdAt porque la
+     * numeración visible se reinicia cada mañana y el cierre de caja se hace
+     * por jornada: hace falta poder agrupar por ese día sin depender de la hora.
+     */
+    businessDate: date("business_date", { mode: "string" }).notNull(),
+    paymentMethod: mysqlEnum("payment_method", ["efectivo", "mercadopago"])
+      .notNull()
+      .default("efectivo"),
+    /**
+     * "reembolso_pendiente" es el caso del pedido pagado por Mercado Pago que se
+     * cancela: la plata se devuelve a mano, el sistema solo lo deja anotado.
+     */
+    paymentStatus: mysqlEnum("payment_status", ["pendiente", "pagado", "reembolso_pendiente"])
+      .notNull()
+      .default("pendiente"),
+    cancelledAt: timestamp("cancelled_at"),
+    cancelledBy: int("cancelled_by"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
     index("orders_location_idx").on(t.locationId),
-    unique("orders_location_number_uq").on(t.locationId, t.orderNumber),
+    // El número se repite todos los días, así que la unicidad es por jornada.
+    unique("orders_location_date_number_uq").on(t.locationId, t.businessDate, t.orderNumber),
   ],
 );
 
