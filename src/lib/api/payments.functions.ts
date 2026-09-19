@@ -6,6 +6,7 @@ import { paymentSettings } from "@/db/schema";
 import { requireOwner } from "@/lib/auth/middleware";
 import { companyIdOf } from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
+import { pareceClavePublica, verificarCredencial } from "@/lib/payments/mercadopago";
 
 /**
  * Credenciales de cobro de la empresa.
@@ -64,7 +65,16 @@ export const updatePaymentSettings = createServerFn({ method: "POST" })
 
     if (token && !/^(APP_USR-|TEST-)/.test(token)) {
       throw new Error(
-        "Ese no parece un access token de Mercado Pago: tiene que empezar con APP_USR- o TEST-",
+        "Ese no parece una credencial de Mercado Pago: tiene que empezar con APP_USR- o TEST-",
+      );
+    }
+
+    // La Public Key y el Access Token empiezan igual, y pegar la que no es
+    // termina en un "UNAUTHORIZED" recién cuando alguien intenta pagar.
+    if (token && pareceClavePublica(token)) {
+      throw new Error(
+        "Eso es la Public Key, no el Access Token. En el panel de Mercado Pago están una al lado " +
+          "de la otra: copiá la que dice Access Token, que es bastante más larga.",
       );
     }
 
@@ -78,6 +88,13 @@ export const updatePaymentSettings = createServerFn({ method: "POST" })
 
     if (data.mpEnabled && !tokenFinal) {
       throw new Error("Para cobrar con Mercado Pago primero cargá el access token");
+    }
+
+    // Se prueba contra Mercado Pago antes de guardar: si la credencial no
+    // sirve, tiene que enterarse ahora el dueño y no después un cliente.
+    if (token) {
+      const prueba = await verificarCredencial(token);
+      if (!prueba.ok) throw new Error(prueba.motivo);
     }
 
     if (existente) {

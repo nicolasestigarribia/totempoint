@@ -153,3 +153,49 @@ export async function traerPago(
     externalReference: res.external_reference ?? null,
   };
 }
+
+/**
+ * La Public Key y el Access Token empiezan igual (`APP_USR-` o `TEST-`), así
+ * que el prefijo no alcanza para distinguirlos y es facilísimo pegar el que no
+ * es. Lo que sí los separa es la forma: la Public Key es el prefijo seguido de
+ * un UUID y nada más.
+ */
+export function pareceClavePublica(token: string): boolean {
+  return /^(APP_USR|TEST)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    token.trim(),
+  );
+}
+
+/**
+ * Le pregunta a Mercado Pago si el token sirve, consultando la cuenta a la que
+ * pertenece.
+ *
+ * Se hace al guardar y no al cobrar a propósito: una credencial equivocada
+ * tiene que fallar cuando el dueño la está configurando, no cuando hay un
+ * cliente parado frente al tótem con el pedido armado.
+ */
+export async function verificarCredencial(
+  accessToken: string,
+): Promise<{ ok: true; cuenta: string } | { ok: false; motivo: string }> {
+  try {
+    const res = await fetch(`${API}/users/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        motivo: "Mercado Pago no acepta esa credencial. Revisá que sea el Access Token.",
+      };
+    }
+    if (!res.ok) {
+      return { ok: false, motivo: `Mercado Pago respondió ${res.status} al validar la credencial` };
+    }
+
+    const cuenta = (await res.json()) as { nickname?: string; email?: string };
+    return { ok: true, cuenta: cuenta.nickname ?? cuenta.email ?? "tu cuenta" };
+  } catch {
+    // Sin internet o Mercado Pago caído: no es motivo para no dejar guardar.
+    return { ok: true, cuenta: "" };
+  }
+}
