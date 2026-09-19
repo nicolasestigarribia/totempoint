@@ -77,3 +77,24 @@ export function assertCanEdit(user: SessionUser, section: PanelSection): void {
     throw new Error("No tenés permiso para modificar esta sección");
   }
 }
+
+/**
+ * La comandera no se rige solo por la matriz de permisos: el rol "kitchen"
+ * existe justamente para atenderla y no tiene secciones tildadas. Entonces la
+ * pueden usar el personal de cocina, el dueño (y el superadmin) y el encargado
+ * a quien se la habilitaron. Mirar los pedidos y cambiarles el estado son cosas
+ * distintas: lo segundo es escribir.
+ */
+function isKitchenStaff(user: SessionUser): boolean {
+  return user.roles.includes("kitchen");
+}
+
+export function assertCanViewKitchen(user: SessionUser): void {
+  if (isKitchenStaff(user) || canView(user, "comandera")) return;
+  throw new Error("No tenés permiso para ver la comandera");
+}
+
+export function assertCanOperateKitchen(user: SessionUser): void {
+  if (isKitchenStaff(user) || canEdit(user, "comandera")) return;
+  throw new Error("No tenés permiso para cambiar el estado de los pedidos");
+}

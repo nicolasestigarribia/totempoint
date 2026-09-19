@@ -4,7 +4,11 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, locations } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
-import { accessibleLocationIds } from "@/lib/auth/scope";
+import {
+  accessibleLocationIds,
+  assertCanViewKitchen,
+  assertCanOperateKitchen,
+} from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
 
 export type OrderStatus = "recibido" | "preparacion" | "entregado";
@@ -45,6 +49,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
   .middleware([requireCompany])
   .handler(async ({ context }): Promise<KitchenOrder[]> => {
     const user = context.user as SessionUser;
+    assertCanViewKitchen(user);
 
     const locs = await visibleLocations(user);
     if (locs.length === 0) return [];
@@ -99,6 +104,7 @@ export const setOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
+    assertCanOperateKitchen(user);
 
     const locs = await visibleLocations(user);
     const locIds = locs.map((l) => l.id);
