@@ -3,6 +3,7 @@ import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
 import { getTotemMenu } from "@/lib/api/totem.functions";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
+import { TotemCartBar } from "@/components/totem/TotemCartBar";
 import { useTotemCart, useCartForSlug, formatPrice } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -50,10 +51,12 @@ function CombosPage() {
             return (
               <article
                 key={c.id}
-                className={`flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/40 shadow-card ${lastSpanFor(
-                  menu.combos.length,
-                  i,
-                )}`}
+                // Igual que en los productos: lo que ya está en el pedido se
+                // marca con el color de la marca.
+                className={`flex flex-col overflow-hidden rounded-3xl border bg-card/40 shadow-card transition ${
+                  inCart > 0 ? "border-2" : "border-border/60"
+                } ${lastSpanFor(menu.combos.length, i)}`}
+                style={inCart > 0 ? { borderColor: accent ?? "var(--primary)" } : undefined}
               >
                 <div className="relative h-44 w-full overflow-hidden bg-muted">
                   {c.photoUrl ? (
@@ -152,6 +155,8 @@ function CombosPage() {
           })}
         </div>
       </main>
+
+      <TotemCartBar slug={menu.slug} accent={accent} />
     </div>
   );
 }

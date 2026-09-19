@@ -3,6 +3,7 @@ import { ChevronRight, UtensilsCrossed } from "lucide-react";
 import { getTotemMenu } from "@/lib/api/totem.functions";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
+import { TotemCartBar } from "@/components/totem/TotemCartBar";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { gridColsFor, lastSpanFor } from "@/components/totem/grid";
@@ -133,6 +134,8 @@ function CategoriasPage() {
           </div>
         )}
       </main>
+
+      <TotemCartBar slug={menu.slug} accent={accent} />
     </div>
   );
 }

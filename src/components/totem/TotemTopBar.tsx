@@ -1,26 +1,28 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Store, ShoppingCart } from "lucide-react";
-import { useCartForSlug, cartCount } from "@/lib/totem-cart";
+import { ArrowLeft, Store } from "lucide-react";
 
-// Barra del tótem. Sólo navega dentro del pedido: nunca sale al panel ni al login.
+/**
+ * Barra de arriba del tótem: marca y vuelta atrás, nada más.
+ *
+ * El carrito se fue a `TotemCartBar`, abajo y con el total a la vista. Tener
+ * dos accesos al pedido competía: arriba decía "Ver pedido" sin el monto, que
+ * es justo el dato que el cliente quiere.
+ *
+ * Sólo navega dentro del pedido: nunca sale al panel ni al login.
+ */
 export function TotemTopBar({
   slug,
   name,
   logoUrl,
   accent,
   back = "home",
-  showCart = true,
 }: {
   slug: string;
   name: string;
   logoUrl: string | null;
   accent?: string;
   back?: "home" | "categorias";
-  showCart?: boolean;
 }) {
-  const items = useCartForSlug(slug);
-  const count = cartCount(items);
-
   return (
     <header
       // Pegada arriba: en un celular la lista de productos es larga y el carrito
@@ -60,21 +62,6 @@ export function TotemTopBar({
         </div>
         <span className="font-display text-xl tracking-wide">{name}</span>
       </div>
-
-      {showCart && count > 0 && (
-        <Link
-          to="/t/$slug/carrito"
-          params={{ slug }}
-          className="ml-auto flex items-center gap-3 rounded-2xl px-5 py-3 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03]"
-          style={{ background: accent ?? "var(--primary)" }}
-        >
-          <ShoppingCart className="h-5 w-5" />
-          Ver pedido
-          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-black/25 px-2 text-sm">
-            {count}
-          </span>
-        </Link>
-      )}
     </header>
   );
 }

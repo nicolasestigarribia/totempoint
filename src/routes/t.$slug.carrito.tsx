@@ -37,7 +37,6 @@ function CarritoPage() {
         logoUrl={menu.logoUrl}
         accent={accent}
         back="categorias"
-        showCart={false}
       />
 
       <main className="mx-auto w-full max-w-[900px] flex-1 px-6 py-6 md:px-12">
@@ -122,26 +121,41 @@ function CarritoPage() {
               ))}
             </ul>
 
-            <div className="mt-8 rounded-3xl border border-border/60 bg-card/40 p-6">
-              <div className="flex items-center justify-between">
-                <span className="font-display text-2xl uppercase tracking-wide">Total</span>
-                <span className="font-display text-4xl" style={{ color: accent }}>
-                  {formatPrice(total)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => navigate({ to: "/t/$slug/checkout", params: { slug: menu.slug } })}
-                className="mt-6 flex w-full items-center justify-center rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] active:scale-[0.98]"
-                style={{ background: accent ?? "var(--primary)" }}
-              >
-                Confirmar pedido
-              </button>
-            </div>
+            <Link
+              to="/t/$slug/categorias"
+              params={{ slug: menu.slug }}
+              className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-border py-4 font-display text-lg uppercase tracking-wide text-muted-foreground transition hover:border-primary hover:text-foreground"
+            >
+              <Plus className="h-5 w-5" />
+              Seguir agregando
+            </Link>
           </>
         )}
       </main>
+
+      {/* Total y confirmación fijos abajo: con cuatro productos el botón
+          quedaba al final de la lista y había que ir a buscarlo. Lo último
+          que hay que hacer en esta pantalla no puede estar fuera de la vista. */}
+      {items.length > 0 && (
+        <div className="sticky bottom-0 z-30 border-t border-border bg-background/95 px-6 py-4 backdrop-blur md:px-12">
+          <div className="mx-auto w-full max-w-[900px]">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="font-display text-2xl uppercase tracking-wide">Total</span>
+              <span className="font-display text-4xl" style={{ color: accent }}>
+                {formatPrice(total)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/t/$slug/checkout", params: { slug: menu.slug } })}
+              className="flex w-full items-center justify-center rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] active:scale-[0.98]"
+              style={{ background: accent ?? "var(--primary)" }}
+            >
+              Confirmar pedido
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

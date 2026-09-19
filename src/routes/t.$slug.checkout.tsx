@@ -117,7 +117,6 @@ function CheckoutPage() {
         logoUrl={menu.logoUrl}
         accent={accent}
         back="categorias"
-        showCart={false}
       />
 
       <main className="mx-auto w-full max-w-[700px] flex-1 px-6 py-6 md:px-12">
@@ -211,24 +210,26 @@ function CheckoutPage() {
             />
           </div>
 
-          <div className="rounded-3xl border border-border/60 bg-card/40 p-6">
-            <div className="flex items-center justify-between">
+          {/* Total y envío pegados abajo, como en el carrito: el formulario es
+              largo y el botón quedaba al final de todo. El cliente tiene que
+              ver cuánto va a pagar mientras completa, no después de buscar. */}
+          <div className="sticky bottom-0 -mx-6 border-t border-border bg-background/95 px-6 py-4 backdrop-blur md:-mx-12 md:px-12">
+            <div className="mb-3 flex items-center justify-between">
               <span className="font-display text-2xl uppercase tracking-wide">Total</span>
               <span className="font-display text-4xl" style={{ color: accent }}>
                 {formatPrice(total)}
               </span>
             </div>
+            <button
+              type="submit"
+              disabled={sending}
+              className="flex w-full items-center justify-center gap-3 rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
+              style={{ background: accent ?? "var(--primary)" }}
+            >
+              {sending && <Loader2 className="h-7 w-7 animate-spin" />}
+              Enviar pedido
+            </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={sending}
-            className="flex w-full items-center justify-center gap-3 rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
-            style={{ background: accent ?? "var(--primary)" }}
-          >
-            {sending && <Loader2 className="h-7 w-7 animate-spin" />}
-            Enviar pedido
-          </button>
         </form>
       </main>
     </div>
