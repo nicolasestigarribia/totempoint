@@ -30,6 +30,7 @@ import {
   ChefHat,
   KeyRound,
   CircleDollarSign,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -50,6 +51,7 @@ import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
 import { PortadaSection } from "@/components/admin/PortadaSection";
 import { OperadoresSection } from "@/components/admin/OperadoresSection";
 import { CajaSection } from "@/components/admin/CajaSection";
+import { PagosSection } from "@/components/admin/PagosSection";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -72,6 +74,7 @@ type SectionId =
   | "movimientos"
   | "codigos"
   | "caja"
+  | "pagos"
   | "operadores";
 
 interface SectionDef {
@@ -169,6 +172,13 @@ const SECTIONS: SectionDef[] = [
     icon: CircleDollarSign,
     desc: "Lo cobrado en la jornada",
     permission: "caja",
+  },
+  {
+    id: "pagos",
+    label: "Cobros",
+    icon: CreditCard,
+    desc: "Cómo cobra tu tótem",
+    ownerOnly: true,
   },
   {
     id: "operadores",
@@ -547,6 +557,8 @@ function SectionContent({
       return <CodigosAccionSection panelClass={panelClass} />;
     case "caja":
       return <CajaSection panelClass={panelClass} />;
+    case "pagos":
+      return <PagosSection panelClass={panelClass} />;
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
   }

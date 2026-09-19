@@ -52,6 +52,14 @@ export default {
         return new Response("Not found", { status: 404 });
       }
 
+      // Aviso de pago de Mercado Pago. Como las imágenes, se atiende acá antes
+      // del router: no es una ruta de la app, es un endpoint que llama un
+      // servidor de afuera.
+      if (pathname === "/api/mp/webhook") {
+        const { handleMercadoPagoWebhook } = await import("./lib/payments/webhook");
+        return await handleMercadoPagoWebhook(request);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

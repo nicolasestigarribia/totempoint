@@ -49,7 +49,7 @@ function CheckoutPage() {
     }
     setSending(true);
     try {
-      const { orderId } = await placeOrder({
+      const { orderId, pagarEn } = await placeOrder({
         data: {
           slug: menu.slug,
           customerName,
@@ -60,6 +60,18 @@ function CheckoutPage() {
         },
       });
       clear();
+      // Con Mercado Pago el pedido ya existe pero todavía no se cobró: el
+      // cliente pasa por el QR. Si algo falló al generarlo, cae igual en la
+      // pantalla del número y lo cobran en la caja.
+      if (pagarEn) {
+        navigate({
+          to: "/t/$slug/pagar/$orderId",
+          params: { slug: menu.slug, orderId: String(orderId) },
+          search: { url: pagarEn },
+          replace: true,
+        });
+        return;
+      }
       navigate({
         to: "/t/$slug/listo/$orderId",
         params: { slug: menu.slug, orderId: String(orderId) },
@@ -76,8 +88,6 @@ function CheckoutPage() {
     { value: "mostrador", label: "Retirar en mostrador", icon: Store },
   ];
 
-  // Ninguna de las dos cobra desde acá todavía: la de Mercado Pago avisa que se
-  // paga en la caja, para no prometer una pantalla de pago que no existe.
   const pagos: { value: Pago; label: string; detalle: string; icon: typeof Store }[] = [
     {
       value: "efectivo",
@@ -85,12 +95,18 @@ function CheckoutPage() {
       detalle: "Pagás al retirar",
       icon: Banknote,
     },
-    {
-      value: "mercadopago",
-      label: "Mercado Pago",
-      detalle: "Te lo cobran en la caja",
-      icon: Smartphone,
-    },
+    // Mercado Pago aparece solo si la empresa tiene el cobro configurado: no
+    // tiene sentido ofrecer un botón que después no va a poder cobrar.
+    ...(menu.mercadoPago
+      ? [
+          {
+            value: "mercadopago" as Pago,
+            label: "Mercado Pago",
+            detalle: "Escaneás un QR con tu celular",
+            icon: Smartphone,
+          },
+        ]
+      : []),
   ];
 
   return (

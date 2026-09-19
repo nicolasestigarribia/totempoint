@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, ne, asc, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companies,
@@ -12,8 +12,66 @@ import {
   locations,
   orders,
   orderItems,
+  paymentSettings,
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
+import {
+  crearPreferencia,
+  buscarPagoDePedido,
+  type ItemPreferencia,
+} from "@/lib/payments/mercadopago";
+import { acreditarPedido } from "@/lib/payments/acreditar";
+
+/**
+ * El access token de la empresa, o null si no tiene el cobro andando.
+ *
+ * Vive acá arriba y devuelve el token crudo porque este archivo es la capa
+ * pública: cualquier cosa que lo use tiene que quedarse del lado del servidor
+ * y no filtrarlo en lo que devuelve la server function.
+ */
+async function tokenDeMP(companyId: number): Promise<string | null> {
+  const [row] = await db
+    .select({ token: paymentSettings.mpAccessToken, enabled: paymentSettings.mpEnabled })
+    .from(paymentSettings)
+    .where(eq(paymentSettings.companyId, companyId))
+    .limit(1);
+  if (!row?.enabled || !row.token) return null;
+  return row.token;
+}
+
+/**
+ * De dónde se sirve el tótem, visto desde afuera.
+ *
+ * Hace falta para dos cosas que viajan hasta el celular del cliente: a dónde
+ * vuelve después de pagar, y a dónde nos avisa Mercado Pago. Railway publica
+ * su dominio en una variable; en local no hay nada público, y eso está
+ * contemplado más abajo.
+ */
+function origenPublico(): string {
+  const propia = process.env.PUBLIC_URL?.trim();
+  if (propia) return propia.replace(/\/+$/, "");
+  const railway = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  if (railway) return `https://${railway}`;
+  return "http://localhost:8081";
+}
+
+/**
+ * La URL del webhook, o undefined si estamos en local.
+ *
+ * Mercado Pago no puede llamar a localhost, así que en desarrollo no se manda
+ * ninguna: el tótem se entera igual porque pregunta por su cuenta cada unos
+ * segundos. Esa consulta no es un parche para desarrollo, es el camino
+ * confiable — el aviso puede perderse también en producción.
+ */
+function urlDeAviso(): string | undefined {
+  const origen = origenPublico();
+  if (origen.includes("localhost") || origen.includes("127.0.0.1")) return undefined;
+  return `${origen}/api/mp/webhook`;
+}
+
+async function empresaCobraConMP(companyId: number): Promise<boolean> {
+  return (await tokenDeMP(companyId)) !== null;
+}
 
 /**
  * La jornada de hoy como "YYYY-MM-DD", en la hora del servidor.
@@ -100,6 +158,11 @@ export interface TotemMenu {
   categories: TotemCategory[];
   products: TotemProduct[];
   combos: TotemCombo[];
+  /**
+   * Si esta empresa puede cobrar con Mercado Pago. Viaja como un booleano y
+   * nunca la credencial: el tótem solo necesita saber si ofrece ese botón o no.
+   */
+  mercadoPago: boolean;
 }
 
 export const getTotemHome = createServerFn({ method: "GET" })
@@ -249,6 +312,7 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       categories: totemCategories.filter((c) => c.productCount > 0),
       products: visibleProducts,
       combos: totemCombos,
+      mercadoPago: await empresaCobraConMP(companyId),
     };
   });
 
@@ -275,118 +339,161 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         .min(1),
     }),
   )
-  .handler(async ({ data }): Promise<{ orderId: number; orderNumber: number }> => {
-    const [company] = await db
-      .select({ id: companies.id, active: companies.active })
-      .from(companies)
-      .where(eq(companies.slug, data.slug))
-      .limit(1);
+  .handler(
+    async ({ data }): Promise<{ orderId: number; orderNumber: number; pagarEn: string | null }> => {
+      const [company] = await db
+        .select({
+          id: companies.id,
+          active: companies.active,
+          slug: companies.slug,
+          name: companies.name,
+        })
+        .from(companies)
+        .where(eq(companies.slug, data.slug))
+        .limit(1);
 
-    if (!company) throw new Error("No encontramos este comercio");
-    if (!company.active) throw new Error("Este comercio no está disponible en este momento");
+      if (!company) throw new Error("No encontramos este comercio");
+      if (!company.active) throw new Error("Este comercio no está disponible en este momento");
 
-    const [location] = await db
-      .select({ id: locations.id })
-      .from(locations)
-      .where(and(eq(locations.companyId, company.id), eq(locations.active, true)))
-      .orderBy(asc(locations.id))
-      .limit(1);
+      const [location] = await db
+        .select({ id: locations.id })
+        .from(locations)
+        .where(and(eq(locations.companyId, company.id), eq(locations.active, true)))
+        .orderBy(asc(locations.id))
+        .limit(1);
 
-    if (!location) throw new Error("El comercio no tiene un local activo");
+      if (!location) throw new Error("El comercio no tiene un local activo");
 
-    const productIds = data.items.filter((i) => i.kind === "producto").map((i) => i.id);
-    const comboIds = data.items.filter((i) => i.kind === "combo").map((i) => i.id);
+      const productIds = data.items.filter((i) => i.kind === "producto").map((i) => i.id);
+      const comboIds = data.items.filter((i) => i.kind === "combo").map((i) => i.id);
 
-    const productRows = productIds.length
-      ? await db
-          .select({ id: products.id, name: products.name, price: products.price })
-          .from(products)
-          .where(
-            and(
-              eq(products.companyId, company.id),
-              eq(products.active, true),
-              inArray(products.id, productIds),
-            ),
-          )
-      : [];
+      const productRows = productIds.length
+        ? await db
+            .select({ id: products.id, name: products.name, price: products.price })
+            .from(products)
+            .where(
+              and(
+                eq(products.companyId, company.id),
+                eq(products.active, true),
+                inArray(products.id, productIds),
+              ),
+            )
+        : [];
 
-    const comboRows = comboIds.length
-      ? await db
-          .select({ id: combos.id, name: combos.name, price: combos.price })
-          .from(combos)
-          .where(
-            and(
-              eq(combos.companyId, company.id),
-              eq(combos.active, true),
-              inArray(combos.id, comboIds),
-            ),
-          )
-      : [];
+      const comboRows = comboIds.length
+        ? await db
+            .select({ id: combos.id, name: combos.name, price: combos.price })
+            .from(combos)
+            .where(
+              and(
+                eq(combos.companyId, company.id),
+                eq(combos.active, true),
+                inArray(combos.id, comboIds),
+              ),
+            )
+        : [];
 
-    if (productRows.length !== productIds.length || comboRows.length !== comboIds.length) {
-      throw new Error("Algo de tu pedido ya no está disponible");
-    }
+      if (productRows.length !== productIds.length || comboRows.length !== comboIds.length) {
+        throw new Error("Algo de tu pedido ya no está disponible");
+      }
 
-    // El combo se guarda como una línea con su propio precio y sin product_id:
-    // order_items ya congela nombre y precio, así que el pedido queda fiel
-    // aunque después se cambie el combo.
-    const priced = data.items.map((item) => {
-      if (item.kind === "combo") {
-        const combo = comboRows.find((c) => c.id === item.id)!;
+      // El combo se guarda como una línea con su propio precio y sin product_id:
+      // order_items ya congela nombre y precio, así que el pedido queda fiel
+      // aunque después se cambie el combo.
+      const priced = data.items.map((item) => {
+        if (item.kind === "combo") {
+          const combo = comboRows.find((c) => c.id === item.id)!;
+          return {
+            productId: null,
+            productName: combo.name,
+            unitPrice: combo.price,
+            quantity: item.quantity,
+          };
+        }
+        const product = productRows.find((r) => r.id === item.id)!;
         return {
-          productId: null,
-          productName: combo.name,
-          unitPrice: combo.price,
+          productId: product.id,
+          productName: product.name,
+          unitPrice: product.price,
           quantity: item.quantity,
         };
+      });
+
+      const total = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
+
+      const jornada = diaDeHoy();
+
+      const creado = await db.transaction(async (tx) => {
+        // La numeración arranca en 1 cada mañana y por local: el cliente ve un
+        // número corto y el local no arrastra los miles del mes pasado. El id
+        // interno sigue siendo el autoincremental, que nunca se repite.
+        const [{ last }] = await tx
+          .select({ last: sql<number | null>`MAX(${orders.orderNumber})` })
+          .from(orders)
+          .where(and(eq(orders.locationId, location.id), eq(orders.businessDate, jornada)));
+
+        const orderNumber = (last ?? 0) + 1;
+
+        const [{ id: orderId }] = await tx
+          .insert(orders)
+          .values({
+            locationId: location.id,
+            orderNumber,
+            businessDate: jornada,
+            customerName: data.customerName.trim(),
+            deliveryMethod: data.deliveryMethod,
+            comments: data.comments?.trim() || null,
+            status: "recibido",
+            total: total.toFixed(2),
+            paymentMethod: data.paymentMethod,
+            // Nada se cobra desde el tótem todavía: el efectivo se cobra en el
+            // mostrador y Mercado Pago no está integrado.
+            paymentStatus: "pendiente",
+          })
+          .$returningId();
+
+        await tx.insert(orderItems).values(priced.map((p) => ({ orderId, ...p })));
+
+        return { orderId, orderNumber };
+      });
+
+      // El pedido ya está guardado. Si es con Mercado Pago, recién ahora se pide
+      // la preferencia: así, si Mercado Pago está caído, el pedido no se pierde
+      // y el mostrador lo puede cobrar en efectivo igual.
+      if (data.paymentMethod === "mercadopago") {
+        const token = await tokenDeMP(company.id);
+        if (!token)
+          throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
+
+        const items: ItemPreferencia[] = priced.map((p) => ({
+          title: p.productName,
+          quantity: p.quantity,
+          unitPrice: Number(p.unitPrice),
+        }));
+
+        const volverA = `${origenPublico()}/t/${company.slug}/listo/${creado.orderId}`;
+        const aviso = urlDeAviso();
+
+        const pref = await crearPreferencia({
+          accessToken: token,
+          items,
+          externalReference: String(creado.orderId),
+          backUrl: volverA,
+          notificationUrl: aviso,
+          descripcion: company.name,
+        });
+
+        await db
+          .update(orders)
+          .set({ mpPreferenceId: pref.id })
+          .where(eq(orders.id, creado.orderId));
+
+        return { ...creado, pagarEn: pref.initPoint };
       }
-      const product = productRows.find((r) => r.id === item.id)!;
-      return {
-        productId: product.id,
-        productName: product.name,
-        unitPrice: product.price,
-        quantity: item.quantity,
-      };
-    });
 
-    const total = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
-
-    const jornada = diaDeHoy();
-
-    return db.transaction(async (tx) => {
-      // La numeración arranca en 1 cada mañana y por local: el cliente ve un
-      // número corto y el local no arrastra los miles del mes pasado. El id
-      // interno sigue siendo el autoincremental, que nunca se repite.
-      const [{ last }] = await tx
-        .select({ last: sql<number | null>`MAX(${orders.orderNumber})` })
-        .from(orders)
-        .where(and(eq(orders.locationId, location.id), eq(orders.businessDate, jornada)));
-
-      const orderNumber = (last ?? 0) + 1;
-
-      const [{ id: orderId }] = await tx
-        .insert(orders)
-        .values({
-          locationId: location.id,
-          orderNumber,
-          businessDate: jornada,
-          customerName: data.customerName.trim(),
-          deliveryMethod: data.deliveryMethod,
-          comments: data.comments?.trim() || null,
-          status: "recibido",
-          total: total.toFixed(2),
-          paymentMethod: data.paymentMethod,
-          // Nada se cobra desde el tótem todavía: el efectivo se cobra en el
-          // mostrador y Mercado Pago no está integrado.
-          paymentStatus: "pendiente",
-        })
-        .$returningId();
-
-      await tx.insert(orderItems).values(priced.map((p) => ({ orderId, ...p })));
-
-      return { orderId, orderNumber };
-    });
-  });
+      return { ...creado, pagarEn: null as string | null };
+    },
+  );
 
 export interface TotemOrderSummary {
   orderNumber: number;
@@ -436,6 +543,57 @@ export const getTotemOrder = createServerFn({ method: "GET" })
       accentColor: row.accentColor ?? row.primaryColor,
       theme: row.theme ?? "oscuro",
     };
+  });
+
+/**
+ * Si el pedido ya está pagado. La mira el tótem mientras el cliente escanea.
+ *
+ * Pregunta primero a nuestra base, porque puede que el webhook ya lo haya
+ * acreditado, y solo si sigue pendiente le pregunta a Mercado Pago. Así el
+ * cliente no queda esperando cuando el aviso se pierde, que es lo que
+ * inevitablemente pasa alguna vez.
+ *
+ * Es pública como todo este archivo: devuelve si un pedido está pagado y nada
+ * más, sin montos ni datos de quien pagó.
+ */
+export const getTotemPaymentStatus = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ slug: z.string().trim().min(1).max(60), orderId: z.number().int() }))
+  .handler(async ({ data }): Promise<{ pagado: boolean; cancelado: boolean }> => {
+    const [row] = await db
+      .select({
+        id: orders.id,
+        status: orders.status,
+        paymentStatus: orders.paymentStatus,
+        paymentMethod: orders.paymentMethod,
+        companyId: companies.id,
+      })
+      .from(orders)
+      .innerJoin(locations, eq(locations.id, orders.locationId))
+      .innerJoin(companies, eq(companies.id, locations.companyId))
+      .where(and(eq(orders.id, data.orderId), eq(companies.slug, data.slug)))
+      .limit(1);
+
+    if (!row) throw new Error("No encontramos ese pedido");
+
+    if (row.paymentStatus === "pagado") return { pagado: true, cancelado: false };
+    if (row.status === "cancelado") return { pagado: false, cancelado: true };
+    if (row.paymentMethod !== "mercadopago") return { pagado: false, cancelado: false };
+
+    const token = await tokenDeMP(row.companyId);
+    if (!token) return { pagado: false, cancelado: false };
+
+    try {
+      const pago = await buscarPagoDePedido(token, String(row.id));
+      if (pago?.aprobado) {
+        await acreditarPedido(row.id, pago.id);
+        return { pagado: true, cancelado: false };
+      }
+    } catch {
+      // Si Mercado Pago no contesta, el tótem sigue esperando y vuelve a
+      // preguntar: no hay por qué romperle la pantalla al cliente.
+    }
+
+    return { pagado: false, cancelado: false };
   });
 
 /**

@@ -20,6 +20,7 @@ import { Route as TSlugCombosRouteImport } from './routes/t.$slug.combos'
 import { Route as TSlugCheckoutRouteImport } from './routes/t.$slug.checkout'
 import { Route as TSlugCategoriasRouteImport } from './routes/t.$slug.categorias'
 import { Route as TSlugCarritoRouteImport } from './routes/t.$slug.carrito'
+import { Route as TSlugPagarOrderIdRouteImport } from './routes/t.$slug.pagar.$orderId'
 import { Route as TSlugMenuCategoryRouteImport } from './routes/t.$slug.menu.$category'
 import { Route as TSlugListoOrderIdRouteImport } from './routes/t.$slug.listo.$orderId'
 
@@ -78,6 +79,11 @@ const TSlugCarritoRoute = TSlugCarritoRouteImport.update({
   path: '/t/$slug/carrito',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TSlugPagarOrderIdRoute = TSlugPagarOrderIdRouteImport.update({
+  id: '/t/$slug/pagar/$orderId',
+  path: '/t/$slug/pagar/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TSlugMenuCategoryRoute = TSlugMenuCategoryRouteImport.update({
   id: '/t/$slug/menu/$category',
   path: '/t/$slug/menu/$category',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/t/$slug/': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
+  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/t/$slug': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
+  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/t/$slug/': typeof TSlugIndexRoute
   '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
   '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
+  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/t/$slug/'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
+    | '/t/$slug/pagar/$orderId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/t/$slug'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
+    | '/t/$slug/pagar/$orderId'
   id:
     | '__root__'
     | '/'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/t/$slug/'
     | '/t/$slug/listo/$orderId'
     | '/t/$slug/menu/$category'
+    | '/t/$slug/pagar/$orderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +209,7 @@ export interface RootRouteChildren {
   TSlugIndexRoute: typeof TSlugIndexRoute
   TSlugListoOrderIdRoute: typeof TSlugListoOrderIdRoute
   TSlugMenuCategoryRoute: typeof TSlugMenuCategoryRoute
+  TSlugPagarOrderIdRoute: typeof TSlugPagarOrderIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -278,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TSlugCarritoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/t/$slug/pagar/$orderId': {
+      id: '/t/$slug/pagar/$orderId'
+      path: '/t/$slug/pagar/$orderId'
+      fullPath: '/t/$slug/pagar/$orderId'
+      preLoaderRoute: typeof TSlugPagarOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/t/$slug/menu/$category': {
       id: '/t/$slug/menu/$category'
       path: '/t/$slug/menu/$category'
@@ -309,6 +329,7 @@ const rootRouteChildren: RootRouteChildren = {
   TSlugIndexRoute: TSlugIndexRoute,
   TSlugListoOrderIdRoute: TSlugListoOrderIdRoute,
   TSlugMenuCategoryRoute: TSlugMenuCategoryRoute,
+  TSlugPagarOrderIdRoute: TSlugPagarOrderIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
