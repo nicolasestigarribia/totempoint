@@ -10,6 +10,7 @@ import {
   combos,
   comboProducts,
   locations,
+  locationPrices,
   orders,
   orderItems,
   paymentSettings,
@@ -85,6 +86,27 @@ function diaDeHoy(): string {
   const mes = String(ahora.getMonth() + 1).padStart(2, "0");
   const dia = String(ahora.getDate()).padStart(2, "0");
   return `${ahora.getFullYear()}-${mes}-${dia}`;
+}
+
+// Override de precio por local para un conjunto de ítems (producto o combo).
+// Ausencia = usa el precio base. Devuelve un mapa itemId -> precio override.
+async function priceOverrides(
+  locationId: number | null,
+  itemType: "product" | "combo",
+  ids: number[],
+): Promise<Map<number, string>> {
+  if (!locationId || ids.length === 0) return new Map();
+  const rows = await db
+    .select({ itemId: locationPrices.itemId, price: locationPrices.price })
+    .from(locationPrices)
+    .where(
+      and(
+        eq(locationPrices.locationId, locationId),
+        eq(locationPrices.itemType, itemType),
+        inArray(locationPrices.itemId, ids),
+      ),
+    );
+  return new Map(rows.map((r) => [r.itemId, r.price]));
 }
 
 // Capa pública: el tótem no tiene sesión, resuelve la empresa por slug de la URL.
@@ -221,6 +243,16 @@ export const getTotemMenu = createServerFn({ method: "GET" })
 
     const companyId = row.company.id;
 
+    // El tótem usa el primer local activo de la empresa (mismo criterio que el pedido).
+    // Sus overrides de precio son los que se muestran.
+    const [loc] = await db
+      .select({ id: locations.id })
+      .from(locations)
+      .where(and(eq(locations.companyId, companyId), eq(locations.active, true)))
+      .orderBy(asc(locations.id))
+      .limit(1);
+    const locationId = loc?.id ?? null;
+
     const [cats, prods] = await Promise.all([
       db
         .select()
@@ -241,8 +273,10 @@ export const getTotemMenu = createServerFn({ method: "GET" })
         .orderBy(asc(products.sort), asc(products.name)),
     ]);
 
+    const prodOverrides = await priceOverrides(locationId, "product", prods.map((p) => p.id));
     const visibleProducts: TotemProduct[] = prods.map((p) => ({
       ...p,
+      price: prodOverrides.get(p.id) ?? p.price,
       categoryId: p.categoryId ?? UNCATEGORIZED,
     }));
 
@@ -285,8 +319,10 @@ export const getTotemMenu = createServerFn({ method: "GET" })
           )
       : [];
 
+    const comboOverrides = await priceOverrides(locationId, "combo", comboRows.map((c) => c.id));
     const totemCombos: TotemCombo[] = comboRows.map((c) => ({
       ...c,
+      price: comboOverrides.get(c.id) ?? c.price,
       items: comboItems
         .filter((i) => i.comboId === c.id)
         .map((i) => ({ name: i.name, quantity: i.quantity })),
@@ -397,6 +433,12 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         throw new Error("Algo de tu pedido ya no está disponible");
       }
 
+      // Precio efectivo del local: override por local si existe, si no el base.
+      const [prodOverrides, comboOverrides] = await Promise.all([
+        priceOverrides(location.id, "product", productIds),
+        priceOverrides(location.id, "combo", comboIds),
+      ]);
+
       // El combo se guarda como una línea con su propio precio y sin product_id:
       // order_items ya congela nombre y precio, así que el pedido queda fiel
       // aunque después se cambie el combo.
@@ -406,7 +448,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           return {
             productId: null,
             productName: combo.name,
-            unitPrice: combo.price,
+            unitPrice: comboOverrides.get(combo.id) ?? combo.price,
             quantity: item.quantity,
           };
         }
@@ -414,7 +456,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         return {
           productId: product.id,
           productName: product.name,
-          unitPrice: product.price,
+          unitPrice: prodOverrides.get(product.id) ?? product.price,
           quantity: item.quantity,
         };
       });
