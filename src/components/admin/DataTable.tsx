@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUp, ArrowDown, ChevronsUpDown, Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import {
+  ArrowUp,
+  ArrowDown,
+  ChevronsUpDown,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +34,15 @@ export interface DataTableProps<T> {
   filter?: (row: T) => boolean;
   pageSize?: number;
   initialSort?: { key: string; dir: "asc" | "desc" };
+  /**
+   * Las filas que quedaron después de buscar y filtrar, sin paginar.
+   *
+   * La tabla se guarda la búsqueda y los filtros para sí, así que quien la usa
+   * no tiene forma de saber qué está viendo el usuario. Eso alcanza para
+   * mostrar, pero no para una acción que opera sobre "lo que hay en pantalla":
+   * ahí hace falta saberlo de verdad.
+   */
+  onVisibleRowsChange?: (rows: T[]) => void;
 }
 
 export function DataTable<T>({
@@ -42,6 +59,7 @@ export function DataTable<T>({
   filter,
   pageSize = 10,
   initialSort,
+  onVisibleRowsChange,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(initialSort?.key ?? null);
@@ -72,6 +90,22 @@ export function DataTable<T>({
     }
     return out;
   }, [rows, filter, query, searchKeys, sortKey, sortDir, columns]);
+
+  // Se avisa después del render, y solo cuando de verdad cambió qué filas hay.
+  //
+  // Comparar por identidad no sirve: `processed` se recalcula en cada render
+  // porque depende de props que el padre recrea (las columnas, el filtro), así
+  // que avisar en cada cambio de referencia hacía que el padre guardara estado,
+  // volviera a renderizar y disparara el aviso otra vez, en un ciclo infinito.
+  // Con la lista de ids alcanza para saber si cambió lo que se está viendo.
+  const firmaPrevia = useRef<string | null>(null);
+  useEffect(() => {
+    if (!onVisibleRowsChange) return;
+    const firma = processed.map((r) => getRowId(r)).join("|");
+    if (firma === firmaPrevia.current) return;
+    firmaPrevia.current = firma;
+    onVisibleRowsChange(processed);
+  }, [processed, onVisibleRowsChange, getRowId]);
 
   const totalPages = Math.max(1, Math.ceil(processed.length / pageSize));
 

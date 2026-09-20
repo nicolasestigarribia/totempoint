@@ -1,16 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { MapPin, Package, Boxes, Loader2, History, RotateCcw, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -117,6 +112,20 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
 
   const rowsFor = (t: ItemType) => (t === "product" ? products : combos);
 
+  /**
+   * Lo que cada tabla está mostrando después de buscar y filtrar.
+   *
+   * El cambio masivo trabaja sobre esto y no sobre el catálogo entero: si el
+   * dueño filtró por Bebidas para subirlas un 10%, no puede tocarle el precio
+   * a los sánguches. Los callbacks van memorizados porque la tabla los usa
+   * como dependencia de un efecto.
+   */
+  const [visibleProducts, setVisibleProducts] = useState<PriceRow[]>([]);
+  const [visibleCombos, setVisibleCombos] = useState<PriceRow[]>([]);
+  const onVisibleProducts = useCallback((r: PriceRow[]) => setVisibleProducts(r), []);
+  const onVisibleCombos = useCallback((r: PriceRow[]) => setVisibleCombos(r), []);
+  const visiblesDe = (t: ItemType) => (t === "product" ? visibleProducts : visibleCombos);
+
   const openBulkModal = (itemType: ItemType) => {
     setTarget({ itemType, scope: "all", itemId: null });
     setMode("fijo");
@@ -150,7 +159,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
     const itemIds =
       target.scope === "one" && target.itemId !== null
         ? [target.itemId]
-        : rowsFor(target.itemType).map((r) => r.itemId);
+        : visiblesDe(target.itemType).map((r) => r.itemId);
     if (itemIds.length === 0) {
       toast.error("No hay ítems para cambiar");
       return;
@@ -229,7 +238,9 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
         header: "Categoría",
         sortable: true,
         sortAccessor: (r) => (r.categoryName ?? "").toLowerCase(),
-        cell: (r) => <span className="text-muted-foreground">{r.categoryName ?? "Sin categoría"}</span>,
+        cell: (r) => (
+          <span className="text-muted-foreground">{r.categoryName ?? "Sin categoría"}</span>
+        ),
       });
     }
     cols.push(
@@ -243,7 +254,9 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
       {
         key: "override",
         header: "Propio",
-        cell: (r) => <span className="text-muted-foreground">{r.override ? `$${r.override}` : "—"}</span>,
+        cell: (r) => (
+          <span className="text-muted-foreground">{r.override ? `$${r.override}` : "—"}</span>
+        ),
       },
       {
         key: "effective",
@@ -372,6 +385,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
           </Button>
         </div>
         <DataTable<PriceRow>
+          onVisibleRowsChange={onVisibleProducts}
           rows={products}
           columns={productColumns}
           getRowId={(r) => r.itemId}
@@ -426,6 +440,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
           </Button>
         </div>
         <DataTable<PriceRow>
+          onVisibleRowsChange={onVisibleCombos}
           rows={combos}
           columns={comboColumns}
           getRowId={(r) => r.itemId}
@@ -456,8 +471,29 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
                   </>
                 ) : (
                   <>
-                    Aplicar a <span className="font-semibold">todos los {target.itemType === "product" ? "productos" : "combos"}</span> de este negocio
-                    {" "}({rowsFor(target.itemType).length}).
+                    Aplicar a{" "}
+                    <span className="font-semibold">
+                      {visiblesDe(target.itemType).length}{" "}
+                      {target.itemType === "product"
+                        ? visiblesDe(target.itemType).length === 1
+                          ? "producto"
+                          : "productos"
+                        : visiblesDe(target.itemType).length === 1
+                          ? "combo"
+                          : "combos"}
+                    </span>
+                    {visiblesDe(target.itemType).length < rowsFor(target.itemType).length ? (
+                      <>
+                        , que es lo que quedó con los filtros que tenés puestos.
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          El resto del catálogo (
+                          {rowsFor(target.itemType).length - visiblesDe(target.itemType).length}{" "}
+                          más) no se toca.
+                        </p>
+                      </>
+                    ) : (
+                      <> de este negocio: el catálogo completo.</>
+                    )}
                   </>
                 )}
               </div>
@@ -531,7 +567,9 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
                   className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
                 >
                   <span>
-                    <span className="text-muted-foreground">{h.oldPrice ? `$${h.oldPrice}` : "—"}</span>
+                    <span className="text-muted-foreground">
+                      {h.oldPrice ? `$${h.oldPrice}` : "—"}
+                    </span>
                     {" → "}
                     <span className="font-semibold">${h.newPrice}</span>
                   </span>
