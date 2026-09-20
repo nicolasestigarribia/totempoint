@@ -338,6 +338,21 @@ function AdminPage() {
     if (firstVisible && !sectionAllowed) setSection(firstVisible);
   }, [firstVisible, sectionAllowed]);
 
+  // Con el menú abierto en un celular, el fondo no se mueve: si no, al
+  // deslizar el menú se terminaba moviendo la página de atrás. En pantallas
+  // grandes el menú es parte del layout y no tapa nada, así que no aplica.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previo;
+    };
+  }, [sidebarOpen]);
+
   // Con permiso de solo lectura el servidor rechaza cualquier cambio, así que
   // conviene avisarlo arriba de la sección en vez de dejar que falle al guardar.
   const readOnly = Boolean(
@@ -428,7 +443,11 @@ function AdminPage() {
             <PanelLeftClose className="h-5 w-5" />
           </button>
         </div>
-        <nav className="flex-1 space-y-1 p-3">
+        {/* El menú desliza por su cuenta: con dieciséis secciones no entra en
+            la pantalla de un celular, y sin esto el gesto se lo comía la
+            página de atrás. overscroll-contain evita que al llegar al final
+            el deslizamiento siga en el contenido de abajo. */}
+        <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
           {visibleSections.map((s) => (
             <button
               key={s.id}

@@ -289,6 +289,20 @@ function SuperadminPage() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // Con el menú abierto en un celular el fondo se queda quieto, para que el
+  // deslizamiento sea del menú y no de la página de atrás.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previo;
+    };
+  }, [sidebarOpen]);
+
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
@@ -332,7 +346,8 @@ function SuperadminPage() {
             <PanelLeftClose className="h-5 w-5" />
           </button>
         </div>
-        <nav className="flex-1 space-y-1 p-3">
+        {/* Igual que en el panel de empresa: el menú desliza por su cuenta. */}
+        <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
           {SECTIONS.map((s) => (
             <button
               key={s.id}

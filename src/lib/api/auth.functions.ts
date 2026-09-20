@@ -36,6 +36,12 @@ export const login = createServerFn({ method: "POST" })
     z.object({
       identifier: z.string().trim().min(1),
       password: z.string().min(1),
+      /**
+       * Si la sesión sobrevive a cerrar el navegador. Por defecto no: el panel
+       * se abre desde celulares y computadoras compartidas, y dejar la sesión
+       * viva ahí es la forma más fácil de que entre quien no tiene que entrar.
+       */
+      remember: z.boolean().default(false),
     }),
   )
   .handler(async ({ data }): Promise<AuthUser> => {
@@ -61,7 +67,7 @@ export const login = createServerFn({ method: "POST" })
 
     await clearFailures(identifier);
 
-    await createSession(user.id);
+    await createSession(user.id, data.remember);
 
     const roles = await db
       .select({ role: userRoles.role })

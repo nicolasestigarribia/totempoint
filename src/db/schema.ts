@@ -193,7 +193,19 @@ export const totemSettings = mysqlTable(
     template: mysqlEnum("template", ["clasico", "completo", "split"]).notNull().default("clasico"),
     // Base de color de las pantallas de adentro del tótem. El color de acento
     // las tiñe encima, así el menú sigue la marca y no queda un negro plano.
-    theme: mysqlEnum("theme", ["oscuro", "claro", "calido"]).notNull().default("oscuro"),
+    theme: mysqlEnum("theme", ["oscuro", "claro", "calido", "noche", "arena", "bosque"])
+      .notNull()
+      .default("oscuro"),
+    /**
+     * Combinación tipográfica. No se deja elegir una fuente cualquiera a
+     * propósito: son parejas ya probadas de títulos y texto, para que nadie
+     * termine con un menú que no se puede leer de parado a un metro.
+     */
+    fontTheme: mysqlEnum("font_theme", ["impacto", "elegante", "moderno", "redondeado", "sobrio"])
+      .notNull()
+      .default("impacto"),
+    /** Qué tan redondeadas van las esquinas. Cambia bastante el carácter. */
+    corners: mysqlEnum("corners", ["redondeado", "suave", "recto"]).notNull().default("redondeado"),
     heroImageUrl: varchar("hero_image_url", { length: 500 }),
     eyebrow: varchar("eyebrow", { length: 60 }),
     title: varchar("title", { length: 60 }),

@@ -234,6 +234,14 @@ export function TotemHome({ data }: { data: TotemHomeData }) {
   // Los tokens van inline además de en el documento: así la vista previa del
   // panel, que vive en un iframe aparte, muestra la base de color elegida.
   return (
-    <div style={themeVars(data.accentColor, data.theme) as React.CSSProperties}>{plantilla}</div>
+    <div
+      // Los tokens van también inline porque la vista previa del panel vive en
+      // un iframe y no comparte el documento con la pantalla.
+      style={
+        themeVars(data.accentColor, data.theme, data.fontTheme, data.corners) as React.CSSProperties
+      }
+    >
+      {plantilla}
+    </div>
   );
 }

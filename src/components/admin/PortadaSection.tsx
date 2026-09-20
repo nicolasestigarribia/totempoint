@@ -45,11 +45,32 @@ const BASES: { value: MyTotemSettings["theme"]; label: string; hint: string }[] 
   { value: "oscuro", label: "Oscura", hint: "Fondo negro tibio, teñido con tu color" },
   { value: "claro", label: "Clara", hint: "Fondo claro, para panaderías y cafés" },
   { value: "calido", label: "Cálida", hint: "Marrones y tierra, para parrillas y bodegones" },
+  { value: "noche", label: "Noche", hint: "Azul profundo, serio, para marcas frías" },
+  { value: "arena", label: "Arena", hint: "Claro cálido tipo papel, amable" },
+  { value: "bosque", label: "Bosque", hint: "Verde profundo, para comida sana y verdulerías" },
+];
+
+// Parejas de tipografías, no fuentes sueltas: el dueño elige un aire y no se
+// arriesga a que el título no combine con el texto o no se lea de parado.
+const FUENTES: { value: MyTotemSettings["fontTheme"]; label: string; hint: string }[] = [
+  { value: "impacto", label: "Impacto", hint: "Títulos condensados y gritones. El de siempre" },
+  { value: "elegante", label: "Elegante", hint: "Con serifas, para algo más de categoría" },
+  { value: "moderno", label: "Moderno", hint: "Bien negro y macizo, urbano" },
+  { value: "redondeado", label: "Redondeado", hint: "Simpático, para heladerías y cafés" },
+  { value: "sobrio", label: "Sobrio", hint: "Sin adornos, todo en la misma familia" },
+];
+
+const ESQUINAS: { value: MyTotemSettings["corners"]; label: string; hint: string }[] = [
+  { value: "redondeado", label: "Redondeadas", hint: "Amable, lo que está por defecto" },
+  { value: "suave", label: "Suaves", hint: "Apenas curvadas, más neutro" },
+  { value: "recto", label: "Rectas", hint: "Sin curvas, look técnico" },
 ];
 
 const EMPTY: MyTotemSettings = {
   template: "clasico",
   theme: "oscuro",
+  fontTheme: "impacto",
+  corners: "redondeado",
   heroImageUrl: "",
   eyebrow: "",
   title: "",
@@ -123,6 +144,8 @@ export function PortadaSection({
     subtitle: form.subtitle || null,
     ctaLabel: form.ctaLabel.trim() || "Empezar pedido",
     theme: form.theme,
+    fontTheme: form.fontTheme,
+    corners: form.corners,
     badge1: form.badge1 || null,
     badge2: form.badge2 || null,
     accentColor: form.accentColor || null,
@@ -202,6 +225,50 @@ export function PortadaSection({
             <p className="text-xs text-muted-foreground">
               {BASES.find((b) => b.value === form.theme)?.hint}. Manda en el menú, el carrito y el
               checkout, no solo en la portada.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tipografía</Label>
+            <Select
+              value={form.fontTheme}
+              onValueChange={(v) => set("fontTheme", v as MyTotemSettings["fontTheme"])}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FUENTES.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {FUENTES.find((f) => f.value === form.fontTheme)?.hint}.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Esquinas</Label>
+            <Select
+              value={form.corners}
+              onValueChange={(v) => set("corners", v as MyTotemSettings["corners"])}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ESQUINAS.map((e) => (
+                  <SelectItem key={e.value} value={e.value}>
+                    {e.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {ESQUINAS.find((e) => e.value === form.corners)?.hint}.
             </p>
           </div>
 

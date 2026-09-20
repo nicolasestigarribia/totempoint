@@ -74,7 +74,11 @@ export const updateMyBusiness = createServerFn({ method: "POST" })
 export interface MyTotemSettings {
   template: TotemTemplate;
   /** Base de color de las pantallas de adentro del tótem. */
-  theme: "oscuro" | "claro" | "calido";
+  theme: "oscuro" | "claro" | "calido" | "noche" | "arena" | "bosque";
+  /** Pareja de tipografías: cambia el aire sin tocar el contenido. */
+  fontTheme: "impacto" | "elegante" | "moderno" | "redondeado" | "sobrio";
+  /** Qué tan redondeadas van las cajas. */
+  corners: "redondeado" | "suave" | "recto";
   heroImageUrl: string;
   eyebrow: string;
   title: string;
@@ -101,6 +105,8 @@ export const getMyTotemSettings = createServerFn({ method: "GET" })
     return {
       template: (s?.template as TotemTemplate) ?? "clasico",
       theme: s?.theme ?? "oscuro",
+      fontTheme: s?.fontTheme ?? "impacto",
+      corners: s?.corners ?? "redondeado",
       heroImageUrl: s?.heroImageUrl ?? "",
       eyebrow: s?.eyebrow ?? "",
       title: s?.title ?? "",
@@ -118,7 +124,11 @@ export const updateMyTotemSettings = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       template: z.enum(["clasico", "completo", "split"]),
-      theme: z.enum(["oscuro", "claro", "calido"]).default("oscuro"),
+      theme: z.enum(["oscuro", "claro", "calido", "noche", "arena", "bosque"]).default("oscuro"),
+      fontTheme: z
+        .enum(["impacto", "elegante", "moderno", "redondeado", "sobrio"])
+        .default("impacto"),
+      corners: z.enum(["redondeado", "suave", "recto"]).default("redondeado"),
       heroImageUrl: z.string().trim().max(500),
       eyebrow: z.string().trim().max(60),
       title: z.string().trim().max(60),
@@ -145,6 +155,8 @@ export const updateMyTotemSettings = createServerFn({ method: "POST" })
     const values = {
       template: data.template,
       theme: data.theme,
+      fontTheme: data.fontTheme,
+      corners: data.corners,
       heroImageUrl: data.heroImageUrl || null,
       eyebrow: data.eyebrow || null,
       title: data.title || null,

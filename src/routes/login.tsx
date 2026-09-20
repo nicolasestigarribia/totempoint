@@ -30,6 +30,7 @@ function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +45,7 @@ function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const user = await doLogin({ data: { identifier, password } });
+      const user = await doLogin({ data: { identifier, password, remember } });
       navigate({ to: destinationFor(user), replace: true });
     } catch (err: unknown) {
       console.error("Login error detail:", err);
@@ -141,6 +142,19 @@ function LoginPage() {
               </button>
             </div>
           </div>
+
+          {/* Por defecto la sesión muere al cerrar el navegador: el panel se
+              abre desde celulares y computadoras compartidas. Quien entra
+              siempre desde su propio teléfono puede pedir lo contrario. */}
+          <label className="flex cursor-pointer items-center gap-3 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-primary"
+            />
+            Mantener la sesión iniciada en este dispositivo
+          </label>
 
           <Button type="submit" disabled={loading} className="h-12 w-full text-base font-bold">
             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Ingresar"}

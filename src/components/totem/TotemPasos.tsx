@@ -12,55 +12,49 @@ const PASOS: { id: PasoTotem; label: string }[] = [
  * En qué paso del pedido está el cliente.
  *
  * Alguien parado frente a un tótem que no conoce necesita saber dos cosas:
- * cuánto falta y que esto se termina. Tres pasos a la vista contestan las dos
- * de un vistazo, y de paso vuelven predecible lo que viene: ya sabés que
- * después de elegir vas a poder revisar antes de confirmar nada.
+ * cuánto falta y que esto se termina. Tres pasos a la vista contestan las dos.
  *
- * Los pasos ya hechos se marcan con un tilde en vez de repetir el número: el
- * número dice dónde estás, el tilde dice lo que ya resolviste.
+ * La primera versión ponía números adentro de píldoras y quedaba recargada:
+ * el número no aporta nada que el orden no diga ya, y el círculo alrededor
+ * competía con el resto de la barra. Acá queda el nombre del paso y una línea
+ * debajo que se pinta a medida que se avanza, como una barra de progreso
+ * partida en tres. Lo que ya pasó lleva un tilde.
+ *
+ * En pantallas angostas solo se lee el paso actual, porque tres etiquetas no
+ * entran sin apretujarse; los otros dos quedan como rayitas, que igual
+ * comunican cuánto falta.
  */
 export function TotemPasos({ actual, accent }: { actual: PasoTotem; accent?: string }) {
   const indiceActual = PASOS.findIndex((p) => p.id === actual);
+  const color = accent ?? "var(--primary)";
 
   return (
-    <ol className="flex items-center gap-2" aria-label="Pasos del pedido">
+    <ol className="flex items-end gap-2 sm:gap-3" aria-label="Pasos del pedido">
       {PASOS.map((paso, i) => {
         const hecho = i < indiceActual;
         const activo = i === indiceActual;
+        const alcanzado = hecho || activo;
 
         return (
-          <li key={paso.id} className="flex items-center gap-2">
-            <div
-              className={`flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition ${
-                activo ? "text-white" : hecho ? "text-foreground" : "text-muted-foreground"
-              }`}
-              style={activo ? { background: accent ?? "var(--primary)" } : undefined}
+          <li key={paso.id} className="flex flex-col gap-1.5">
+            <span
+              className={`flex items-center gap-1.5 whitespace-nowrap text-xs font-bold uppercase tracking-wide transition ${
+                activo ? "" : hecho ? "text-muted-foreground" : "text-muted-foreground/50"
+              } ${activo ? "" : "hidden sm:flex"}`}
+              style={activo ? { color } : undefined}
               aria-current={activo ? "step" : undefined}
             >
-              <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-sm ${
-                  activo
-                    ? "bg-black/25 text-white"
-                    : hecho
-                      ? "text-white"
-                      : "border border-border text-muted-foreground"
-                }`}
-                style={hecho ? { background: accent ?? "var(--primary)" } : undefined}
-              >
-                {hecho ? <Check className="h-4 w-4" /> : i + 1}
-              </span>
-              <span className="hidden text-sm font-bold uppercase tracking-wide sm:inline">
-                {paso.label}
-              </span>
-            </div>
+              {hecho && <Check className="h-3.5 w-3.5" aria-hidden />}
+              {paso.label}
+            </span>
 
-            {i < PASOS.length - 1 && (
-              <span
-                aria-hidden
-                className={`h-0.5 w-4 rounded-full sm:w-6 ${hecho ? "" : "bg-border"}`}
-                style={hecho ? { background: accent ?? "var(--primary)" } : undefined}
-              />
-            )}
+            <span
+              aria-hidden
+              className={`h-1 rounded-full transition-all duration-300 ${
+                activo ? "w-14 sm:w-full" : "w-6 sm:w-full"
+              } ${alcanzado ? "" : "bg-border"}`}
+              style={alcanzado ? { background: color, opacity: activo ? 1 : 0.45 } : undefined}
+            />
           </li>
         );
       })}

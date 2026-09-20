@@ -20,7 +20,7 @@ export const Route = createFileRoute("/t/$slug/combos")({
 
 function CombosPage() {
   const menu = Route.useLoaderData();
-  useTotemTheme(menu.accentColor, menu.theme);
+  useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const accent = menu.accentColor || undefined;
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);

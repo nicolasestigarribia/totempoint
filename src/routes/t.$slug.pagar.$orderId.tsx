@@ -29,7 +29,7 @@ function PagarPage() {
   const { slug, orderId } = Route.useParams();
   const { url } = useSearch({ from: "/t/$slug/pagar/$orderId" });
   const navigate = useNavigate();
-  useTotemTheme(order.accentColor, order.theme);
+  useTotemTheme(order.accentColor, order.theme, order.fontTheme, order.corners);
   const accent = order.accentColor || undefined;
 
   const consultar = useServerFn(getTotemPaymentStatus);

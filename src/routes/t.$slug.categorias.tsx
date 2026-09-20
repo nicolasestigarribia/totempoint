@@ -19,7 +19,7 @@ export const Route = createFileRoute("/t/$slug/categorias")({
 
 function CategoriasPage() {
   const menu = Route.useLoaderData();
-  useTotemTheme(menu.accentColor, menu.theme);
+  useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const accent = menu.accentColor || undefined;
   useTotemIdleReset(menu.slug);
 

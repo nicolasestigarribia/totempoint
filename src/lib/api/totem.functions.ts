@@ -114,7 +114,9 @@ async function priceOverrides(
 
 export type TotemTemplate = "clasico" | "completo" | "split";
 
-export type TotemThemeName = "oscuro" | "claro" | "calido";
+export type TotemThemeName = "oscuro" | "claro" | "calido" | "noche" | "arena" | "bosque";
+export type TotemFontName = "impacto" | "elegante" | "moderno" | "redondeado" | "sobrio";
+export type TotemCornersName = "redondeado" | "suave" | "recto";
 
 export interface TotemHome {
   companyId: number;
@@ -130,6 +132,8 @@ export interface TotemHome {
   subtitle: string | null;
   ctaLabel: string;
   theme: TotemThemeName;
+  fontTheme: TotemFontName;
+  corners: TotemCornersName;
   badge1: string | null;
   badge2: string | null;
   accentColor: string | null;
@@ -177,6 +181,8 @@ export interface TotemMenu {
   logoUrl: string | null;
   accentColor: string | null;
   theme: TotemThemeName;
+  fontTheme: TotemFontName;
+  corners: TotemCornersName;
   categories: TotemCategory[];
   products: TotemProduct[];
   combos: TotemCombo[];
@@ -221,6 +227,8 @@ export const getTotemHome = createServerFn({ method: "GET" })
       badge2: s?.badge2 ?? null,
       accentColor: s?.accentColor ?? null,
       theme: s?.theme ?? "oscuro",
+      fontTheme: s?.fontTheme ?? "impacto",
+      corners: s?.corners ?? "redondeado",
     };
   });
 
@@ -232,6 +240,8 @@ export const getTotemMenu = createServerFn({ method: "GET" })
         company: companies,
         accentColor: totemSettings.accentColor,
         theme: totemSettings.theme,
+        fontTheme: totemSettings.fontTheme,
+        corners: totemSettings.corners,
       })
       .from(companies)
       .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
@@ -273,7 +283,11 @@ export const getTotemMenu = createServerFn({ method: "GET" })
         .orderBy(asc(products.sort), asc(products.name)),
     ]);
 
-    const prodOverrides = await priceOverrides(locationId, "product", prods.map((p) => p.id));
+    const prodOverrides = await priceOverrides(
+      locationId,
+      "product",
+      prods.map((p) => p.id),
+    );
     const visibleProducts: TotemProduct[] = prods.map((p) => ({
       ...p,
       price: prodOverrides.get(p.id) ?? p.price,
@@ -319,7 +333,11 @@ export const getTotemMenu = createServerFn({ method: "GET" })
           )
       : [];
 
-    const comboOverrides = await priceOverrides(locationId, "combo", comboRows.map((c) => c.id));
+    const comboOverrides = await priceOverrides(
+      locationId,
+      "combo",
+      comboRows.map((c) => c.id),
+    );
     const totemCombos: TotemCombo[] = comboRows.map((c) => ({
       ...c,
       price: comboOverrides.get(c.id) ?? c.price,
@@ -345,6 +363,8 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       logoUrl: row.company.logoUrl,
       accentColor: row.accentColor ?? row.company.primaryColor,
       theme: row.theme ?? "oscuro",
+      fontTheme: row.fontTheme ?? "impacto",
+      corners: row.corners ?? "redondeado",
       categories: totemCategories.filter((c) => c.productCount > 0),
       products: visibleProducts,
       combos: totemCombos,
@@ -548,6 +568,8 @@ export interface TotemOrderSummary {
   logoUrl: string | null;
   accentColor: string | null;
   theme: TotemThemeName;
+  fontTheme: TotemFontName;
+  corners: TotemCornersName;
 }
 
 export const getTotemOrder = createServerFn({ method: "GET" })
@@ -565,6 +587,8 @@ export const getTotemOrder = createServerFn({ method: "GET" })
         primaryColor: companies.primaryColor,
         accentColor: totemSettings.accentColor,
         theme: totemSettings.theme,
+        fontTheme: totemSettings.fontTheme,
+        corners: totemSettings.corners,
       })
       .from(orders)
       .innerJoin(locations, eq(locations.id, orders.locationId))
@@ -585,6 +609,8 @@ export const getTotemOrder = createServerFn({ method: "GET" })
       logoUrl: row.logoUrl,
       accentColor: row.accentColor ?? row.primaryColor,
       theme: row.theme ?? "oscuro",
+      fontTheme: row.fontTheme ?? "impacto",
+      corners: row.corners ?? "redondeado",
     };
   });
 

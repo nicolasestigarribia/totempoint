@@ -49,7 +49,21 @@ export interface SessionUser {
   permissions: PermissionMap;
 }
 
-export async function createSession(userId: number): Promise<string> {
+/**
+ * Crea la sesión y deja la cookie.
+ *
+ * Por defecto la cookie es **de sesión**: se borra cuando se cierra el
+ * navegador. Antes duraba treinta días siempre, y eso en el panel es un
+ * problema concreto — se administra desde el celular del mostrador o desde una
+ * computadora compartida, y cualquiera que la abriera después entraba sin
+ * pedir nada.
+ *
+ * `recordar` la vuelve persistente, para quien entra todos los días desde su
+ * propio teléfono y no quiere tipear la contraseña cada vez. La fila en la
+ * base dura treinta días igual: lo que cambia es cuánto se acuerda el
+ * navegador, no cuánto vale la sesión del lado del servidor.
+ */
+export async function createSession(userId: number, recordar = false): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   await db.insert(sessions).values({ id: token, userId, expiresAt });
@@ -58,7 +72,7 @@ export async function createSession(userId: number): Promise<string> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
+    ...(recordar ? { maxAge: SESSION_DAYS * 24 * 60 * 60 } : {}),
   });
   return token;
 }
@@ -150,12 +164,13 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 /** El superadmin entra a una empresa (soporte). Solo se llama desde server fns con requireSuperadmin. */
 export function setActingCompany(companyId: number): void {
+  // Sin maxAge: estar "adentro" de una empresa no puede durar más que la
+  // sesión que lo habilitó.
   setCookie(ACTING_COOKIE, String(companyId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
   });
 }
 

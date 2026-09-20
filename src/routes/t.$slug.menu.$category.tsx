@@ -29,7 +29,7 @@ export const Route = createFileRoute("/t/$slug/menu/$category")({
 
 function MenuCategoryPage() {
   const { menu, category, items } = Route.useLoaderData();
-  useTotemTheme(menu.accentColor, menu.theme);
+  useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const accent = menu.accentColor || undefined;
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);

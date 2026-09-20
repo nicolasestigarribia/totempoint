@@ -18,7 +18,7 @@ export const Route = createFileRoute("/t/$slug/carrito")({
 
 function CarritoPage() {
   const menu = Route.useLoaderData();
-  useTotemTheme(menu.accentColor, menu.theme);
+  useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const navigate = useNavigate();
   const accent = menu.accentColor || undefined;
   useTotemIdleReset(menu.slug);

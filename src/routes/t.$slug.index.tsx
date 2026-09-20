@@ -16,7 +16,7 @@ export const Route = createFileRoute("/t/$slug/")({
 
 function TotemHomePage() {
   const data = Route.useLoaderData();
-  useTotemTheme(data.accentColor, data.theme);
+  useTotemTheme(data.accentColor, data.theme, data.fontTheme, data.corners);
   useTotemDevice();
   return <TotemHome data={data} />;
 }

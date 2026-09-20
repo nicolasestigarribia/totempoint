@@ -29,7 +29,7 @@ const SEGUNDOS = 25;
 function ListoPage() {
   const order = Route.useLoaderData();
   const navigate = useNavigate();
-  useTotemTheme(order.accentColor, order.theme);
+  useTotemTheme(order.accentColor, order.theme, order.fontTheme, order.corners);
   const accent = order.accentColor || undefined;
   const [restan, setRestan] = useState(SEGUNDOS);
 
