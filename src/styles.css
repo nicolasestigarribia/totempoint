@@ -155,9 +155,69 @@
     animation: totem-aparecer 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
+  /*
+   * La foto de la portada respira: un acercamiento lentísimo, de treinta
+   * segundos, que no se percibe como animación pero saca a la pantalla del
+   * estado de cartel congelado. Es lo que hace la cartelería digital de los
+   * locales, y funciona justamente porque no se nota.
+   */
+  @keyframes totem-respira {
+    from {
+      transform: scale(1) translate3d(0, 0, 0);
+    }
+    to {
+      transform: scale(1.08) translate3d(-1%, -1%, 0);
+    }
+  }
+  .respira {
+    animation: totem-respira 30s ease-in-out infinite alternate;
+  }
+
+  /* Motas que suben flotando, del color de la marca. */
+  @keyframes totem-flota {
+    0% {
+      opacity: 0;
+      transform: translateY(0) translateX(0);
+    }
+    12% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-70vh) translateX(var(--deriva, 0px));
+    }
+  }
+  .flota {
+    animation: totem-flota var(--dura, 14s) linear var(--demora, 0s) infinite;
+  }
+
+  /*
+   * El botón de empezar late. En un tótem el cliente tiene que darse cuenta en
+   * un segundo de dónde tocar: un halo que crece y se apaga dice "acá" sin
+   * necesidad de un cartel que lo explique.
+   */
+  @keyframes totem-late {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 var(--halo, rgba(255, 255, 255, 0.35));
+    }
+    50% {
+      box-shadow: 0 0 0 18px transparent;
+    }
+  }
+  .late {
+    animation: totem-late 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
   /* A quien le molesta el movimiento no se le mueve nada. */
   @media (prefers-reduced-motion: reduce) {
-    .aparece {
+    .aparece,
+    .respira,
+    .flota,
+    .late {
       animation: none;
     }
   }

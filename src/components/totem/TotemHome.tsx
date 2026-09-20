@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Sparkles, ChevronRight, Store } from "lucide-react";
 import type { TotemHome as TotemHomeData } from "@/lib/api/totem.functions";
 import { themeVars } from "@/components/totem/useTotemTheme";
+import { TotemMotas } from "@/components/totem/TotemMotas";
 
 const FALLBACK_ACCENT = "var(--gold, #f5b800)";
 
@@ -66,10 +67,16 @@ function StartButton({ data, size = "lg" }: { data: TotemHomeData; size?: "lg" |
     <Link
       to="/t/$slug/categorias"
       params={{ slug: data.slug }}
-      className={`group flex w-full items-center justify-between gap-4 rounded-3xl shadow-glow transition hover:scale-[1.02] active:scale-[0.98] ${
+      className={`late group flex w-full items-center justify-between gap-4 rounded-3xl transition hover:scale-[1.02] active:scale-[0.98] ${
         size === "xl" ? "px-12 py-10" : "px-10 py-8"
       }`}
-      style={{ background: accent ?? "var(--primary)" }}
+      style={
+        {
+          background: accent ?? "var(--primary)",
+          // El halo late en el color de la marca, no en blanco.
+          "--halo": `color-mix(in oklab, ${accent ?? "var(--primary)"} 55%, transparent)`,
+        } as React.CSSProperties
+      }
     >
       <span
         className={`font-display uppercase tracking-wide text-white ${
@@ -106,14 +113,17 @@ function Clasico({ data }: { data: TotemHomeData }) {
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
       {data.heroImageUrl && (
-        <img
-          src={data.heroImageUrl}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        /* El recorte va en un envoltorio y no en el contenedor de la
+           pantalla: al ampliarse, la foto se sale de la caja y aparece una
+           barra de scroll horizontal, pero el contenedor tiene que seguir
+           dejando deslizar hacia abajo si el contenido no entra. */
+        <div className="absolute inset-0 overflow-hidden">
+          <img src={data.heroImageUrl} alt="" className="respira h-full w-full object-cover" />
+        </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/60" />
+      <TotemMotas accent={data.accentColor || data.primaryColor || undefined} />
 
       <div className="relative z-10 flex flex-1 flex-col px-6 py-8 md:px-14 md:py-10">
         <div className="grid flex-1 grid-cols-1 items-center gap-10 py-6 lg:grid-cols-2">
@@ -152,14 +162,17 @@ function Completo({ data }: { data: TotemHomeData }) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-center bg-background text-center">
       {data.heroImageUrl && (
-        <img
-          src={data.heroImageUrl}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        /* El recorte va en un envoltorio y no en el contenedor de la
+           pantalla: al ampliarse, la foto se sale de la caja y aparece una
+           barra de scroll horizontal, pero el contenedor tiene que seguir
+           dejando deslizar hacia abajo si el contenido no entra. */
+        <div className="absolute inset-0 overflow-hidden">
+          <img src={data.heroImageUrl} alt="" className="respira h-full w-full object-cover" />
+        </div>
       )}
       <div className="absolute inset-0 bg-black/60" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+      <TotemMotas accent={data.accentColor || data.primaryColor || undefined} />
 
       <div className="relative z-10 flex w-full max-w-3xl flex-col items-center gap-8 px-6 py-12">
         <Logo data={data} />
@@ -182,22 +195,26 @@ function Split({ data }: { data: TotemHomeData }) {
     <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
       <div className="relative min-h-[35dvh] flex-1 overflow-hidden lg:min-h-dvh">
         {data.heroImageUrl ? (
-          <img src={data.heroImageUrl} alt="" className="h-full w-full object-cover" />
+          <img src={data.heroImageUrl} alt="" className="respira h-full w-full object-cover" />
         ) : (
           <div className="h-full w-full bg-muted" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent lg:bg-gradient-to-r" />
       </div>
 
-      <div className="flex flex-1 flex-col justify-center gap-7 px-8 py-10 md:px-14">
-        <Logo data={data} />
-        <Title data={data} className="text-6xl md:text-7xl" />
-        {data.subtitle && (
-          <p className="max-w-lg text-balance text-lg text-muted-foreground">{data.subtitle}</p>
-        )}
-        <Badges data={data} />
-        <div className="max-w-lg">
-          <StartButton data={data} />
+      <div className="relative flex flex-1 flex-col justify-center px-8 py-10 md:px-14">
+        <TotemMotas accent={data.accentColor || data.primaryColor || undefined} />
+        {/* El contenido va elevado para que las motas queden detrás del texto. */}
+        <div className="relative z-10 flex flex-col gap-7">
+          <Logo data={data} />
+          <Title data={data} className="text-6xl md:text-7xl" />
+          {data.subtitle && (
+            <p className="max-w-lg text-balance text-lg text-muted-foreground">{data.subtitle}</p>
+          )}
+          <Badges data={data} />
+          <div className="max-w-lg">
+            <StartButton data={data} />
+          </div>
         </div>
       </div>
     </div>
