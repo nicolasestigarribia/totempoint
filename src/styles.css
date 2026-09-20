@@ -102,8 +102,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    /* El tótem pisa --font-cuerpo según lo que eligió el negocio. */
-    font-family: var(--font-cuerpo, "Inter", system-ui, sans-serif);
+    font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   h1,
@@ -139,6 +138,30 @@
   }
   .text-balance {
     text-wrap: balance;
+  }
+
+  /*
+   * Tipografía elegida por el negocio.
+   *
+   * No alcanza con pisar --font-display: ese nombre es un token del tema de
+   * Tailwind, y Tailwind genera con él su propia clase `.font-display` con la
+   * fuente escrita literal, en una capa posterior a la nuestra. O sea que la
+   * variable cambiaba y el título seguía saliendo en Bebas Neue, en el tótem y
+   * en la vista previa por igual.
+   *
+   * Por eso las variables propias van con otro nombre y las reglas cuelgan de
+   * `.totem-tipografia`: dos clases le ganan en especificidad a la utility de
+   * Tailwind, y el alcance queda limitado al tótem sin tocar el panel.
+   */
+  .totem-tipografia {
+    font-family: var(--totem-cuerpo, "Inter", system-ui, sans-serif);
+  }
+
+  .totem-tipografia h1,
+  .totem-tipografia h2,
+  .totem-tipografia h3,
+  .totem-tipografia .font-display {
+    font-family: var(--totem-display, "Bebas Neue", Impact, system-ui, sans-serif);
   }
 
   /*

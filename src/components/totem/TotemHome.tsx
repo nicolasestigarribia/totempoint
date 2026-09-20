@@ -235,8 +235,9 @@ export function TotemHome({ data }: { data: TotemHomeData }) {
   // panel, que vive en un iframe aparte, muestra la base de color elegida.
   return (
     <div
-      // Los tokens van también inline porque la vista previa del panel vive en
-      // un iframe y no comparte el documento con la pantalla.
+      // La clase va acá además del documento: la vista previa del panel vive en
+      // un iframe y monta esto sin pasar por el hook que la agrega arriba.
+      className="totem-tipografia"
       style={
         themeVars(data.accentColor, data.theme, data.fontTheme, data.corners) as React.CSSProperties
       }

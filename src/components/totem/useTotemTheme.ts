@@ -148,9 +148,13 @@ export function themeVars(
     vars["--ring"] = accent;
   }
 
+  // Nombres propios y no --font-display: ese es un token del tema de Tailwind,
+  // que genera con él una clase con la fuente escrita literal y le gana a
+  // cualquier valor que pongamos en la variable. Las reglas que los usan
+  // cuelgan de `.totem-tipografia`, en styles.css.
   const f = FUENTES[fuente] ?? FUENTES.impacto;
-  vars["--font-display"] = f.display;
-  vars["--font-cuerpo"] = f.cuerpo;
+  vars["--totem-display"] = f.display;
+  vars["--totem-cuerpo"] = f.cuerpo;
 
   // El radio se multiplica: las clases de Tailwind siguen escritas igual, pero
   // todas se achican o se van a cero de una sola vez.
@@ -169,12 +173,17 @@ export function useTotemTheme(
     const root = document.documentElement;
     const previos: [string, string][] = [];
 
+    // La clase habilita las reglas de tipografía del tótem. Va en el documento
+    // y no en un contenedor porque las pantallas del tótem ocupan todo.
+    root.classList.add("totem-tipografia");
+
     for (const [nombre, valor] of Object.entries(themeVars(accentColor, theme, fuente, esquinas))) {
       previos.push([nombre, root.style.getPropertyValue(nombre)]);
       root.style.setProperty(nombre, valor);
     }
 
     return () => {
+      root.classList.remove("totem-tipografia");
       for (const [nombre, valor] of previos) {
         if (valor) root.style.setProperty(nombre, valor);
         else root.style.removeProperty(nombre);
