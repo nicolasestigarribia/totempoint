@@ -25,7 +25,13 @@ function CategoriasPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <TotemTopBar slug={menu.slug} name={menu.name} logoUrl={menu.logoUrl} accent={accent} />
+      <TotemTopBar
+        slug={menu.slug}
+        name={menu.name}
+        logoUrl={menu.logoUrl}
+        accent={accent}
+        paso="elegir"
+      />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
         <div className="mb-6 text-center">
@@ -50,7 +56,7 @@ function CategoriasPage() {
               <Link
                 to="/t/$slug/combos"
                 params={{ slug: menu.slug }}
-                className="group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border-2 shadow-card transition hover:-translate-y-1"
+                className="aparece group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border-2 shadow-card transition hover:-translate-y-1"
                 style={{ borderColor: accent ?? "var(--primary)" }}
               >
                 {menu.combos[0].photoUrl ? (
@@ -91,10 +97,14 @@ function CategoriasPage() {
                 key={c.id}
                 to="/t/$slug/menu/$category"
                 params={{ slug: menu.slug, category: String(c.id) }}
-                className={`group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary ${lastSpanFor(
+                className={`aparece group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary ${lastSpanFor(
                   menu.categories.length + (menu.combos.length > 0 ? 1 : 0),
                   i + (menu.combos.length > 0 ? 1 : 0),
                 )}`}
+                // Escalonadas: la de combos ya entró, estas van detrás.
+                style={{
+                  animationDelay: `${(i + (menu.combos.length > 0 ? 1 : 0)) * 45}ms`,
+                }}
               >
                 {c.photoUrl ? (
                   <img

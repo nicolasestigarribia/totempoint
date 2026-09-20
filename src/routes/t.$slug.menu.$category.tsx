@@ -44,6 +44,7 @@ function MenuCategoryPage() {
         logoUrl={menu.logoUrl}
         accent={accent}
         back="categorias"
+        paso="elegir"
       />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
@@ -66,10 +67,14 @@ function MenuCategoryPage() {
                 // Lo que ya está en el pedido se marca con el color de la marca:
                 // así el cliente ve de un vistazo qué lleva, sin tener que leer
                 // el número de cada contador.
-                className={`flex flex-col overflow-hidden rounded-3xl border bg-card/40 shadow-card transition ${
+                className={`aparece flex flex-col overflow-hidden rounded-3xl border bg-card/40 shadow-card transition ${
                   inCart > 0 ? "border-2" : "border-border/60"
                 } ${lastSpanFor(items.length, i)}`}
-                style={inCart > 0 ? { borderColor: accent ?? "var(--primary)" } : undefined}
+                style={{
+                  // Cada tarjeta entra unos milisegundos después que la anterior.
+                  animationDelay: `${Math.min(i, 8) * 45}ms`,
+                  ...(inCart > 0 ? { borderColor: accent ?? "var(--primary)" } : {}),
+                }}
               >
                 <div className="relative h-44 w-full overflow-hidden bg-muted">
                   {p.photoUrl ? (

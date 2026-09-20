@@ -117,6 +117,7 @@ function CheckoutPage() {
         logoUrl={menu.logoUrl}
         accent={accent}
         back="categorias"
+        paso="pagar"
       />
 
       <main className="mx-auto w-full max-w-[700px] flex-1 px-6 py-6 md:px-12">

@@ -37,6 +37,7 @@ function CarritoPage() {
         logoUrl={menu.logoUrl}
         accent={accent}
         back="categorias"
+        paso="pedido"
       />
 
       <main className="mx-auto w-full max-w-[900px] flex-1 px-6 py-6 md:px-12">

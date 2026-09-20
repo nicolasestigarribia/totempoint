@@ -35,6 +35,7 @@ function CombosPage() {
         logoUrl={menu.logoUrl}
         accent={accent}
         back="categorias"
+        paso="elegir"
       />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
@@ -53,10 +54,13 @@ function CombosPage() {
                 key={c.id}
                 // Igual que en los productos: lo que ya está en el pedido se
                 // marca con el color de la marca.
-                className={`flex flex-col overflow-hidden rounded-3xl border bg-card/40 shadow-card transition ${
+                className={`aparece flex flex-col overflow-hidden rounded-3xl border bg-card/40 shadow-card transition ${
                   inCart > 0 ? "border-2" : "border-border/60"
                 } ${lastSpanFor(menu.combos.length, i)}`}
-                style={inCart > 0 ? { borderColor: accent ?? "var(--primary)" } : undefined}
+                style={{
+                  animationDelay: `${Math.min(i, 8) * 45}ms`,
+                  ...(inCart > 0 ? { borderColor: accent ?? "var(--primary)" } : {}),
+                }}
               >
                 <div className="relative h-44 w-full overflow-hidden bg-muted">
                   {c.photoUrl ? (

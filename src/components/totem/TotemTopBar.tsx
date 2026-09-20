@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Store } from "lucide-react";
+import { TotemPasos, type PasoTotem } from "@/components/totem/TotemPasos";
 
 /**
  * Barra de arriba del tótem: marca y vuelta atrás, nada más.
@@ -16,12 +17,15 @@ export function TotemTopBar({
   logoUrl,
   accent,
   back = "home",
+  paso,
 }: {
   slug: string;
   name: string;
   logoUrl: string | null;
   accent?: string;
   back?: "home" | "categorias";
+  /** En qué paso del pedido está. Sin esto no se muestran los pasos. */
+  paso?: PasoTotem;
 }) {
   return (
     <header
@@ -62,6 +66,12 @@ export function TotemTopBar({
         </div>
         <span className="font-display text-xl tracking-wide">{name}</span>
       </div>
+
+      {paso && (
+        <div className="ml-auto">
+          <TotemPasos actual={paso} accent={accent} />
+        </div>
+      )}
     </header>
   );
 }
