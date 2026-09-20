@@ -49,6 +49,12 @@ deja registrar nada a mano:
 bun run src/db/seed-action-codes.ts <slug>
 ```
 
+Hay dos empresas de demostración ya armadas, cada una con su script:
+`seed-primorosas.ts` (sanguchería de miga, cálida y con recetas) y
+`seed-degarage.ts` (bar de cerveza artesanal, verde sobre negro). La segunda da
+de alta la empresa entera —dueño incluido— si todavía no existe, así que sirve
+para ver el tótem con otra identidad sin tocar nada del panel.
+
 ## Deploy
 
 Se construye con el `Dockerfile` y se publica en Railway desde la rama `main`, según `railway.json`.
