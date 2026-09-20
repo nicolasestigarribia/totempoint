@@ -34,8 +34,13 @@ function CheckoutPage() {
   const placeOrder = useServerFn(createTotemOrder);
 
   const [customerName, setCustomerName] = useState("");
-  const [delivery, setDelivery] = useState<Delivery>("local");
-  const [pago, setPago] = useState<Pago>("efectivo");
+  // Retirar en mostrador es lo que hace la mayoría en un local con tótem, así
+  // que arranca elegido: el que se queda a comer lo cambia de un toque.
+  const [delivery, setDelivery] = useState<Delivery>("mostrador");
+  // Y si el negocio cobra con Mercado Pago, esa es la opción por defecto:
+  // cobrar en el momento le evita al mostrador manejar efectivo y al cliente
+  // hacer una segunda cola. Si no lo tiene activado, queda efectivo.
+  const [pago, setPago] = useState<Pago>(menu.mercadoPago ? "mercadopago" : "efectivo");
   const [comments, setComments] = useState("");
   const [sending, setSending] = useState(false);
 
