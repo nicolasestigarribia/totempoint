@@ -212,12 +212,54 @@
     animation: totem-late 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
+  /*
+   * El número de pedido entra con impacto.
+   *
+   * Es el momento en que el cliente recibe algo a cambio de todo lo que
+   * cargó, y es el dato que tiene que quedarse mirando. Que aparezca con un
+   * golpe corto lo vuelve el centro de la pantalla sin necesidad de agrandarlo
+   * todavía más.
+   */
+  @keyframes totem-impacto {
+    0% {
+      opacity: 0;
+      transform: scale(0.7);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.06);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .impacto {
+    animation: totem-impacto 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Vaivén apenas perceptible, para los íconos de las pantallas vacías. */
+  @keyframes totem-vaiven {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  .vaiven {
+    animation: totem-vaiven 3.4s ease-in-out infinite;
+  }
+
   /* A quien le molesta el movimiento no se le mueve nada. */
   @media (prefers-reduced-motion: reduce) {
     .aparece,
     .respira,
     .flota,
-    .late {
+    .late,
+    .impacto,
+    .vaiven {
       animation: none;
     }
   }

@@ -45,7 +45,7 @@ function ListoPage() {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
-      <CheckCircle2 className="h-24 w-24" style={{ color: accent }} />
+      <CheckCircle2 className="impacto h-24 w-24" style={{ color: accent }} />
 
       <h1 className="mt-6 font-display text-5xl md:text-6xl">¡Pedido enviado!</h1>
       <p className="mt-3 text-xl text-muted-foreground">
@@ -56,7 +56,11 @@ function ListoPage() {
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
           Tu número de pedido
         </div>
-        <div className="mt-2 font-display text-7xl" style={{ color: accent }}>
+        <div
+          className="impacto mt-2 font-display text-7xl"
+          // Entra un toque después del tilde, para que se lean en orden.
+          style={{ color: accent, animationDelay: "160ms" }}
+        >
           #{order.orderNumber}
         </div>
         <div className="mt-3 text-lg text-muted-foreground">Total: {formatPrice(order.total)}</div>

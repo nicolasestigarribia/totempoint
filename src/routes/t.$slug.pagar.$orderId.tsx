@@ -79,7 +79,7 @@ function PagarPage() {
         {pagado ? (
           <>
             <div
-              className="mx-auto flex h-24 w-24 items-center justify-center rounded-full"
+              className="impacto mx-auto flex h-24 w-24 items-center justify-center rounded-full"
               style={{ background: accent ?? "var(--primary)" }}
             >
               <Check className="h-12 w-12 text-white" />
@@ -98,7 +98,17 @@ function PagarPage() {
             </p>
 
             {/* Fondo blanco fijo: sobre el fondo oscuro ninguna cámara lo lee. */}
-            <div className="mx-auto mt-8 w-fit rounded-3xl bg-white p-5 shadow-card">
+            {/* El QR es lo único que hay que hacer acá, así que entra con
+                impacto y late en el color de la marca, igual que los botones
+                que llevan adelante en las otras pantallas. */}
+            <div
+              className="late impacto mx-auto mt-8 w-fit rounded-3xl bg-white p-5"
+              style={
+                {
+                  "--halo": `color-mix(in oklab, ${accent ?? "var(--primary)"} 55%, transparent)`,
+                } as React.CSSProperties
+              }
+            >
               <QRCodeSVG value={url} size={260} level="M" />
             </div>
 

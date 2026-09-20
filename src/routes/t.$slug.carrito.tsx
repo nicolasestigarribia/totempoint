@@ -45,7 +45,7 @@ function CarritoPage() {
 
         {items.length === 0 ? (
           <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border p-16 text-center">
-            <ShoppingCart className="h-14 w-14 text-muted-foreground" />
+            <ShoppingCart className="vaiven h-14 w-14 text-muted-foreground" />
             <p className="text-xl text-muted-foreground">Todavía no agregaste nada</p>
             <Link
               to="/t/$slug/categorias"
@@ -146,11 +146,18 @@ function CarritoPage() {
                 {formatPrice(total)}
               </span>
             </div>
+            {/* Late igual que el botón de la portada: en cada pantalla del
+                tótem, lo que hay que tocar para seguir es lo que pulsa. */}
             <button
               type="button"
               onClick={() => navigate({ to: "/t/$slug/checkout", params: { slug: menu.slug } })}
-              className="flex w-full items-center justify-center rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: accent ?? "var(--primary)" }}
+              className="late flex w-full items-center justify-center rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white transition hover:scale-[1.02] active:scale-[0.98]"
+              style={
+                {
+                  background: accent ?? "var(--primary)",
+                  "--halo": `color-mix(in oklab, ${accent ?? "var(--primary)"} 55%, transparent)`,
+                } as React.CSSProperties
+              }
             >
               Confirmar pedido
             </button>

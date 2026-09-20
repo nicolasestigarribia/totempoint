@@ -130,6 +130,10 @@ function CheckoutPage() {
             </label>
             <input
               id="name"
+              // El foco arranca acá: es el único campo obligatorio y el primer
+              // paso de la pantalla, así que el teclado se abre solo y el
+              // cliente no tiene que adivinar por dónde empezar.
+              autoFocus
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               required
@@ -224,8 +228,13 @@ function CheckoutPage() {
             <button
               type="submit"
               disabled={sending}
-              className="flex w-full items-center justify-center gap-3 rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
-              style={{ background: accent ?? "var(--primary)" }}
+              className="late flex w-full items-center justify-center gap-3 rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white transition hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
+              style={
+                {
+                  background: accent ?? "var(--primary)",
+                  "--halo": `color-mix(in oklab, ${accent ?? "var(--primary)"} 55%, transparent)`,
+                } as React.CSSProperties
+              }
             >
               {sending && <Loader2 className="h-7 w-7 animate-spin" />}
               Enviar pedido

@@ -41,7 +41,7 @@ function CategoriasPage() {
 
         {menu.categories.length === 0 && menu.combos.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <UtensilsCrossed className="h-14 w-14 text-muted-foreground" />
+            <UtensilsCrossed className="vaiven h-14 w-14 text-muted-foreground" />
             <p className="text-xl text-muted-foreground">Todavía no hay productos cargados</p>
           </div>
         ) : (
