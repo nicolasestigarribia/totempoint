@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check, ExternalLink, QrCode } from "lucide-react";
+import { Copy, Check, ExternalLink, QrCode, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,30 @@ export function TotemLinkCard({ slug, panelClass }: { slug: string; panelClass: 
             <code className="rounded bg-white/10 px-1">?totem=0</code>. Igual conviene administrar
             desde tu teléfono o tu computadora y dejar la tablet en modo kiosco.
           </p>
+
+          <div className="rounded-2xl border border-border p-4">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Smartphone className="h-4 w-4 text-primary" />
+              Para que no se vea la barra de direcciones
+            </p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+              <li>
+                Abrí este enlace en la tablet y, en el menú de Chrome, tocá{" "}
+                <strong className="text-foreground">Agregar a la pantalla principal</strong>. Queda
+                un ícono con el nombre de tu negocio que abre el tótem a pantalla completa, sin
+                barra de direcciones ni pestañas.
+              </li>
+              <li>
+                Si igual lo abrís desde el navegador, el primer toque en la pantalla ya lo pone en
+                pantalla completa.
+              </li>
+              <li>
+                Para que nadie pueda salirse: Ajustes → Seguridad →{" "}
+                <strong className="text-foreground">Fijar pantalla</strong> en Android, o instalá un
+                navegador de kiosco en la tablet.
+              </li>
+            </ol>
+          </div>
         </div>
 
         {/* Fondo blanco fijo: un QR sobre el panel oscuro no lo lee ninguna cámara. */}

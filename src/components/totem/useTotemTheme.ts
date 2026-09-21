@@ -115,6 +115,23 @@ const BASES: Record<TotemTheme, Record<string, string>> = {
 };
 
 /**
+ * El fondo de cada base, en hexadecimal.
+ *
+ * Los tokens de arriba están en oklch, que sirve para mezclar colores en el
+ * navegador pero no siempre afuera de CSS: el color de la barra del navegador
+ * y el fondo de la pantalla de arranque de la aplicación instalada los lee el
+ * sistema operativo. Estos son los mismos colores, convertidos una vez.
+ */
+export const FONDOS_HEX: Record<TotemTheme, string> = {
+  oscuro: "#050102",
+  claro: "#f9f4ee",
+  calido: "#170902",
+  noche: "#030b1c",
+  arena: "#faf0e3",
+  bosque: "#011207",
+};
+
+/**
  * Mezcla cada token con el color de la marca. La proporción es baja a
  * propósito: se busca que el fondo "sepa" a la marca, no que grite.
  */

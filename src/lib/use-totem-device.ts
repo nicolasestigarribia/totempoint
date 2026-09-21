@@ -4,6 +4,25 @@ import { leaveStaffSession } from "@/lib/api/totem.functions";
 const FLAG = "totempoint:dispositivo-totem";
 
 /**
+ * Lee (y actualiza con `?totem=1` / `?totem=0`) la marca de esta tablet.
+ *
+ * Devuelve false si el navegador no tiene almacenamiento —ventana privada,
+ * cookies bloqueadas—, que es lo mismo que decir "esta no es la tablet del
+ * mostrador": el tótem sigue funcionando igual, solo que sin lo que depende
+ * de estar marcado.
+ */
+export function esDispositivoTotem(): boolean {
+  try {
+    const parametro = new URLSearchParams(window.location.search).get("totem");
+    if (parametro === "1") localStorage.setItem(FLAG, "1");
+    else if (parametro === "0") localStorage.removeItem(FLAG);
+    return localStorage.getItem(FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Marca a esta tablet como tótem y la mantiene sin sesión de panel.
  *
  * El problema que resuelve: la pantalla del tótem no tiene salida, pero la
@@ -22,20 +41,7 @@ const FLAG = "totempoint:dispositivo-totem";
  */
 export function useTotemDevice() {
   useEffect(() => {
-    let marcado = false;
-
-    try {
-      const parametro = new URLSearchParams(window.location.search).get("totem");
-      if (parametro === "1") localStorage.setItem(FLAG, "1");
-      else if (parametro === "0") localStorage.removeItem(FLAG);
-      marcado = localStorage.getItem(FLAG) === "1";
-    } catch {
-      // Navegador sin almacenamiento (ventana privada, cookies bloqueadas):
-      // no hay marca que leer y el tótem sigue funcionando igual.
-      return;
-    }
-
-    if (!marcado) return;
+    if (!esDispositivoTotem()) return;
     // Si no había sesión, esto no hace nada; no vale la pena preguntar antes.
     leaveStaffSession().catch(() => {});
   }, []);
