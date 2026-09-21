@@ -6,11 +6,15 @@ import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { TotemCartBar } from "@/components/totem/TotemCartBar";
 import { useTotemCart, useCartForSlug, formatPrice } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
+import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { gridColsFor, lastSpanFor } from "@/components/totem/grid";
 
-export const Route = createFileRoute("/t/$slug/combos")({
-  loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$empresa/$local/$totem/combos")({
+  loader: ({ params }) =>
+    getTotemMenu({
+      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
+    }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Combos — ${loaderData.name}` : "Combos" }],
   }),
@@ -20,17 +24,19 @@ export const Route = createFileRoute("/t/$slug/combos")({
 
 function CombosPage() {
   const menu = Route.useLoaderData();
+  const nav = Route.useParams();
+  const cartKey = totemCartKey(nav);
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const accent = menu.accentColor || undefined;
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);
-  const cart = useCartForSlug(menu.slug);
-  useTotemIdleReset(menu.slug);
+  const cart = useCartForSlug(cartKey);
+  useTotemIdleReset(nav);
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <TotemTopBar
-        slug={menu.slug}
+        nav={nav}
         name={menu.name}
         logoUrl={menu.logoUrl}
         accent={accent}
@@ -119,7 +125,7 @@ function CombosPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            add(menu.slug, {
+                            add(cartKey, {
                               kind: "combo",
                               refId: c.id,
                               name: c.name,
@@ -137,7 +143,7 @@ function CombosPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          add(menu.slug, {
+                          add(cartKey, {
                             kind: "combo",
                             refId: c.id,
                             name: c.name,
@@ -160,7 +166,7 @@ function CombosPage() {
         </div>
       </main>
 
-      <TotemCartBar slug={menu.slug} accent={accent} />
+      <TotemCartBar nav={nav} accent={accent} />
     </div>
   );
 }

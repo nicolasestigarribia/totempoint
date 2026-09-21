@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTotemCart } from "@/lib/totem-cart";
+import type { TotemNav } from "@/lib/totem-nav";
 
 const IDLE_MS = 90_000;
 
 // Si un cliente se va a mitad del pedido, la tablet no puede quedar con su
 // carrito abierto para el siguiente. Pasado el tiempo sin tocar la pantalla,
 // vuelve sola a la portada y vacía el pedido.
-export function useTotemIdleReset(slug: string) {
+export function useTotemIdleReset(nav: TotemNav) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,7 +18,7 @@ export function useTotemIdleReset(slug: string) {
       clearTimeout(timer);
       timer = setTimeout(() => {
         useTotemCart.getState().clear();
-        navigate({ to: "/t/$slug", params: { slug }, replace: true });
+        navigate({ to: "/t/$empresa/$local/$totem", params: nav, replace: true });
       }, IDLE_MS);
     };
 
@@ -29,5 +30,5 @@ export function useTotemIdleReset(slug: string) {
       clearTimeout(timer);
       events.forEach((e) => window.removeEventListener(e, reset));
     };
-  }, [navigate, slug]);
+  }, [navigate, nav]);
 }

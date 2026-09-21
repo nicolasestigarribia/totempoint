@@ -8,9 +8,16 @@ import { TotemError } from "@/components/totem/TotemError";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
 
-export const Route = createFileRoute("/t/$slug/pagar/$orderId")({
+export const Route = createFileRoute("/t/$empresa/$local/$totem/pagar/$orderId")({
   loader: ({ params }) =>
-    getTotemOrder({ data: { slug: params.slug, orderId: Number(params.orderId) } }),
+    getTotemOrder({
+      data: {
+        empresa: params.empresa,
+        local: params.local,
+        totem: Number(params.totem),
+        orderId: Number(params.orderId),
+      },
+    }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Pagar — ${loaderData.companyName}` : "Pagar" }],
   }),
@@ -26,8 +33,9 @@ const CADA_MS = 3000;
 
 function PagarPage() {
   const order = Route.useLoaderData();
-  const { slug, orderId } = Route.useParams();
-  const { url } = useSearch({ from: "/t/$slug/pagar/$orderId" });
+  const params = Route.useParams();
+  const { empresa, local, totem, orderId } = params;
+  const { url } = useSearch({ from: "/t/$empresa/$local/$totem/pagar/$orderId" });
   const navigate = useNavigate();
   useTotemTheme(order.accentColor, order.theme, order.fontTheme, order.corners);
   const accent = order.accentColor || undefined;
@@ -44,15 +52,17 @@ function PagarPage() {
 
     const mirar = async () => {
       try {
-        const r = await consultar({ data: { slug, orderId: Number(orderId) } });
+        const r = await consultar({
+          data: { empresa, local, totem: Number(totem), orderId: Number(orderId) },
+        });
         if (!vivo || !r.pagado || yaFui.current) return;
         yaFui.current = true;
         setPagado(true);
         // Un respiro para que el cliente vea que salió bien antes de pasar.
         setTimeout(() => {
           navigate({
-            to: "/t/$slug/listo/$orderId",
-            params: { slug, orderId: String(orderId) },
+            to: "/t/$empresa/$local/$totem/listo/$orderId",
+            params,
             replace: true,
           });
         }, 1200);
@@ -67,7 +77,7 @@ function PagarPage() {
       vivo = false;
       clearInterval(id);
     };
-  }, [consultar, slug, orderId, navigate]);
+  }, [consultar, empresa, local, totem, orderId, navigate, params]);
 
   if (!url) {
     return <TotemError message="No pudimos generar el pago. Avisale a quien te atiende." />;
@@ -135,8 +145,8 @@ function PagarPage() {
               type="button"
               onClick={() =>
                 navigate({
-                  to: "/t/$slug/listo/$orderId",
-                  params: { slug, orderId: String(orderId) },
+                  to: "/t/$empresa/$local/$totem/listo/$orderId",
+                  params,
                   replace: true,
                 })
               }

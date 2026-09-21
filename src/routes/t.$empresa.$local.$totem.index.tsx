@@ -5,8 +5,11 @@ import { useTotemDevice } from "@/lib/use-totem-device";
 import { TotemHome } from "@/components/totem/TotemHome";
 import { TotemError } from "@/components/totem/TotemError";
 
-export const Route = createFileRoute("/t/$slug/")({
-  loader: ({ params }) => getTotemHome({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$empresa/$local/$totem/")({
+  loader: ({ params }) =>
+    getTotemHome({
+      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
+    }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `${loaderData.name} — Autoservicio` : "Autoservicio" }],
   }),
@@ -16,7 +19,8 @@ export const Route = createFileRoute("/t/$slug/")({
 
 function TotemHomePage() {
   const data = Route.useLoaderData();
+  const nav = Route.useParams();
   useTotemTheme(data.accentColor, data.theme, data.fontTheme, data.corners);
   useTotemDevice();
-  return <TotemHome data={data} />;
+  return <TotemHome data={data} nav={nav} />;
 }

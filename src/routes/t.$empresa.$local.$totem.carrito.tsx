@@ -5,10 +5,14 @@ import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
+import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
-export const Route = createFileRoute("/t/$slug/carrito")({
-  loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$empresa/$local/$totem/carrito")({
+  loader: ({ params }) =>
+    getTotemMenu({
+      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
+    }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Tu pedido — ${loaderData.name}` : "Tu pedido" }],
   }),
@@ -18,12 +22,14 @@ export const Route = createFileRoute("/t/$slug/carrito")({
 
 function CarritoPage() {
   const menu = Route.useLoaderData();
+  const nav = Route.useParams();
+  const cartKey = totemCartKey(nav);
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const navigate = useNavigate();
   const accent = menu.accentColor || undefined;
-  useTotemIdleReset(menu.slug);
+  useTotemIdleReset(nav);
 
-  const items = useCartForSlug(menu.slug);
+  const items = useCartForSlug(cartKey);
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);
   const removeAll = useTotemCart((s) => s.removeAll);
@@ -32,7 +38,7 @@ function CarritoPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <TotemTopBar
-        slug={menu.slug}
+        nav={nav}
         name={menu.name}
         logoUrl={menu.logoUrl}
         accent={accent}
@@ -48,8 +54,8 @@ function CarritoPage() {
             <ShoppingCart className="vaiven h-14 w-14 text-muted-foreground" />
             <p className="text-xl text-muted-foreground">Todavía no agregaste nada</p>
             <Link
-              to="/t/$slug/categorias"
-              params={{ slug: menu.slug }}
+              to="/t/$empresa/$local/$totem/categorias"
+              params={nav}
               className="rounded-2xl px-8 py-4 font-display text-xl uppercase tracking-wide text-white"
               style={{ background: accent ?? "var(--primary)" }}
             >
@@ -93,7 +99,7 @@ function CarritoPage() {
                       type="button"
                       aria-label="Agregar uno"
                       onClick={() =>
-                        add(menu.slug, {
+                        add(cartKey, {
                           kind: i.kind,
                           refId: i.refId,
                           name: i.name,
@@ -123,8 +129,8 @@ function CarritoPage() {
             </ul>
 
             <Link
-              to="/t/$slug/categorias"
-              params={{ slug: menu.slug }}
+              to="/t/$empresa/$local/$totem/categorias"
+              params={nav}
               className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-border py-4 font-display text-lg uppercase tracking-wide text-muted-foreground transition hover:border-primary hover:text-foreground"
             >
               <Plus className="h-5 w-5" />
@@ -150,7 +156,7 @@ function CarritoPage() {
                 tótem, lo que hay que tocar para seguir es lo que pulsa. */}
             <button
               type="button"
-              onClick={() => navigate({ to: "/t/$slug/checkout", params: { slug: menu.slug } })}
+              onClick={() => navigate({ to: "/t/$empresa/$local/$totem/checkout", params: nav })}
               className="late flex w-full items-center justify-center rounded-3xl px-8 py-6 font-display text-3xl uppercase tracking-wide text-white transition hover:scale-[1.02] active:scale-[0.98]"
               style={
                 {

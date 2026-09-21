@@ -371,7 +371,7 @@ async function negocioYDuenio(companyId: number) {
   if (!locationId) {
     const [{ id }] = await db
       .insert(locations)
-      .values({ companyId, name: "De Garage", active: true })
+      .values({ companyId, name: "De Garage", slug: "de-garage", active: true })
       .$returningId();
     locationId = id;
     console.log("Negocio creado.");

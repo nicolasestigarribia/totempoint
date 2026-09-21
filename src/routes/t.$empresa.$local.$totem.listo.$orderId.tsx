@@ -6,9 +6,16 @@ import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { TotemError } from "@/components/totem/TotemError";
 import { formatPrice } from "@/lib/totem-cart";
 
-export const Route = createFileRoute("/t/$slug/listo/$orderId")({
+export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")({
   loader: ({ params }) =>
-    getTotemOrder({ data: { slug: params.slug, orderId: Number(params.orderId) } }),
+    getTotemOrder({
+      data: {
+        empresa: params.empresa,
+        local: params.local,
+        totem: Number(params.totem),
+        orderId: Number(params.orderId),
+      },
+    }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Pedido #${loaderData.orderNumber}` : "Pedido enviado" }],
   }),
@@ -28,6 +35,7 @@ const SEGUNDOS = 25;
 
 function ListoPage() {
   const order = Route.useLoaderData();
+  const nav = Route.useParams();
   const navigate = useNavigate();
   useTotemTheme(order.accentColor, order.theme, order.fontTheme, order.corners);
   const accent = order.accentColor || undefined;
@@ -40,8 +48,8 @@ function ListoPage() {
 
   useEffect(() => {
     if (restan > 0) return;
-    navigate({ to: "/t/$slug", params: { slug: order.slug }, replace: true });
-  }, [restan, navigate, order.slug]);
+    navigate({ to: "/t/$empresa/$local/$totem", params: nav, replace: true });
+  }, [restan, navigate, nav]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
@@ -67,8 +75,8 @@ function ListoPage() {
       </div>
 
       <Link
-        to="/t/$slug"
-        params={{ slug: order.slug }}
+        to="/t/$empresa/$local/$totem"
+        params={nav}
         className="mt-10 rounded-3xl px-12 py-6 font-display text-2xl uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02]"
         style={{ background: accent ?? "var(--primary)" }}
       >

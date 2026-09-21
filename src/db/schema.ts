@@ -34,12 +34,34 @@ export const locations = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
     name: varchar("name", { length: 120 }).notNull(),
+    // Slug del local, para la URL del tótem /t/{empresa}/{local}/{totem}. Único por empresa.
+    slug: varchar("slug", { length: 60 }).notNull(),
     address: varchar("address", { length: 255 }),
     phone: varchar("phone", { length: 40 }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("locations_company_idx").on(t.companyId)],
+  (t) => [
+    index("locations_company_idx").on(t.companyId),
+    unique("locations_company_slug_uq").on(t.companyId, t.slug),
+  ],
+);
+
+// Tótems físicos de un local. La URL del cliente es /t/{empresa}/{local}/{number}.
+export const totems = mysqlTable(
+  "totems",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    locationId: int("location_id").notNull(),
+    number: int("number").notNull(),
+    label: varchar("label", { length: 60 }),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("totems_location_number_uq").on(t.locationId, t.number),
+    index("totems_location_idx").on(t.locationId),
+  ],
 );
 
 // Usuarios propios. superadmin: companyId/locationId null; owner/encargado: ligados
