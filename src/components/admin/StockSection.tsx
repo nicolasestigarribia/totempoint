@@ -105,7 +105,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
         setCodes(cds);
         if (data.length > 0) setLocationId(data[0].id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar las sucursales");
       } finally {
         if (mounted) setLoadingLocations(false);
       }
@@ -389,7 +389,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
         className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}
       >
         <MapPin className="h-8 w-8 opacity-40" />
-        <span>Primero creá un negocio en la sección Negocios.</span>
+        <span>Primero creá una sucursal en la sección Sucursales.</span>
       </div>
     );
   }
@@ -397,13 +397,13 @@ export function StockSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-sm text-muted-foreground">Negocio:</Label>
+        <Label className="text-sm text-muted-foreground">Sucursal:</Label>
         <Select
           value={locationId === null ? "" : String(locationId)}
           onValueChange={(v) => setLocationId(Number(v))}
         >
           <SelectTrigger className="h-10 w-64">
-            <SelectValue placeholder="Elegí un negocio" />
+            <SelectValue placeholder="Elegí una sucursal" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (
@@ -529,7 +529,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                 id="mov-detail"
                 value={movDetail}
                 maxLength={255}
-                placeholder="Aclaración, nº de remito, a qué negocio, etc."
+                placeholder="Aclaración, nº de remito, a qué sucursal, etc."
                 onChange={(e) => setMovDetail(e.target.value)}
               />
             </div>
@@ -590,7 +590,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
               onChange={(e) => setMinValue(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Aplica a todos los negocios. Si el stock actual queda por debajo, se marca como bajo
+              Aplica a todos las sucursales. Si el stock actual queda por debajo, se marca como bajo
               stock.
             </p>
           </div>
@@ -716,7 +716,7 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                 id="nm-detail"
                 value={nmDetail}
                 maxLength={255}
-                placeholder="Aclaración, nº de remito, a qué negocio, etc."
+                placeholder="Aclaración, nº de remito, a qué sucursal, etc."
                 onChange={(e) => setNmDetail(e.target.value)}
               />
             </div>

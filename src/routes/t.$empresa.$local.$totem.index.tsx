@@ -11,12 +11,9 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/")({
     getTotemHome({
       data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
     }),
-  head: ({ loaderData, params }) => {
+  head: ({ params, loaderData }) => {
     if (!loaderData) return { meta: [{ title: "Autoservicio" }] };
 
-    // El manifiesto y los íconos cuelgan de la URL de ESTE tótem, no de la
-    // empresa: cada tablet instala el suyo, con su local y su número, así el
-    // ícono de la pantalla principal abre siempre el mismo puesto.
     const base = `/t/${params.empresa}/${params.local}/${params.totem}`;
     const fondo = FONDOS_HEX[loaderData.theme] ?? FONDOS_HEX.oscuro;
 
@@ -24,8 +21,8 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/")({
       meta: [
         { title: `${loaderData.name} — Autoservicio` },
         // Lo que hace que la tablet pueda instalar el tótem como aplicación y
-        // abrirlo sin la barra de direcciones. El manifiesto es por tótem:
-        // nombre, colores y alcance son los del negocio.
+        // abrirlo sin la barra de direcciones. El manifiesto es por tótem: su
+        // scope es esta URL, así que salir de ella sale de la aplicación.
         { name: "theme-color", content: fondo },
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },

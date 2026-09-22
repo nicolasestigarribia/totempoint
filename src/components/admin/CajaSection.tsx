@@ -80,7 +80,7 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold">Cierre de caja</h3>
+          <h3 className="text-lg font-bold">Recaudación</h3>
           <p className="text-sm text-muted-foreground">
             Lo cobrado en la jornada, separado por forma de pago.
           </p>
@@ -127,7 +127,7 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
             <table className="w-full text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3">Negocio</th>
+                  <th className="px-5 py-3">Sucursal</th>
                   <th className="px-5 py-3 text-right">Efectivo</th>
                   <th className="px-5 py-3 text-right">Mercado Pago</th>
                   <th className="px-5 py-3 text-right">Total cobrado</th>

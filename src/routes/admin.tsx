@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   Save,
   AlertTriangle,
   LayoutDashboard,
-  MapPin,
   FolderTree,
   Package,
   Carrot,
@@ -32,6 +31,7 @@ import {
   KeyRound,
   CircleDollarSign,
   CreditCard,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -65,9 +65,8 @@ export const Route = createFileRoute("/admin")({
 });
 
 type SectionId =
-  | "resumen"
+  | "empresa"
   | "portada"
-  | "locales"
   | "categorias"
   | "productos"
   | "ingredientes"
@@ -82,44 +81,64 @@ type SectionId =
   | "totems"
   | "operadores";
 
+type NavGroupId = "empresa" | "menu" | "sucursales" | "caja";
+
+/** Encabezados del nav, en el orden en que se muestran. */
+const NAV_GROUPS: { id: NavGroupId; label: string }[] = [
+  { id: "empresa", label: "Empresa" },
+  { id: "menu", label: "Menú" },
+  { id: "sucursales", label: "Sucursales" },
+  { id: "caja", label: "Caja" },
+];
+
 interface SectionDef {
   id: SectionId;
   label: string;
   icon: LucideIcon;
   desc: string;
+  /** Grupo del nav bajo el que se agrupa el botón. */
+  group: NavGroupId;
   /** Secciones que solo ve el dueño de la empresa, no los encargados. */
   ownerOnly?: boolean;
   /** Sección delegable: el encargado la ve si el dueño le dio permiso. */
   permission?: PanelSection;
+  /** No se muestra en el nav, pero se puede abrir por otro camino (ej: Portada desde Tótems). */
+  hidden?: boolean;
 }
 
 const SECTIONS: SectionDef[] = [
   {
-    id: "resumen",
-    label: "Resumen",
+    id: "empresa",
+    label: "Empresa",
     icon: LayoutDashboard,
-    desc: "Datos y marca de tu empresa",
+    desc: "Marca, datos y sucursales de tu empresa",
+    group: "empresa",
     ownerOnly: true,
   },
   {
+    id: "totems",
+    label: "Tótems",
+    icon: Monitor,
+    desc: "Enlaces, QR y portada de cada tótem",
+    group: "empresa",
+    ownerOnly: true,
+  },
+  {
+    // Se edita desde el botón "Editar portada" en la sección Tótems.
     id: "portada",
     label: "Portada",
     icon: Monitor,
     desc: "Pantalla de inicio de tu tótem",
+    group: "empresa",
     permission: "portada",
-  },
-  {
-    id: "locales",
-    label: "Negocios",
-    icon: MapPin,
-    desc: "Sucursales de tu empresa",
-    ownerOnly: true,
+    hidden: true,
   },
   {
     id: "categorias",
     label: "Categorías",
     icon: FolderTree,
     desc: "Categorías del menú",
+    group: "menu",
     permission: "categorias",
   },
   {
@@ -127,6 +146,7 @@ const SECTIONS: SectionDef[] = [
     label: "Productos",
     icon: Package,
     desc: "Productos y precios",
+    group: "menu",
     permission: "productos",
   },
   {
@@ -134,6 +154,7 @@ const SECTIONS: SectionDef[] = [
     label: "Combos",
     icon: Boxes,
     desc: "Combos armados con productos",
+    group: "menu",
     permission: "combos",
   },
   {
@@ -142,20 +163,31 @@ const SECTIONS: SectionDef[] = [
     label: "Ingredientes",
     icon: Carrot,
     desc: "Ingredientes de tus productos",
+    group: "menu",
   },
   {
     id: "disponibilidad",
     permission: "disponibilidad",
     label: "Disponibilidad",
     icon: Store,
-    desc: "Qué se muestra en cada negocio",
+    desc: "Qué se muestra en cada sucursal",
+    group: "sucursales",
   },
   {
     id: "stock",
     label: "Stock",
     icon: Warehouse,
-    desc: "Stock de ingredientes por negocio",
+    desc: "Stock de ingredientes por sucursal",
+    group: "sucursales",
     permission: "stock",
+  },
+  {
+    id: "precios",
+    label: "Precios",
+    icon: DollarSign,
+    desc: "Precios de productos y combos por sucursal",
+    group: "sucursales",
+    permission: "precios",
   },
   {
     id: "movimientos",
@@ -163,26 +195,22 @@ const SECTIONS: SectionDef[] = [
     label: "Movimientos",
     icon: ScrollText,
     desc: "Historial de movimientos de la empresa",
+    group: "caja",
   },
   {
     id: "codigos",
     label: "Códigos de acción",
     icon: Tags,
     desc: "Motivos de ingresos y egresos",
+    group: "caja",
     permission: "codigos",
   },
   {
-    id: "precios",
-    label: "Precios",
-    icon: DollarSign,
-    desc: "Precios de productos y combos por negocio",
-    permission: "precios",
-  },
-  {
     id: "caja",
-    label: "Cierre de caja",
+    label: "Recaudación",
     icon: CircleDollarSign,
     desc: "Lo cobrado en la jornada",
+    group: "caja",
     permission: "caja",
   },
   {
@@ -190,20 +218,15 @@ const SECTIONS: SectionDef[] = [
     label: "Cobros",
     icon: CreditCard,
     desc: "Cómo cobra tu tótem",
-    ownerOnly: true,
-  },
-  {
-    id: "totems",
-    label: "Tótems",
-    icon: Monitor,
-    desc: "Enlaces y QR de cada tótem por negocio",
+    group: "empresa",
     ownerOnly: true,
   },
   {
     id: "operadores",
     label: "Operadores",
     icon: Users,
-    desc: "Encargados y los negocios que manejan",
+    desc: "Encargados y las sucursales que manejan",
+    group: "empresa",
     ownerOnly: true,
   },
 ];
@@ -246,8 +269,13 @@ function AdminPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#000000");
 
-  const [section, setSection] = useState<SectionId>("resumen");
+  const [section, setSection] = useState<SectionId>("empresa");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<NavGroupId, boolean>>(
+    {} as Record<NavGroupId, boolean>,
+  );
+  const toggleGroup = (id: NavGroupId) =>
+    setCollapsedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
 
   // Auto-cierra el sidebar al achicar la ventana (< lg)
   useEffect(() => {
@@ -338,8 +366,12 @@ function AdminPage() {
     return canViewSection(permissions, s.permission);
   });
   const puedeVerComandera = isOwner || canViewSection(permissions, "comandera");
+  // La comandera vive dentro del grupo Empresa (debajo de Tótems). Un encargado
+  // con permiso de Comandera pero sin ninguna sección de Empresa dejaría ese
+  // grupo vacío, así que en ese caso el enlace cae suelto más abajo.
+  const empresaVisible = visibleSections.some((s) => !s.hidden && s.group === "empresa");
   const current = SECTIONS.find((s) => s.id === section)!;
-  const firstVisible = visibleSections[0]?.id;
+  const firstVisible = visibleSections.find((s) => !s.hidden)?.id;
   const sectionAllowed = visibleSections.some((s) => s.id === section);
 
   // Si la sección abierta no está permitida, cae en la primera que sí lo esté.
@@ -456,30 +488,61 @@ function AdminPage() {
             la pantalla de un celular, y sin esto el gesto se lo comía la
             página de atrás. overscroll-contain evita que al llegar al final
             el deslizamiento siga en el contenido de abajo. */}
-        <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
-          {visibleSections.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSection(s.id);
-                if (window.innerWidth < 1024) setSidebarOpen(false);
-              }}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                section === s.id
-                  ? "bg-primary/15 text-foreground"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              }`}
-            >
-              <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
-              {s.label}
-            </button>
-          ))}
+        <nav className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
+          {NAV_GROUPS.map((g) => {
+            const items = visibleSections.filter((s) => !s.hidden && s.group === g.id);
+            if (items.length === 0) return null;
+            const collapsed = collapsedGroups[g.id];
+            return (
+              <div key={g.id} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.id)}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 transition hover:text-foreground"
+                >
+                  {g.label}
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                  />
+                </button>
+                {!collapsed &&
+                  items.map((s) => (
+                    <Fragment key={s.id}>
+                      <button
+                        onClick={() => {
+                          setSection(s.id);
+                          if (window.innerWidth < 1024) setSidebarOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                          section === s.id
+                            ? "bg-primary/15 text-foreground"
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        }`}
+                      >
+                        <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
+                        {s.label}
+                      </button>
+                      {/*
+                        La comandera no es una sección del panel sino otra
+                        pantalla (/kitchen). Va debajo de Tótems dentro de
+                        Empresa; sin este enlace, a quien le habilitan
+                        "Comandera" no le queda forma de llegar.
+                      */}
+                      {s.id === "totems" && puedeVerComandera && (
+                        <a
+                          href="/kitchen"
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
+                        >
+                          <ChefHat className="h-5 w-5" />
+                          Comandera
+                        </a>
+                      )}
+                    </Fragment>
+                  ))}
+              </div>
+            );
+          })}
         </nav>
-        {/*
-          La comandera no es una sección del panel sino otra pantalla (/kitchen),
-          así que no entra en el nav de arriba. Sin este enlace, a quien le
-          habilitan "Comandera" no le queda forma de llegar.
-        */}
         <div className="px-3 pb-1">
           <a
             href="/cuenta"
@@ -489,7 +552,8 @@ function AdminPage() {
             Mi cuenta
           </a>
         </div>
-        {puedeVerComandera && (
+        {/* Fallback: quien ve Comandera pero no tiene grupo Empresa (encargado). */}
+        {puedeVerComandera && !empresaVisible && (
           <div className="px-3 pb-1">
             <a
               href="/kitchen"
@@ -550,6 +614,7 @@ function AdminPage() {
               business={business!}
               branding={branding}
               panelClass={PANEL}
+              onEditPortada={() => setSection("portada")}
             />
           </ReadOnlyContext.Provider>
         </div>
@@ -564,19 +629,24 @@ function SectionContent({
   business,
   branding,
   panelClass,
+  onEditPortada,
 }: {
   section: SectionId;
   business: MyBusiness;
   branding: BrandingProps;
   panelClass: string;
+  onEditPortada: () => void;
 }) {
   switch (section) {
-    case "resumen":
-      return <BrandingForm business={business} branding={branding} panelClass={panelClass} />;
+    case "empresa":
+      return (
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          <BrandingForm business={business} branding={branding} panelClass={panelClass} />
+          <LocalesSection panelClass={panelClass} />
+        </div>
+      );
     case "portada":
       return <PortadaSection panelClass={panelClass} business={business} />;
-    case "locales":
-      return <LocalesSection panelClass={panelClass} />;
     case "categorias":
       return <CategoriasSection panelClass={panelClass} />;
     case "productos":
@@ -600,7 +670,9 @@ function SectionContent({
     case "pagos":
       return <PagosSection panelClass={panelClass} />;
     case "totems":
-      return <TotemsSection panelClass={panelClass} business={business} />;
+      return (
+        <TotemsSection panelClass={panelClass} business={business} onEditPortada={onEditPortada} />
+      );
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
   }

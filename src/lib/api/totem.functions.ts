@@ -281,7 +281,7 @@ async function resolverTotem(empresaSlug: string, localSlug: string, totemNumber
     .limit(1);
   if (!totem || !totem.active) throw new Error("Este tótem no está disponible");
 
-  return { company, locationId: location.id };
+  return { company, locationId: location.id, totemId: totem.id };
 }
 
 const totemInput = {
@@ -619,6 +619,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           .insert(orders)
           .values({
             locationId: location.id,
+            totemId: resuelto.totemId,
             orderNumber,
             businessDate: jornada,
             customerName: data.customerName.trim(),
@@ -731,6 +732,71 @@ export const getTotemOrder = createServerFn({ method: "GET" })
       theme: row.theme ?? "oscuro",
       fontTheme: row.fontTheme ?? "impacto",
       corners: row.corners ?? "redondeado",
+    };
+  });
+
+export interface TotemTicket {
+  companyName: string;
+  orderNumber: number;
+  customerName: string;
+  createdAt: string;
+  deliveryMethod: "local" | "mostrador";
+  paymentMethod: "efectivo" | "mercadopago";
+  total: string;
+  comments: string | null;
+  items: { name: string; quantity: number; unitPrice: string }[];
+}
+
+/**
+ * Los datos del ticket que se imprime en la impresora del tótem. Salen de la
+ * base (order_items), que es lo que realmente se guardó y se cobra, así que el
+ * ticket coincide con la comanda y el cierre de caja. Público como el resto del
+ * tótem, y acotado a un pedido de este local: solo devuelve el comprobante, sin
+ * datos de otros pedidos.
+ */
+export const getTotemTicket = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ ...totemInput, orderId: z.number().int() }))
+  .handler(async ({ data }): Promise<TotemTicket> => {
+    const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
+
+    const [row] = await db
+      .select({
+        orderNumber: orders.orderNumber,
+        customerName: orders.customerName,
+        createdAt: orders.createdAt,
+        deliveryMethod: orders.deliveryMethod,
+        paymentMethod: orders.paymentMethod,
+        total: orders.total,
+        comments: orders.comments,
+        companyName: companies.name,
+      })
+      .from(orders)
+      .innerJoin(locations, eq(locations.id, orders.locationId))
+      .innerJoin(companies, eq(companies.id, locations.companyId))
+      .where(and(eq(orders.id, data.orderId), eq(orders.locationId, resuelto.locationId)))
+      .limit(1);
+
+    if (!row) throw new Error("No encontramos ese pedido");
+
+    const items = await db
+      .select({
+        name: orderItems.productName,
+        quantity: orderItems.quantity,
+        unitPrice: orderItems.unitPrice,
+      })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, data.orderId));
+
+    return {
+      companyName: row.companyName,
+      orderNumber: row.orderNumber,
+      customerName: row.customerName,
+      createdAt: row.createdAt.toISOString(),
+      deliveryMethod: row.deliveryMethod,
+      paymentMethod: row.paymentMethod,
+      total: row.total,
+      comments: row.comments,
+      items,
     };
   });
 

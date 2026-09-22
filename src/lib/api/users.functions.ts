@@ -122,7 +122,7 @@ async function replaceAssignedLocations(userId: number, companyId: number, wante
   const valid = new Set(await companyLocationIds(companyId));
   const unique = [...new Set(wanted)];
   for (const id of unique) {
-    if (!valid.has(id)) throw new Error("Uno de los locales no pertenece a tu empresa");
+    if (!valid.has(id)) throw new Error("Una de las sucursales no pertenece a tu empresa");
   }
 
   await db.delete(userLocations).where(eq(userLocations.userId, userId));
@@ -226,7 +226,7 @@ export const createOperator = createServerFn({ method: "POST" })
     await assertEmailUsernameFree(email, username);
 
     if (data.role === "encargado" && data.locationIds.length === 0) {
-      throw new Error("Asigná al menos un local al encargado");
+      throw new Error("Asigná al menos una sucursal al encargado");
     }
 
     const [{ id: userId }] = await db
@@ -271,7 +271,7 @@ export const updateOperator = createServerFn({ method: "POST" })
     await assertEmailUsernameFree(email, username, data.userId);
 
     if (data.role === "encargado" && data.locationIds.length === 0) {
-      throw new Error("Asigná al menos un local al encargado");
+      throw new Error("Asigná al menos una sucursal al encargado");
     }
 
     const set: {

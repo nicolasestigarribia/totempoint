@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TotemLinkCard, TotemTabletTips } from "@/components/admin/TotemLinkCard";
+import { TotemPrinterCard } from "@/components/admin/TotemPrinterCard";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
 import {
   listTotems,
@@ -26,9 +27,11 @@ import type { MyBusiness } from "@/lib/api/business.functions";
 export function TotemsSection({
   panelClass,
   business,
+  onEditPortada,
 }: {
   panelClass: string;
   business: MyBusiness;
+  onEditPortada: () => void;
 }) {
   const fetchLocations = useServerFn(listLocations);
   const fetchTotems = useServerFn(listTotems);
@@ -52,7 +55,7 @@ export function TotemsSection({
         setLocations(data);
         if (data.length > 0) setLocationId(data[0].id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar las sucursales");
       } finally {
         if (mounted) setLoadingLocations(false);
       }
@@ -128,7 +131,7 @@ export function TotemsSection({
         className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}
       >
         <MapPin className="h-8 w-8 opacity-40" />
-        <span>Primero creá un negocio en la sección Negocios.</span>
+        <span>Primero creá una sucursal en la sección Sucursales.</span>
       </div>
     );
   }
@@ -136,13 +139,13 @@ export function TotemsSection({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-sm text-muted-foreground">Negocio:</Label>
+        <Label className="text-sm text-muted-foreground">Sucursal:</Label>
         <Select
           value={locationId === null ? "" : String(locationId)}
           onValueChange={(v) => setLocationId(Number(v))}
         >
           <SelectTrigger className="h-10 w-64">
-            <SelectValue placeholder="Elegí un negocio" />
+            <SelectValue placeholder="Elegí una sucursal" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (
@@ -152,10 +155,16 @@ export function TotemsSection({
             ))}
           </SelectContent>
         </Select>
-        <Button className="ml-auto gap-2" onClick={handleCreate} disabled={creating}>
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          Agregar tótem
-        </Button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={onEditPortada}>
+            <Monitor className="h-4 w-4" />
+            Editar portada
+          </Button>
+          <Button className="gap-2" onClick={handleCreate} disabled={creating}>
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Agregar tótem
+          </Button>
+        </div>
       </div>
 
       <TotemTabletTips panelClass={panelClass} />
@@ -192,12 +201,21 @@ export function TotemsSection({
                 </div>
               </div>
               {location && (
-                <TotemLinkCard
-                  empresa={business.slug}
-                  local={location.slug}
-                  totem={t.number}
-                  panelClass={panelClass}
-                />
+                <>
+                  <TotemLinkCard
+                    empresa={business.slug}
+                    local={location.slug}
+                    totem={t.number}
+                    panelClass={panelClass}
+                  />
+                  <TotemPrinterCard
+                    empresa={business.slug}
+                    local={location.slug}
+                    totem={t.number}
+                    companyName={business.name}
+                    panelClass={panelClass}
+                  />
+                </>
               )}
             </div>
           ))}

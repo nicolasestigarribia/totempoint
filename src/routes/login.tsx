@@ -88,7 +88,7 @@ function LoginPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Panel Admin</h1>
           <p className="text-sm text-muted-foreground text-center">
-            Iniciá sesión para gestionar tu negocio
+            Iniciá sesión para gestionar tu sucursal
           </p>
         </div>
 
@@ -112,7 +112,7 @@ function LoginPage() {
                 setIdentifier(e.target.value);
                 if (error) setError(null);
               }}
-              placeholder="admin@negocio.com o usuario"
+              placeholder="admin@sucursal.com o usuario"
               className="h-12"
             />
           </div>

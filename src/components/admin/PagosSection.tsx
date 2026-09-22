@@ -26,7 +26,7 @@ import { mensajeDeError } from "@/lib/error-message";
 /**
  * Credenciales de cobro de la empresa.
  *
- * La plata entra en la cuenta del negocio, no en una de la plataforma, así que
+ * La plata entra en la cuenta de la sucursal, no en una de la plataforma, así que
  * acá va el access token propio de cada uno. El token no se muestra nunca
  * completo después de guardarlo: solo sus últimos caracteres, que alcanzan
  * para saber cuál está puesto.
@@ -193,7 +193,7 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
                 <strong className="text-foreground">no pueden cobrarle a un cliente real</strong>: a
                 una cuenta de prueba solo le puede pagar otra cuenta de prueba, y cualquier otro
                 intento falla con un error genérico de Mercado Pago. Antes de abrir, cambiá el token
-                por el de la cuenta real del negocio.
+                por el de la cuenta real de la sucursal.
               </p>
             </div>
           )}

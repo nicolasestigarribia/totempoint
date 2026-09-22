@@ -27,7 +27,7 @@ function Badges({ data, className = "" }: { data: TotemHomeData; className?: str
 }
 
 /**
- * El logo con el nombre del negocio, y encima el eyebrow.
+ * El logo con el nombre de la sucursal, y encima el eyebrow.
  *
  * `conEyebrow` existe porque la plantilla Clásica ya lo muestra como cartelito
  * aparte: repetirlo acá hacía que "Sanguchería de miga" apareciera dos veces

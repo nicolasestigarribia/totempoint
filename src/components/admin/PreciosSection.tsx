@@ -60,6 +60,17 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Asistente unificado de cambio de precios
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wScope, setWScope] = useState<"unitario" | "masivo">("unitario");
+  const [wType, setWType] = useState<ItemType>("product");
+  const [wItemId, setWItemId] = useState<number | null>(null);
+  const [wSearch, setWSearch] = useState("");
+  const [wCat, setWCat] = useState<string>("todas");
+  const [wMode, setWMode] = useState<"fijo" | "porcentual">("fijo");
+  const [wValue, setWValue] = useState("");
+  const [wSaving, setWSaving] = useState(false);
+
   // Dialog historial
   const [histItem, setHistItem] = useState<{ type: ItemType; id: number; name: string } | null>(
     null,
@@ -76,7 +87,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
         setLocations(data);
         if (data.length > 0) setLocationId(data[0].id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar las sucursales");
       } finally {
         if (mounted) setLoadingLocations(false);
       }
@@ -126,11 +137,80 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
   const onVisibleCombos = useCallback((r: PriceRow[]) => setVisibleCombos(r), []);
   const visiblesDe = (t: ItemType) => (t === "product" ? visibleProducts : visibleCombos);
 
-  const openBulkModal = (itemType: ItemType) => {
-    setTarget({ itemType, scope: "all", itemId: null });
-    setMode("fijo");
-    setValue("");
-    setModalOpen(true);
+  const openWizard = () => {
+    setWScope("unitario");
+    setWType("product");
+    setWItemId(null);
+    setWSearch("");
+    setWCat("todas");
+    setWMode("fijo");
+    setWValue("");
+    setWizardOpen(true);
+  };
+
+  // Ítems que el asistente va a tocar según los pasos elegidos.
+  const wizardAffected = useMemo(() => {
+    if (wScope === "unitario") {
+      const base = wType === "product" ? products : combos;
+      return wItemId === null ? [] : base.filter((r) => r.itemId === wItemId);
+    }
+    if (wType === "combo") return combos;
+    return products.filter((r) =>
+      wCat === "todas" ? true : wCat === "sin" ? r.categoryName === null : r.categoryName === wCat,
+    );
+  }, [wScope, wType, wItemId, wCat, products, combos]);
+
+  // Resultados de la búsqueda del paso unitario.
+  const wizardResults = useMemo(() => {
+    const base = wType === "product" ? products : combos;
+    const q = wSearch.trim().toLowerCase();
+    const rows = q ? base.filter((r) => r.name.toLowerCase().includes(q)) : base;
+    return rows.slice(0, 8);
+  }, [wSearch, wType, products, combos]);
+
+  const applyWizard = async () => {
+    if (locationId === null) return;
+    const num = Number(wValue);
+    if (Number.isNaN(num)) {
+      toast.error("Ingresá un número");
+      return;
+    }
+    if (wMode === "fijo" && num < 0) {
+      toast.error("El precio no puede ser negativo");
+      return;
+    }
+    if (wMode === "porcentual" && num === 0) {
+      toast.error("El porcentaje no puede ser 0");
+      return;
+    }
+    const ids = wizardAffected.map((r) => r.itemId);
+    if (ids.length === 0) {
+      toast.error("No hay ítems para cambiar");
+      return;
+    }
+    setWSaving(true);
+    try {
+      if (wMode === "fijo" && wScope === "unitario" && wItemId !== null) {
+        await savePrice({ data: { locationId, itemType: wType, itemId: wItemId, price: num } });
+      } else {
+        await bulkAdjust({
+          data: {
+            locationId,
+            itemType: wType,
+            itemIds: ids,
+            mode: wMode === "fijo" ? "unit" : "percent",
+            value: num,
+          },
+        });
+      }
+      toast.success("Precio actualizado");
+      setWizardOpen(false);
+      await reload(locationId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo cambiar el precio");
+    } finally {
+      setWSaving(false);
+    }
   };
 
   const openItemModal = (row: PriceRow) => {
@@ -344,7 +424,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
         className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}
       >
         <MapPin className="h-8 w-8 opacity-40" />
-        <span>Primero creá un negocio en la sección Negocios.</span>
+        <span>Primero creá una sucursal en la sección Sucursales.</span>
       </div>
     );
   }
@@ -352,13 +432,13 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-sm text-muted-foreground">Negocio:</Label>
+        <Label className="text-sm text-muted-foreground">Sucursal:</Label>
         <Select
           value={locationId === null ? "" : String(locationId)}
           onValueChange={(v) => setLocationId(Number(v))}
         >
           <SelectTrigger className="h-10 w-64">
-            <SelectValue placeholder="Elegí un negocio" />
+            <SelectValue placeholder="Elegí una sucursal" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (
@@ -369,92 +449,262 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          El precio de este negocio pisa al precio base.
+          El precio de esta sucursal pisa al precio base.
         </p>
+        <Button className="ml-auto gap-2" onClick={openWizard}>
+          <Pencil className="h-4 w-4" />
+          Cambiar precios
+        </Button>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-primary" />
             <h3 className="text-lg font-bold">Productos</h3>
           </div>
-          <Button className="gap-2" onClick={() => openBulkModal("product")}>
-            <Pencil className="h-4 w-4" />
-            Cambiar precios
-          </Button>
+          <DataTable<PriceRow>
+            onVisibleRowsChange={onVisibleProducts}
+            rows={products}
+            columns={productColumns}
+            getRowId={(r) => r.itemId}
+            panelClass={panelClass}
+            loading={loadingData}
+            emptyMessage="No hay productos."
+            searchKeys={[(r) => r.name, (r) => r.categoryName ?? ""]}
+            searchPlaceholder="Buscar producto..."
+            toolbar={
+              <>
+                <Select value={prodCat} onValueChange={setProdCat}>
+                  <SelectTrigger className="h-10 w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas las categorías</SelectItem>
+                    <SelectItem value="sin">Sin categoría</SelectItem>
+                    {productCategories.map((n) => (
+                      <SelectItem key={n} value={n}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {overrideSelect(prodOverride, setProdOverride)}
+              </>
+            }
+            filter={(r) => {
+              const okOv = overrideFilterFn(prodOverride)(r);
+              const okCat =
+                prodCat === "todas"
+                  ? true
+                  : prodCat === "sin"
+                    ? r.categoryName === null
+                    : r.categoryName === prodCat;
+              return okOv && okCat;
+            }}
+            initialSort={{ key: "name", dir: "asc" }}
+            pageSize={10}
+          />
         </div>
-        <DataTable<PriceRow>
-          onVisibleRowsChange={onVisibleProducts}
-          rows={products}
-          columns={productColumns}
-          getRowId={(r) => r.itemId}
-          panelClass={panelClass}
-          loading={loadingData}
-          emptyMessage="No hay productos."
-          searchKeys={[(r) => r.name, (r) => r.categoryName ?? ""]}
-          searchPlaceholder="Buscar producto..."
-          toolbar={
-            <>
-              <Select value={prodCat} onValueChange={setProdCat}>
-                <SelectTrigger className="h-10 w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas las categorías</SelectItem>
-                  <SelectItem value="sin">Sin categoría</SelectItem>
-                  {productCategories.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {overrideSelect(prodOverride, setProdOverride)}
-            </>
-          }
-          filter={(r) => {
-            const okOv = overrideFilterFn(prodOverride)(r);
-            const okCat =
-              prodCat === "todas"
-                ? true
-                : prodCat === "sin"
-                  ? r.categoryName === null
-                  : r.categoryName === prodCat;
-            return okOv && okCat;
-          }}
-          initialSort={{ key: "name", dir: "asc" }}
-          pageSize={10}
-        />
-      </div>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Boxes className="h-4 w-4 text-primary" />
             <h3 className="text-lg font-bold">Combos</h3>
           </div>
-          <Button className="gap-2" onClick={() => openBulkModal("combo")}>
-            <Pencil className="h-4 w-4" />
-            Cambiar precios
-          </Button>
+          <DataTable<PriceRow>
+            onVisibleRowsChange={onVisibleCombos}
+            rows={combos}
+            columns={comboColumns}
+            getRowId={(r) => r.itemId}
+            panelClass={panelClass}
+            loading={loadingData}
+            emptyMessage="No hay combos."
+            searchKeys={[(r) => r.name]}
+            searchPlaceholder="Buscar combo..."
+            toolbar={overrideSelect(comboOverride, setComboOverride)}
+            filter={overrideFilterFn(comboOverride)}
+            initialSort={{ key: "name", dir: "asc" }}
+            pageSize={10}
+          />
         </div>
-        <DataTable<PriceRow>
-          onVisibleRowsChange={onVisibleCombos}
-          rows={combos}
-          columns={comboColumns}
-          getRowId={(r) => r.itemId}
-          panelClass={panelClass}
-          loading={loadingData}
-          emptyMessage="No hay combos."
-          searchKeys={[(r) => r.name]}
-          searchPlaceholder="Buscar combo..."
-          toolbar={overrideSelect(comboOverride, setComboOverride)}
-          filter={overrideFilterFn(comboOverride)}
-          initialSort={{ key: "name", dir: "asc" }}
-          pageSize={10}
-        />
       </div>
+
+      {/* Asistente unificado de cambio de precios */}
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cambiar precios</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>1. Alcance</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={wScope === "unitario" ? "default" : "outline"}
+                  onClick={() => {
+                    setWScope("unitario");
+                    setWItemId(null);
+                  }}
+                >
+                  Unitario
+                </Button>
+                <Button
+                  variant={wScope === "masivo" ? "default" : "outline"}
+                  onClick={() => setWScope("masivo")}
+                >
+                  Masivo
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>2. Qué cambiar</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={wType === "product" ? "default" : "outline"}
+                  onClick={() => {
+                    setWType("product");
+                    setWItemId(null);
+                  }}
+                >
+                  Productos
+                </Button>
+                <Button
+                  variant={wType === "combo" ? "default" : "outline"}
+                  onClick={() => {
+                    setWType("combo");
+                    setWItemId(null);
+                    setWCat("todas");
+                  }}
+                >
+                  Combos
+                </Button>
+              </div>
+            </div>
+
+            {wScope === "unitario" ? (
+              <div className="space-y-2">
+                <Label>3. Elegí el {wType === "product" ? "producto" : "combo"}</Label>
+                <Input
+                  placeholder={wType === "product" ? "Buscar producto..." : "Buscar combo..."}
+                  value={wSearch}
+                  onChange={(e) => setWSearch(e.target.value)}
+                />
+                <div className="max-h-48 space-y-1 overflow-auto">
+                  {wizardResults.length === 0 ? (
+                    <p className="py-3 text-center text-sm text-muted-foreground">
+                      Sin resultados.
+                    </p>
+                  ) : (
+                    wizardResults.map((r) => (
+                      <button
+                        key={r.itemId}
+                        type="button"
+                        onClick={() => setWItemId(r.itemId)}
+                        className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
+                          wItemId === r.itemId
+                            ? "border-primary bg-primary/10"
+                            : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                        }`}
+                      >
+                        <span className="font-medium">{r.name}</span>
+                        <span className="text-muted-foreground">${r.effectivePrice}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>3. A quiénes afecta</Label>
+                {wType === "product" ? (
+                  <Select value={wCat} onValueChange={setWCat}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas las categorías</SelectItem>
+                      <SelectItem value="sin">Sin categoría</SelectItem>
+                      {productCategories.map((n) => (
+                        <SelectItem key={n} value={n}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Todos los combos de esta sucursal.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Afecta a <span className="font-semibold">{wizardAffected.length}</span>{" "}
+                  {wType === "product"
+                    ? wizardAffected.length === 1
+                      ? "producto"
+                      : "productos"
+                    : wizardAffected.length === 1
+                      ? "combo"
+                      : "combos"}
+                  .
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>4. Tipo de cambio</Label>
+              <Select value={wMode} onValueChange={(v) => setWMode(v as "fijo" | "porcentual")}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fijo">Precio fijo ($)</SelectItem>
+                  <SelectItem value="porcentual">Ajuste porcentual (%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="wizard-value">
+                {wMode === "fijo" ? "Nuevo precio" : "Porcentaje (ej: 10 sube, -5 baja)"}
+              </Label>
+              <Input
+                id="wizard-value"
+                type="number"
+                step="0.01"
+                value={wValue}
+                placeholder={wMode === "fijo" ? "0.00" : "10"}
+                onChange={(e) => setWValue(e.target.value)}
+              />
+              {wMode === "porcentual" && (
+                <p className="text-xs text-muted-foreground">
+                  Se aplica sobre el precio efectivo actual de cada ítem.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setWizardOpen(false)} disabled={wSaving}>
+                Cancelar
+              </Button>
+              <Button
+                className="gap-2"
+                onClick={applyWizard}
+                disabled={
+                  wSaving ||
+                  !wValue.trim() ||
+                  (wScope === "unitario" && wItemId === null) ||
+                  wizardAffected.length === 0
+                }
+              >
+                {wSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal cambiar precio */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -492,7 +742,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
                         </p>
                       </>
                     ) : (
-                      <> de este negocio: el catálogo completo.</>
+                      <> de esta sucursal: el catálogo completo.</>
                     )}
                   </>
                 )}
@@ -557,7 +807,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
             </div>
           ) : history.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Sin cambios registrados para este negocio.
+              Sin cambios registrados para esta sucursal.
             </p>
           ) : (
             <div className="max-h-80 space-y-1 overflow-auto">

@@ -114,7 +114,7 @@ export const setOrderStatus = createServerFn({ method: "POST" })
 
     const locs = await visibleLocations(user);
     const locIds = locs.map((l) => l.id);
-    if (locIds.length === 0) throw new Error("Ese pedido no es de un negocio tuyo");
+    if (locIds.length === 0) throw new Error("Ese pedido no es de una sucursal tuya");
 
     const [target] = await db
       .select({ id: orders.id, status: orders.status })
@@ -122,7 +122,7 @@ export const setOrderStatus = createServerFn({ method: "POST" })
       .where(and(eq(orders.id, data.orderId), inArray(orders.locationId, locIds)))
       .limit(1);
 
-    if (!target) throw new Error("Ese pedido no es de un negocio tuyo");
+    if (!target) throw new Error("Ese pedido no es de una sucursal tuya");
     if (target.status === "cancelado") {
       throw new Error("Ese pedido está cancelado: no se le puede cambiar el estado");
     }
@@ -147,14 +147,14 @@ export const setOrderPaid = createServerFn({ method: "POST" })
 
     const locs = await visibleLocations(user);
     const locIds = locs.map((l) => l.id);
-    if (locIds.length === 0) throw new Error("Ese pedido no es de un negocio tuyo");
+    if (locIds.length === 0) throw new Error("Ese pedido no es de una sucursal tuya");
 
     const [target] = await db
       .select({ id: orders.id, status: orders.status })
       .from(orders)
       .where(and(eq(orders.id, data.orderId), inArray(orders.locationId, locIds)))
       .limit(1);
-    if (!target) throw new Error("Ese pedido no es de un negocio tuyo");
+    if (!target) throw new Error("Ese pedido no es de una sucursal tuya");
     if (target.status === "cancelado") {
       throw new Error("Ese pedido está cancelado");
     }
@@ -186,14 +186,14 @@ export const cancelOrder = createServerFn({ method: "POST" })
 
     const locs = await visibleLocations(user);
     const locIds = locs.map((l) => l.id);
-    if (locIds.length === 0) throw new Error("Ese pedido no es de un negocio tuyo");
+    if (locIds.length === 0) throw new Error("Ese pedido no es de una sucursal tuya");
 
     const [target] = await db
       .select({ id: orders.id, status: orders.status, paymentStatus: orders.paymentStatus })
       .from(orders)
       .where(and(eq(orders.id, data.orderId), inArray(orders.locationId, locIds)))
       .limit(1);
-    if (!target) throw new Error("Ese pedido no es de un negocio tuyo");
+    if (!target) throw new Error("Ese pedido no es de una sucursal tuya");
     if (target.status === "cancelado") throw new Error("Ese pedido ya está cancelado");
 
     await db

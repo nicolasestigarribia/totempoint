@@ -529,6 +529,13 @@ export const orders = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     locationId: int("location_id").notNull(),
+    /**
+     * Tótem que tomó el pedido. Nullable a propósito: un local con una sola
+     * tablet no lo necesita y varias tablets pueden compartir un tótem. Sirve
+     * para trazar ventas por dispositivo cuando el local separa cajas. No entra
+     * en ninguna unique key: la numeración sigue siendo por local y jornada.
+     */
+    totemId: int("totem_id"),
     orderNumber: int("order_number").notNull(),
     customerName: varchar("customer_name", { length: 120 }).notNull(),
     deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador"]).notNull(),
@@ -563,6 +570,7 @@ export const orders = mysqlTable(
   },
   (t) => [
     index("orders_location_idx").on(t.locationId),
+    index("orders_totem_idx").on(t.totemId),
     // El número se repite todos los días, así que la unicidad es por jornada.
     unique("orders_location_date_number_uq").on(t.locationId, t.businessDate, t.orderNumber),
   ],
