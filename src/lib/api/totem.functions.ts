@@ -221,7 +221,7 @@ async function resolverTotem(empresaSlug: string, localSlug: string, totemNumber
     .limit(1);
   if (!totem || !totem.active) throw new Error("Este tótem no está disponible");
 
-  return { company, locationId: location.id };
+  return { company, locationId: location.id, totemId: totem.id };
 }
 
 const totemInput = {
@@ -539,6 +539,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           .insert(orders)
           .values({
             locationId: location.id,
+            totemId: resuelto.totemId,
             orderNumber,
             businessDate: jornada,
             customerName: data.customerName.trim(),
