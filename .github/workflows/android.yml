@@ -28,11 +28,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
-
+      # El runner ubuntu-latest ya trae el Android SDK y sdkmanager en el PATH.
       - name: Instalar paquetes del SDK
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Instalar dependencias
