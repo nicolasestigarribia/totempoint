@@ -451,7 +451,7 @@ function AdminPage() {
             la pantalla de un celular, y sin esto el gesto se lo comía la
             página de atrás. overscroll-contain evita que al llegar al final
             el deslizamiento siga en el contenido de abajo. */}
-        <nav className="nav-scroll flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
           {visibleSections
             .filter((s) => !s.hidden)
             .map((s) => (

@@ -295,18 +295,20 @@
   }
 }
 
-/* Barra de desplazamiento con el color del sistema (nav del panel). */
-.nav-scroll {
+/* Barras de desplazamiento con el color del sistema, en todo el proyecto.
+   El thumb usa var(--primary), que en el tótem cambia según el tema. */
+* {
   scrollbar-width: thin;
   scrollbar-color: var(--primary) transparent;
 }
-.nav-scroll::-webkit-scrollbar {
+*::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
-.nav-scroll::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
   background-color: var(--primary);
   border-radius: 9999px;
 }
-.nav-scroll::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
   background: transparent;
 }

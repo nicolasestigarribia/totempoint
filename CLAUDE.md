@@ -130,6 +130,10 @@ Don't remove either layer when touching server entry code — they cover differe
 
 `vite.config.ts` uses `@lovable.dev/vite-tanstack-config`'s `defineConfig`, which already wires up `tanstackStart`, `viteReact`, `tailwindcss`, `tsConfigPaths`, nitro, the `@` path alias, and dev-only plugins. Do not add these plugins manually — the comment in the file warns this causes duplicate-plugin breakage. Pass extra config via the `vite`/`tanstackStart` keys of `defineConfig` instead.
 
+### UI conventions
+
+- **Scrollbars use the system colour.** All scrollbars in the app are styled globally in `src/styles.css` with the `*` selector: `scrollbar-color: var(--primary) transparent` plus the `::-webkit-scrollbar` rules (thin, rounded thumb in `var(--primary)`, transparent track). Do not add per-element scrollbar styles that diverge from this; if a new surface scrolls, it inherits the global style automatically. In the totem `var(--primary)` follows the chosen theme, so the bars re-colour per shop.
+
 ### Deployment
 
 Built with the Dockerfile (bun for install/build → `node:22-slim` runtime running the nitro `node-server` preset output, `.output/server/index.mjs`) and deployed to **Railway** per `railway.json`. `DATABASE_URL` (Railway MySQL) is read from `.env.local` locally and from Railway env vars in production.
