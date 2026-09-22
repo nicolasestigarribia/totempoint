@@ -8,13 +8,15 @@
  * diagnóstico y, si la impresora es BLE, de impresión real.
  *
  * No conocemos el servicio de cada modelo, así que tras conectar recorremos los
- * servicios y usamos la primera característica que permita escribir. Se listan
- * como `optionalServices` los UUIDs de servicio más comunes en térmicas BLE;
- * sin listarlos, el navegador no deja acceder a esos servicios después.
+ * servicios y elegimos una característica de impresión conocida si aparece, y si
+ * no la primera que permita escribir. Se listan como `optionalServices` los
+ * UUIDs de servicio más comunes en térmicas BLE; sin listarlos, el navegador no
+ * deja acceder a esos servicios después.
  */
 
 // Tipos mínimos de Web Bluetooth: no vienen en la lib DOM por defecto.
 interface BleCharacteristic {
+  uuid: string;
   properties: { write: boolean; writeWithoutResponse: boolean };
   writeValueWithResponse(value: BufferSource): Promise<void>;
   writeValueWithoutResponse(value: BufferSource): Promise<void>;
@@ -66,7 +68,22 @@ const SERVICIOS_CANDIDATOS: (number | string)[] = [
 export interface Impresora {
   device: BleDevice;
   characteristic: BleCharacteristic;
+  serviceUuid: string;
+  charUuid: string;
+  /** Lista de todos los servicios/características, para diagnóstico en pantalla. */
+  diagnostico: string[];
 }
+
+// Características de impresión conocidas: se prefieren si están presentes, para
+// no escribir en una de configuración por error.
+const CHARS_IMPRESION = [
+  "2af1", // genéricas ESC/POS (servicio 0x18F0)
+  "49535343-8841-43f4-a8d4-ecbe34729bb3", // UART transparente ISSC (escritura)
+  "ffe1", // módulos HM-10
+];
+
+const corto = (uuid: string) =>
+  /^0000[0-9a-f]{4}-0000-1000-8000-00805f9b34fb$/i.test(uuid) ? uuid.slice(4, 8) : uuid;
 
 export function soportaWebBluetooth(): boolean {
   return typeof navigator !== "undefined" && !!navigator.bluetooth;
@@ -107,15 +124,37 @@ async function conectar(device: BleDevice): Promise<Impresora> {
   const server = await device.gatt.connect();
   const servicios = await server.getPrimaryServices();
 
+  const escribibles: { service: string; char: BleCharacteristic }[] = [];
+  const diagnostico: string[] = [];
+
   for (const s of servicios) {
     const chars = await s.getCharacteristics();
     for (const c of chars) {
-      if (c.properties.write || c.properties.writeWithoutResponse) {
-        return { device, characteristic: c };
-      }
+      const w = c.properties.write;
+      const wn = c.properties.writeWithoutResponse;
+      diagnostico.push(
+        `svc ${corto(s.uuid)} chr ${corto(c.uuid)} ${w ? "W" : "-"}${wn ? "w" : "-"}`,
+      );
+      if (w || wn) escribibles.push({ service: s.uuid, char: c });
     }
   }
-  throw new Error("La impresora no expone una característica de escritura conocida");
+
+  if (escribibles.length === 0) {
+    throw new Error(`Sin característica de escritura. ${diagnostico.join(" | ")}`);
+  }
+
+  // Preferir una característica de impresión conocida; si no, la primera escribible.
+  const elegida =
+    escribibles.find((e) => CHARS_IMPRESION.some((p) => e.char.uuid.toLowerCase().includes(p))) ??
+    escribibles[0];
+
+  return {
+    device,
+    characteristic: elegida.char,
+    serviceUuid: elegida.service,
+    charUuid: elegida.char.uuid,
+    diagnostico,
+  };
 }
 
 /**
@@ -140,7 +179,9 @@ const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export async function imprimir(impresora: Impresora, datos: Uint8Array): Promise<void> {
   const c = impresora.characteristic;
-  const TAM = 180;
+  // 20 bytes = MTU por defecto de BLE (23 - 3 de cabecera ATT). Escribir más de
+  // una vez suele descartarse silenciosamente en impresoras que no negocian MTU.
+  const TAM = 20;
   for (let i = 0; i < datos.length; i += TAM) {
     const tanda = datos.slice(i, i + TAM);
     if (c.properties.writeWithoutResponse) await c.writeValueWithoutResponse(tanda);

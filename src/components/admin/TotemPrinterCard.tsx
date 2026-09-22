@@ -63,7 +63,8 @@ export function TotemPrinterCard({
       anotar("Abriendo selector Bluetooth...");
       const c = await elegirYConectar();
       anotar(`Dispositivo: ${c.device.name ?? "(sin nombre)"}`);
-      anotar("Característica de escritura encontrada.");
+      for (const d of c.diagnostico) anotar(d);
+      anotar(`Usando característica: ${c.charUuid}`);
       const p = { deviceId: c.device.id, name: c.device.name ?? "Impresora" };
       savePaired(empresa, local, totem, p);
       setPaired(p);
@@ -90,8 +91,9 @@ export function TotemPrinterCard({
         return;
       }
       setConn(c);
+      anotar(`Característica: ${c.charUuid}`);
       const bytes = buildTicket(ticketDemo(companyName));
-      anotar(`Enviando ${bytes.length} bytes...`);
+      anotar(`Enviando ${bytes.length} bytes en tandas de 20...`);
       await imprimir(c, bytes);
       anotar("Ticket enviado. Revisá la impresora.");
     } catch (err) {
