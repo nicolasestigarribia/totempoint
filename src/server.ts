@@ -52,6 +52,19 @@ export default {
         return new Response("Not found", { status: 404 });
       }
 
+      // El manifiesto y los íconos del tótem: archivos que pide el navegador
+      // para instalarlo como aplicación en la tablet, no pantallas de la app.
+      const totem = pathname.match(
+        /^\/t\/([a-z0-9-]{1,60})\/([a-z0-9-]{1,60})\/(\d+)\/(?:manifest\.webmanifest|icon-(maskable-)?(192|512)\.png)$/i,
+      );
+      if (totem) {
+        const [, empresa, local, numero, maskable, tamanio] = totem;
+        const { serveTotemManifest, serveTotemIcon } = await import("./lib/totem-manifest");
+        return tamanio
+          ? await serveTotemIcon(empresa, local, Number(numero), Number(tamanio), Boolean(maskable))
+          : await serveTotemManifest(empresa, local, Number(numero));
+      }
+
       // Aviso de pago de Mercado Pago. Como las imágenes, se atiende acá antes
       // del router: no es una ruta de la app, es un endpoint que llama un
       // servidor de afuera.
