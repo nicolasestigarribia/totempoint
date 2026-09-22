@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuperadminRouteImport } from './routes/superadmin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KitchenRouteImport } from './routes/kitchen'
+import { Route as ImprimirTestRouteImport } from './routes/imprimir-test'
 import { Route as CuentaRouteImport } from './routes/cuenta'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,6 +38,11 @@ const LoginRoute = LoginRouteImport.update({
 const KitchenRoute = KitchenRouteImport.update({
   id: '/kitchen',
   path: '/kitchen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImprimirTestRoute = ImprimirTestRouteImport.update({
+  id: '/imprimir-test',
+  path: '/imprimir-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CuentaRoute = CuentaRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/cuenta': typeof CuentaRoute
+  '/imprimir-test': typeof ImprimirTestRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/cuenta': typeof CuentaRoute
+  '/imprimir-test': typeof ImprimirTestRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/cuenta': typeof CuentaRoute
+  '/imprimir-test': typeof ImprimirTestRoute
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/cuenta'
+    | '/imprimir-test'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/cuenta'
+    | '/imprimir-test'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/cuenta'
+    | '/imprimir-test'
     | '/kitchen'
     | '/login'
     | '/superadmin'
@@ -206,6 +218,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   CuentaRoute: typeof CuentaRoute
+  ImprimirTestRoute: typeof ImprimirTestRoute
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
@@ -240,6 +253,13 @@ declare module '@tanstack/react-router' {
       path: '/kitchen'
       fullPath: '/kitchen'
       preLoaderRoute: typeof KitchenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/imprimir-test': {
+      id: '/imprimir-test'
+      path: '/imprimir-test'
+      fullPath: '/imprimir-test'
+      preLoaderRoute: typeof ImprimirTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cuenta': {
@@ -326,6 +346,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   CuentaRoute: CuentaRoute,
+  ImprimirTestRoute: ImprimirTestRoute,
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
