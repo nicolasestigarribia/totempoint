@@ -34,9 +34,9 @@ Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive
 
 ## Architecture
 
-### One totem flow: `/t/$slug`
+### One totem flow: `/t/$empresa/$local/$totem`
 
-- **`/t/$slug/*` is the totem**, multi-tenant and the only ordering flow there is. Routes: `t.$slug.index` (cover), `t.$slug.categorias`, `t.$slug.menu.$category`, `t.$slug.carrito`, `t.$slug.checkout`, `t.$slug.listo.$orderId`. It reads the DB catalog through `src/lib/api/totem.functions.ts` and persists real orders.
+- **`/t/$empresa/$local/$totem/*` is the totem**, multi-tenant and the only ordering flow there is. The URL names the company slug, the branch slug and the totem's number, so a location with several tablets gives each one its own address. Routes: `t.$empresa.$local.$totem.index` (cover), `.categorias`, `.menu.$category`, `.combos`, `.carrito`, `.checkout`, `.pagar.$orderId`, `.listo.$orderId`. It reads the DB catalog through `src/lib/api/totem.functions.ts` and persists real orders.
 - The old single-brand Burger Point demo (`src/lib/menu.ts`, `src/lib/store.ts`, `TotemHeader`, and the bare `categories` / `menu.$category` / `cart` / `checkout` / `confirmation.$orderId` routes) **was deleted**: it served a hardcoded menu whose orders never reached the database, and a tablet left on `/` could take fake orders. Don't reintroduce a demo flow at the root.
 - **`/` is the platform's landing page**, not a business: the Totempoint pitch plus a link to `/login`. A totem is always opened by its own slug URL.
 
@@ -44,12 +44,12 @@ Database (Drizzle + MySQL on Railway): there are no `db:*` npm scripts, so drive
 
 This is the **only file with server functions that have no auth middleware** — the totem runs without a session. Everything else in `src/lib/api/` requires `requireAuth`/`requireSuperadmin`, so keep authenticated helpers out of this file to avoid accidentally exposing them.
 
-- A business is resolved by `companies.slug` from the URL (`/t/primorosas`). The slug is generated from the name in `createBusiness` and is not editable from any panel.
+- `resolverTotem` resolves the URL to a company and a location: `companies.slug` → `locations.slug` (unique per company) → the `totems` row with that `number`. All three must exist and be active, or the totem shows an error instead of somebody else's menu. Both slugs are generated from the name and checked against `RESERVED_SLUGS` in `src/lib/slug.ts`, because the company slug is the first segment of a path that also holds `/admin`, `/login` and `/img`.
 - `getTotemHome` (cover), `getTotemMenu` (catalog + combos), `createTotemOrder`, `getTotemOrder`.
 - `createTotemOrder` receives lines of `{kind: "producto" | "combo", id, quantity}`; **prices and the total are recomputed server-side** from the DB. Never trust amounts sent by the client. A combo is stored as one `order_items` row with `product_id` null and the combo's name and price, which `order_items` already freezes.
 - Products with no `categoryId` are grouped under a synthetic category with id `0` (`UNCATEGORIZED`, shown as "Otros") so they can't become invisible.
-- Order numbers are `MAX(order_number) + 1` per location inside a transaction, starting at 100. The totem only knows the company, so orders are attached to the company's first active location.
-- Per-location availability (`locationProducts`/`locationCategories`) is **not** applied by the totem yet — it reads the company-level catalog.
+- Order numbers are `MAX(order_number) + 1` per location inside a transaction, starting at 100. The totem knows its own location from the URL, so the order, its price overrides (`locationPrices`) and its availability all belong to that branch.
+- Per-location availability (`locationProducts`/`locationCategories`) **is** applied: a product or a category turned off for this branch doesn't reach the screen. Absence of a row still means available.
 
 ### Totem cover and behaviour
 
@@ -139,14 +139,13 @@ Built with the Dockerfile (bun for install/build → `node:22-slim` runtime runn
 Verified working end to end: business signup → owner login → cover setup → image upload → catalog on the totem → cart → checkout → order in the DB → kitchen panel. What is still missing:
 
 - The slug **is** editable, but only by the superadmin (`updateBusinessSlug`), because changing it breaks the previous link and any printed QR. The full totem URL and its QR show in the Portada section (`TotemLinkCard`). A company left without an owner is no longer a dead end either: `assignBusinessOwner` creates one.
-- **Mercado Pago charges per company, into the company's own account.** Each owner pastes their access token in the Cobros section; it lives in `payment_settings`, never leaves the server, and `getTotemMenu` only exposes a boolean so the totem knows whether to offer the button. Paying is a QR on the totem screen that the customer scans with their phone (`/t/$slug/pagar/$orderId`), built from a Checkout Pro preference. The order is saved **before** asking Mercado Pago for the preference, so if Mercado Pago is down the order is still taken and the counter can charge cash.
+- **Mercado Pago charges per company, into the company's own account.** Each owner pastes their access token in the Cobros section; it lives in `payment_settings`, never leaves the server, and `getTotemMenu` only exposes a boolean so the totem knows whether to offer the button. Paying is a QR on the totem screen that the customer scans with their phone (`/t/$empresa/$local/$totem/pagar/$orderId`), built from a Checkout Pro preference. The order is saved **before** asking Mercado Pago for the preference, so if Mercado Pago is down the order is still taken and the counter can charge cash.
 
   Two things confirm a payment: the webhook at `/api/mp/webhook` (intercepted in `src/server.ts`, like `/img/`), and the totem asking every few seconds while the customer pays. The poll is not a development crutch — the webhook can be lost in production too, and there is someone standing in front of the screen. The webhook takes **only the payment id** from the notification and asks Mercado Pago for the rest, because that endpoint is public and anyone can hit it claiming an order was paid.
 
   **Never export a plain function that touches the database from a `*.functions.ts` file.** Only server functions get stripped from the client bundle; an ordinary export stays and drags drizzle and the MySQL driver into the browser, which throws on load and leaves the whole app without JavaScript. That is why `acreditarPedido` lives in `src/lib/payments/acreditar.ts` and not next to the totem's server functions.
 - **Prices are per company, not per location** (point 6 of the business rules), and neither is the price-change audit. Same for a location's own products and for per-product customisation (points 5 and 7).
-- A logged-in session on the totem tablet used to be a hole — `/t/$slug` has no way out, but the address bar does. The link the panel hands out for the tablet now ends in `?totem=1`: `useTotemDevice` marks that browser and, every time the cover loads, calls `leaveStaffSession` to drop any panel session left open there. `?totem=0` removes the mark, and the panel's own "Abrir" button uses the bare link so previewing from a PC doesn't log you out. It is still worth locking the tablet in the OS kiosk mode.
-- **Location is implicit.** Orders go to the company's first active location; a multi-branch business needs the totem to know which branch it is (device pairing was discussed as the eventual fix).
+- A logged-in session on the totem tablet used to be a hole — the totem screen has no way out, but the address bar does. The link the panel hands out for the tablet now ends in `?totem=1`: `useTotemDevice` marks that browser and, every time the cover loads, calls `leaveStaffSession` to drop any panel session left open there. `?totem=0` removes the mark, and the panel's own "Abrir" button uses the bare link so previewing from a PC doesn't log you out. It is still worth locking the tablet in the OS kiosk mode.
 - **`.env` is committed to the repo**, so its keys are in git history. Pre-existing, flagged to the user, untouched — removing it means rewriting history and rotating keys.
 
 ### Legacy Supabase remnants

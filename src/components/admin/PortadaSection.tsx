@@ -17,7 +17,6 @@ import { TotemHome } from "@/components/totem/TotemHome";
 import { PreviewFrame } from "@/components/admin/PreviewFrame";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { useReadOnly } from "@/components/admin/readonly";
-import { TotemLinkCard } from "@/components/admin/TotemLinkCard";
 import {
   getMyTotemSettings,
   updateMyTotemSettings,
@@ -168,18 +167,10 @@ export function PortadaSection({
             Así ven tus clientes la pantalla de inicio antes de pedir.
           </p>
         </div>
-        <a
-          href={`/t/${business.slug}`}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition hover:border-primary"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Abrir /t/{business.slug}
-        </a>
+        <span className="text-xs text-muted-foreground">
+          Los enlaces y QR de cada tótem están en la sección Tótems.
+        </span>
       </div>
-
-      <TotemLinkCard slug={business.slug} panelClass={panelClass} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <form onSubmit={handleSubmit} className={`space-y-6 p-6 ${panelClass}`}>
@@ -384,7 +375,8 @@ export function PortadaSection({
             <h3 className="font-bold">Vista previa</h3>
           </div>
           <PreviewFrame className="rounded-2xl border border-white/10">
-            <TotemHome data={preview} />
+            {/* Vista previa: nav de relleno, no se navega desde el iframe. */}
+            <TotemHome data={preview} nav={{ empresa: "preview", local: "preview", totem: "1" }} />
           </PreviewFrame>
           <p className="text-xs text-muted-foreground">
             Los cambios se reflejan al instante, pero se aplican al tótem recién cuando guardás.

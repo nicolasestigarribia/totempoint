@@ -7,10 +7,12 @@
  * Chrome instala la web como aplicación y la abre en `fullscreen`, sin barra
  * de direcciones ni de estado.
  *
- * Es uno por empresa, no uno solo de la plataforma, porque cada negocio pone
- * su tablet: el nombre que aparece debajo del ícono es el suyo, los colores
- * son los suyos y el `scope` es su propio tótem, así que una navegación que se
- * fuera de `/t/su-slug` saldría de la aplicación en lugar de quedar adentro.
+ * Es uno por tótem, no uno solo de la plataforma, porque cada negocio pone su
+ * tablet: el nombre que aparece debajo del ícono es el suyo, los colores son
+ * los suyos y el `scope` es ese tótem en particular, así que una navegación
+ * que se fuera de `/t/empresa/local/1` saldría de la aplicación en lugar de
+ * quedar adentro. Con varios tótems en un mismo local, cada tablet instala el
+ * suyo y su ícono vuelve siempre al mismo puesto.
  *
  * `start_url` lleva `?totem=1` a propósito: al abrirse desde el ícono, la
  * tablet queda marcada como tótem y se cierra cualquier sesión de panel que
@@ -19,23 +21,38 @@
  * Se sirve desde `src/server.ts`, antes del router, igual que las imágenes:
  * no es una pantalla de la aplicación sino un archivo que pide el navegador.
  */
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { companies, totemSettings } from "@/db/schema";
+import { companies, locations, totems, totemSettings } from "@/db/schema";
 import { iconoTotemPng } from "@/lib/totem-icon";
 import { FONDOS_HEX, type TotemTheme } from "@/components/totem/useTotemTheme";
 
+/** Los tres datos de la URL que identifican al tótem. */
+export interface UbicacionTotem {
+  empresa: string;
+  local: string;
+  totem: number;
+}
+
 interface Identidad {
   name: string;
-  slug: string;
+  base: string;
   fondo: string;
   marca: string;
 }
 
-/** Datos mínimos del negocio para el ícono y el manifiesto. */
-async function identidad(slug: string): Promise<Identidad | null> {
+/**
+ * Datos mínimos del negocio para el ícono y el manifiesto.
+ *
+ * Resuelve las tres partes de la URL —y no solo la empresa— porque el archivo
+ * se sirve antes del router: si acá alcanzara con el slug de la empresa, un
+ * local o un número inventados devolverían un manifiesto igual y la tablet
+ * instalaría un tótem que no existe.
+ */
+async function identidad(u: UbicacionTotem): Promise<Identidad | null> {
   const [row] = await db
     .select({
+      id: companies.id,
       name: companies.name,
       slug: companies.slug,
       active: companies.active,
@@ -45,25 +62,39 @@ async function identidad(slug: string): Promise<Identidad | null> {
     })
     .from(companies)
     .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
-    .where(eq(companies.slug, slug))
+    .where(eq(companies.slug, u.empresa))
     .limit(1);
 
   if (!row || !row.active) return null;
 
+  const [local] = await db
+    .select({ id: locations.id, active: locations.active })
+    .from(locations)
+    .where(and(eq(locations.companyId, row.id), eq(locations.slug, u.local)))
+    .limit(1);
+  if (!local?.active) return null;
+
+  const [totem] = await db
+    .select({ active: totems.active })
+    .from(totems)
+    .where(and(eq(totems.locationId, local.id), eq(totems.number, u.totem)))
+    .limit(1);
+  if (!totem?.active) return null;
+
   return {
     name: row.name,
-    slug: row.slug,
+    base: `/t/${row.slug}/${u.local}/${u.totem}`,
     fondo: FONDOS_HEX[(row.theme as TotemTheme) ?? "oscuro"] ?? FONDOS_HEX.oscuro,
     marca: row.accentColor || row.primaryColor || "#ffffff",
   };
 }
 
-/** El manifiesto de un tótem. 404 si el slug no existe o está dado de baja. */
-export async function serveTotemManifest(slug: string): Promise<Response> {
-  const negocio = await identidad(slug);
+/** El manifiesto de un tótem. 404 si no existe o está dado de baja. */
+export async function serveTotemManifest(u: UbicacionTotem): Promise<Response> {
+  const negocio = await identidad(u);
   if (!negocio) return new Response("Not found", { status: 404 });
 
-  const base = `/t/${negocio.slug}`;
+  const base = negocio.base;
   const manifiesto = {
     name: negocio.name,
     // Debajo del ícono entran pocos caracteres; el sistema corta igual, pero
@@ -110,11 +141,11 @@ export async function serveTotemManifest(slug: string): Promise<Response> {
  * 80% del centro, así que el tótem entra al 72% para no quedarse sin pie.
  */
 export async function serveTotemIcon(
-  slug: string,
+  u: UbicacionTotem,
   size: number,
   maskable = false,
 ): Promise<Response> {
-  const negocio = await identidad(slug);
+  const negocio = await identidad(u);
   if (!negocio) return new Response("Not found", { status: 404 });
 
   const png = iconoTotemPng(size, negocio.fondo, negocio.marca, maskable ? 0.72 : 1);

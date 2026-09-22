@@ -3,21 +3,12 @@ import { z } from "zod";
 import { eq, or, ne, and, desc, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { companies, locations, users, userRoles, userLocations, orders } from "@/db/schema";
+import { companies, locations, totems, users, userRoles, userLocations, orders } from "@/db/schema";
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
 import { setActingCompany, clearActingCompany, destroyUserSessions } from "@/lib/auth/session";
-
-function slugify(name: string) {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50);
-}
+import { slugify, isReservedSlug } from "@/lib/slug";
 
 const usernameSchema = z
   .string()
@@ -103,7 +94,7 @@ export const createBusiness = createServerFn({ method: "POST" })
       .limit(1);
     if (dup) throw new Error("Ese email o usuario ya está en uso");
 
-    // slug único
+    // slug único y que no choque con rutas del sistema (/admin, /login, etc.).
     const base = slugify(data.name) || "empresa";
     let slug = base;
     for (let i = 2; i < 50; i++) {
@@ -112,7 +103,7 @@ export const createBusiness = createServerFn({ method: "POST" })
         .from(companies)
         .where(eq(companies.slug, slug))
         .limit(1);
-      if (!exists) break;
+      if (!exists && !isReservedSlug(slug)) break;
       slug = `${base}-${i}`;
     }
 
@@ -125,8 +116,11 @@ export const createBusiness = createServerFn({ method: "POST" })
     // cambia desde Negocios (por ejemplo, "PrimoRosas Cariló").
     const [{ id: locationId }] = await db
       .insert(locations)
-      .values({ companyId, name: "Casa central", active: true })
+      .values({ companyId, name: "Casa central", slug: "casa-central", active: true })
       .$returningId();
+
+    // Primer tótem del local, para que la URL /t/{empresa}/{local}/1 funcione ya.
+    await db.insert(totems).values({ locationId, number: 1, active: true });
 
     const [{ id: userId }] = await db
       .insert(users)
@@ -288,6 +282,9 @@ export const updateBusinessSlug = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    if (isReservedSlug(data.slug)) {
+      throw new Error("Esa dirección está reservada por el sistema");
+    }
     const [ocupado] = await db
       .select({ id: companies.id })
       .from(companies)

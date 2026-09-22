@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Sparkles, ChevronRight, Store } from "lucide-react";
 import type { TotemHome as TotemHomeData } from "@/lib/api/totem.functions";
+import type { TotemNav } from "@/lib/totem-nav";
 import { themeVars } from "@/components/totem/useTotemTheme";
 import { TotemMotas } from "@/components/totem/TotemMotas";
 
@@ -61,12 +62,20 @@ function Logo({ data, conEyebrow = true }: { data: TotemHomeData; conEyebrow?: b
   );
 }
 
-function StartButton({ data, size = "lg" }: { data: TotemHomeData; size?: "lg" | "xl" }) {
+function StartButton({
+  data,
+  nav,
+  size = "lg",
+}: {
+  data: TotemHomeData;
+  nav: TotemNav;
+  size?: "lg" | "xl";
+}) {
   const accent = data.accentColor || data.primaryColor || undefined;
   return (
     <Link
-      to="/t/$slug/categorias"
-      params={{ slug: data.slug }}
+      to="/t/$empresa/$local/$totem/categorias"
+      params={nav}
       className={`late group flex w-full items-center justify-between gap-4 rounded-3xl transition hover:scale-[1.02] active:scale-[0.98] ${
         size === "xl" ? "px-12 py-10" : "px-10 py-8"
       }`}
@@ -107,7 +116,7 @@ function Title({ data, className = "" }: { data: TotemHomeData; className?: stri
 }
 
 // Hero lateral: imagen de fondo difuminada, texto a la izquierda, botón a la derecha.
-function Clasico({ data }: { data: TotemHomeData }) {
+function Clasico({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
   // Sin overflow-hidden en el contenedor: si el contenido es más alto que la
   // pantalla (celular apaisado, tablet chica) hay que poder deslizar, no recortar.
   return (
@@ -148,7 +157,7 @@ function Clasico({ data }: { data: TotemHomeData }) {
 
           <div className="flex flex-col gap-4 lg:items-end">
             <div className="w-full max-w-md">
-              <StartButton data={data} />
+              <StartButton data={data} nav={nav} />
             </div>
           </div>
         </div>
@@ -158,7 +167,7 @@ function Clasico({ data }: { data: TotemHomeData }) {
 }
 
 // Pantalla completa: imagen a sangre, todo centrado. Ideal para discotecas/eventos.
-function Completo({ data }: { data: TotemHomeData }) {
+function Completo({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-center bg-background text-center">
       {data.heroImageUrl && (
@@ -182,7 +191,7 @@ function Completo({ data }: { data: TotemHomeData }) {
         )}
         <Badges data={data} className="justify-center" />
         <div className="w-full max-w-xl">
-          <StartButton data={data} size="xl" />
+          <StartButton data={data} nav={nav} size="xl" />
         </div>
       </div>
     </div>
@@ -190,7 +199,7 @@ function Completo({ data }: { data: TotemHomeData }) {
 }
 
 // Split: mitad imagen, mitad panel sólido. Look de carta/menú sobrio.
-function Split({ data }: { data: TotemHomeData }) {
+function Split({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
       <div className="relative min-h-[35dvh] flex-1 overflow-hidden lg:min-h-dvh">
@@ -213,7 +222,7 @@ function Split({ data }: { data: TotemHomeData }) {
           )}
           <Badges data={data} />
           <div className="max-w-lg">
-            <StartButton data={data} />
+            <StartButton data={data} nav={nav} />
           </div>
         </div>
       </div>
@@ -221,14 +230,14 @@ function Split({ data }: { data: TotemHomeData }) {
   );
 }
 
-export function TotemHome({ data }: { data: TotemHomeData }) {
+export function TotemHome({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
   const plantilla =
     data.template === "completo" ? (
-      <Completo data={data} />
+      <Completo data={data} nav={nav} />
     ) : data.template === "split" ? (
-      <Split data={data} />
+      <Split data={data} nav={nav} />
     ) : (
-      <Clasico data={data} />
+      <Clasico data={data} nav={nav} />
     );
 
   // Los tokens van inline además de en el documento: así la vista previa del

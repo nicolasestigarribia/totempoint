@@ -10,7 +10,7 @@ Es multiempresa: una sola instalación atiende a varias marcas, cada una con su 
 
 - **Empresa**: la marca, por ejemplo PrimoRosas. La da de alta el superadmin y le asigna un dueño.
 - **Negocio**: cada sucursal de esa empresa — PrimoRosas Cariló, PrimoRosas Mar del Plata. Los crea el dueño.
-- **Tótem**: la tablet del mostrador. Se abre en `/t/<slug>` y no pide ningún login: es una URL pública que el negocio deja abierta. El enlace que el panel entrega para la tablet termina en `?totem=1`, y con eso el dispositivo queda marcado: cada vez que vuelve a la portada cierra cualquier sesión del panel que haya quedado abierta ahí.
+- **Tótem**: la tablet del mostrador. Un negocio puede tener varias, y cada una tiene su propia dirección: `/t/<empresa>/<negocio>/<número>`, por ejemplo `/t/primorosas/carilo/2`. No pide ningún login: es una URL pública que el negocio deja abierta, y el panel la entrega con su QR en la sección Tótems. El enlace que va a la tablet termina en `?totem=1`, y con eso el dispositivo queda marcado: cada vez que vuelve a la portada cierra cualquier sesión del panel que haya quedado abierta ahí.
 
 ## Quién puede qué
 

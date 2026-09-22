@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Store } from "lucide-react";
 import { TotemPasos, type PasoTotem } from "@/components/totem/TotemPasos";
+import type { TotemNav } from "@/lib/totem-nav";
 
 /**
  * Barra de arriba del tótem: marca y vuelta atrás, nada más.
@@ -12,14 +13,14 @@ import { TotemPasos, type PasoTotem } from "@/components/totem/TotemPasos";
  * Sólo navega dentro del pedido: nunca sale al panel ni al login.
  */
 export function TotemTopBar({
-  slug,
+  nav,
   name,
   logoUrl,
   accent,
   back = "home",
   paso,
 }: {
-  slug: string;
+  nav: TotemNav;
   name: string;
   logoUrl: string | null;
   accent?: string;
@@ -35,8 +36,8 @@ export function TotemTopBar({
     >
       {back === "categorias" ? (
         <Link
-          to="/t/$slug/categorias"
-          params={{ slug }}
+          to="/t/$empresa/$local/$totem/categorias"
+          params={nav}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border transition hover:border-primary"
           aria-label="Volver"
         >
@@ -44,8 +45,8 @@ export function TotemTopBar({
         </Link>
       ) : (
         <Link
-          to="/t/$slug"
-          params={{ slug }}
+          to="/t/$empresa/$local/$totem"
+          params={nav}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border transition hover:border-primary"
           aria-label="Volver"
         >

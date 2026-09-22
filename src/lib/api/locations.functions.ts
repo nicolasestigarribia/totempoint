@@ -2,17 +2,35 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { locations } from "@/db/schema";
+import { locations, totems } from "@/db/schema";
 import { requireCompany, requireOwner } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { accessibleLocationIds, companyIdOf } from "@/lib/auth/scope";
+import { slugify } from "@/lib/slug";
 
 export interface LocationRow {
   id: number;
   name: string;
+  slug: string;
   address: string | null;
   phone: string | null;
   active: boolean;
+}
+
+// Slug único de local dentro de una empresa.
+async function uniqueLocationSlug(companyId: number, name: string): Promise<string> {
+  const base = slugify(name) || "negocio";
+  let slug = base;
+  for (let i = 2; i < 100; i++) {
+    const [exists] = await db
+      .select({ id: locations.id })
+      .from(locations)
+      .where(and(eq(locations.companyId, companyId), eq(locations.slug, slug)))
+      .limit(1);
+    if (!exists) break;
+    slug = `${base}-${i}`;
+  }
+  return slug;
 }
 
 export const listLocations = createServerFn({ method: "GET" })
@@ -29,6 +47,7 @@ export const listLocations = createServerFn({ method: "GET" })
       .select({
         id: locations.id,
         name: locations.name,
+        slug: locations.slug,
         address: locations.address,
         phone: locations.phone,
         active: locations.active,
@@ -53,9 +72,11 @@ export const createLocation = createServerFn({ method: "POST" })
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
 
+    const slug = await uniqueLocationSlug(user.companyId, data.name);
     const values = {
       companyId: user.companyId,
       name: data.name.trim(),
+      slug,
       address: data.address?.trim() || null,
       phone: data.phone?.trim() || null,
       active: true,
@@ -63,9 +84,13 @@ export const createLocation = createServerFn({ method: "POST" })
 
     const [{ id }] = await db.insert(locations).values(values).$returningId();
 
+    // Primer tótem del local, para que su URL /t/{empresa}/{local}/1 funcione ya.
+    await db.insert(totems).values({ locationId: id, number: 1, active: true });
+
     return {
       id,
       name: values.name,
+      slug: values.slug,
       address: values.address,
       phone: values.phone,
       active: values.active,

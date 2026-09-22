@@ -54,15 +54,18 @@ export default {
 
       // El manifiesto y los íconos del tótem: archivos que pide el navegador
       // para instalarlo como aplicación en la tablet, no pantallas de la app.
+      // Cuelgan de la URL del tótem —empresa, local y número— porque cada
+      // tablet instala el suyo y tiene que volver siempre al mismo puesto.
       const totem = pathname.match(
-        /^\/t\/([a-z0-9-]{1,60})\/(?:manifest\.webmanifest|icon-(maskable-)?(192|512)\.png)$/i,
+        /^\/t\/([a-z0-9-]{1,60})\/([a-z0-9-]{1,60})\/(\d{1,6})\/(?:manifest\.webmanifest|icon-(maskable-)?(192|512)\.png)$/i,
       );
       if (totem) {
-        const [, slug, maskable, tamanio] = totem;
+        const [, empresa, local, numero, maskable, tamanio] = totem;
+        const ubicacion = { empresa, local, totem: Number(numero) };
         const { serveTotemManifest, serveTotemIcon } = await import("./lib/totem-manifest");
         return tamanio
-          ? await serveTotemIcon(slug, Number(tamanio), Boolean(maskable))
-          : await serveTotemManifest(slug);
+          ? await serveTotemIcon(ubicacion, Number(tamanio), Boolean(maskable))
+          : await serveTotemManifest(ubicacion);
       }
 
       // Aviso de pago de Mercado Pago. Como las imágenes, se atiende acá antes

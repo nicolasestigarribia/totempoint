@@ -15,14 +15,14 @@ import { Route as KitchenRouteImport } from './routes/kitchen'
 import { Route as CuentaRouteImport } from './routes/cuenta'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TSlugIndexRouteImport } from './routes/t.$slug.index'
-import { Route as TSlugCombosRouteImport } from './routes/t.$slug.combos'
-import { Route as TSlugCheckoutRouteImport } from './routes/t.$slug.checkout'
-import { Route as TSlugCategoriasRouteImport } from './routes/t.$slug.categorias'
-import { Route as TSlugCarritoRouteImport } from './routes/t.$slug.carrito'
-import { Route as TSlugPagarOrderIdRouteImport } from './routes/t.$slug.pagar.$orderId'
-import { Route as TSlugMenuCategoryRouteImport } from './routes/t.$slug.menu.$category'
-import { Route as TSlugListoOrderIdRouteImport } from './routes/t.$slug.listo.$orderId'
+import { Route as TEmpresaLocalTotemIndexRouteImport } from './routes/t.$empresa.$local.$totem.index'
+import { Route as TEmpresaLocalTotemCombosRouteImport } from './routes/t.$empresa.$local.$totem.combos'
+import { Route as TEmpresaLocalTotemCheckoutRouteImport } from './routes/t.$empresa.$local.$totem.checkout'
+import { Route as TEmpresaLocalTotemCategoriasRouteImport } from './routes/t.$empresa.$local.$totem.categorias'
+import { Route as TEmpresaLocalTotemCarritoRouteImport } from './routes/t.$empresa.$local.$totem.carrito'
+import { Route as TEmpresaLocalTotemPagarOrderIdRouteImport } from './routes/t.$empresa.$local.$totem.pagar.$orderId'
+import { Route as TEmpresaLocalTotemMenuCategoryRouteImport } from './routes/t.$empresa.$local.$totem.menu.$category'
+import { Route as TEmpresaLocalTotemListoOrderIdRouteImport } from './routes/t.$empresa.$local.$totem.listo.$orderId'
 
 const SuperadminRoute = SuperadminRouteImport.update({
   id: '/superadmin',
@@ -54,46 +54,53 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TSlugIndexRoute = TSlugIndexRouteImport.update({
-  id: '/t/$slug/',
-  path: '/t/$slug/',
+const TEmpresaLocalTotemIndexRoute = TEmpresaLocalTotemIndexRouteImport.update({
+  id: '/t/$empresa/$local/$totem/',
+  path: '/t/$empresa/$local/$totem/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TSlugCombosRoute = TSlugCombosRouteImport.update({
-  id: '/t/$slug/combos',
-  path: '/t/$slug/combos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TSlugCheckoutRoute = TSlugCheckoutRouteImport.update({
-  id: '/t/$slug/checkout',
-  path: '/t/$slug/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TSlugCategoriasRoute = TSlugCategoriasRouteImport.update({
-  id: '/t/$slug/categorias',
-  path: '/t/$slug/categorias',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TSlugCarritoRoute = TSlugCarritoRouteImport.update({
-  id: '/t/$slug/carrito',
-  path: '/t/$slug/carrito',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TSlugPagarOrderIdRoute = TSlugPagarOrderIdRouteImport.update({
-  id: '/t/$slug/pagar/$orderId',
-  path: '/t/$slug/pagar/$orderId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TSlugMenuCategoryRoute = TSlugMenuCategoryRouteImport.update({
-  id: '/t/$slug/menu/$category',
-  path: '/t/$slug/menu/$category',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TSlugListoOrderIdRoute = TSlugListoOrderIdRouteImport.update({
-  id: '/t/$slug/listo/$orderId',
-  path: '/t/$slug/listo/$orderId',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const TEmpresaLocalTotemCombosRoute =
+  TEmpresaLocalTotemCombosRouteImport.update({
+    id: '/t/$empresa/$local/$totem/combos',
+    path: '/t/$empresa/$local/$totem/combos',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TEmpresaLocalTotemCheckoutRoute =
+  TEmpresaLocalTotemCheckoutRouteImport.update({
+    id: '/t/$empresa/$local/$totem/checkout',
+    path: '/t/$empresa/$local/$totem/checkout',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TEmpresaLocalTotemCategoriasRoute =
+  TEmpresaLocalTotemCategoriasRouteImport.update({
+    id: '/t/$empresa/$local/$totem/categorias',
+    path: '/t/$empresa/$local/$totem/categorias',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TEmpresaLocalTotemCarritoRoute =
+  TEmpresaLocalTotemCarritoRouteImport.update({
+    id: '/t/$empresa/$local/$totem/carrito',
+    path: '/t/$empresa/$local/$totem/carrito',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TEmpresaLocalTotemPagarOrderIdRoute =
+  TEmpresaLocalTotemPagarOrderIdRouteImport.update({
+    id: '/t/$empresa/$local/$totem/pagar/$orderId',
+    path: '/t/$empresa/$local/$totem/pagar/$orderId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TEmpresaLocalTotemMenuCategoryRoute =
+  TEmpresaLocalTotemMenuCategoryRouteImport.update({
+    id: '/t/$empresa/$local/$totem/menu/$category',
+    path: '/t/$empresa/$local/$totem/menu/$category',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const TEmpresaLocalTotemListoOrderIdRoute =
+  TEmpresaLocalTotemListoOrderIdRouteImport.update({
+    id: '/t/$empresa/$local/$totem/listo/$orderId',
+    path: '/t/$empresa/$local/$totem/listo/$orderId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -102,14 +109,14 @@ export interface FileRoutesByFullPath {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/t/$slug/carrito': typeof TSlugCarritoRoute
-  '/t/$slug/categorias': typeof TSlugCategoriasRoute
-  '/t/$slug/checkout': typeof TSlugCheckoutRoute
-  '/t/$slug/combos': typeof TSlugCombosRoute
-  '/t/$slug/': typeof TSlugIndexRoute
-  '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
-  '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
-  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
+  '/t/$empresa/$local/$totem/carrito': typeof TEmpresaLocalTotemCarritoRoute
+  '/t/$empresa/$local/$totem/categorias': typeof TEmpresaLocalTotemCategoriasRoute
+  '/t/$empresa/$local/$totem/checkout': typeof TEmpresaLocalTotemCheckoutRoute
+  '/t/$empresa/$local/$totem/combos': typeof TEmpresaLocalTotemCombosRoute
+  '/t/$empresa/$local/$totem/': typeof TEmpresaLocalTotemIndexRoute
+  '/t/$empresa/$local/$totem/listo/$orderId': typeof TEmpresaLocalTotemListoOrderIdRoute
+  '/t/$empresa/$local/$totem/menu/$category': typeof TEmpresaLocalTotemMenuCategoryRoute
+  '/t/$empresa/$local/$totem/pagar/$orderId': typeof TEmpresaLocalTotemPagarOrderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,14 +125,14 @@ export interface FileRoutesByTo {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/t/$slug/carrito': typeof TSlugCarritoRoute
-  '/t/$slug/categorias': typeof TSlugCategoriasRoute
-  '/t/$slug/checkout': typeof TSlugCheckoutRoute
-  '/t/$slug/combos': typeof TSlugCombosRoute
-  '/t/$slug': typeof TSlugIndexRoute
-  '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
-  '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
-  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
+  '/t/$empresa/$local/$totem/carrito': typeof TEmpresaLocalTotemCarritoRoute
+  '/t/$empresa/$local/$totem/categorias': typeof TEmpresaLocalTotemCategoriasRoute
+  '/t/$empresa/$local/$totem/checkout': typeof TEmpresaLocalTotemCheckoutRoute
+  '/t/$empresa/$local/$totem/combos': typeof TEmpresaLocalTotemCombosRoute
+  '/t/$empresa/$local/$totem': typeof TEmpresaLocalTotemIndexRoute
+  '/t/$empresa/$local/$totem/listo/$orderId': typeof TEmpresaLocalTotemListoOrderIdRoute
+  '/t/$empresa/$local/$totem/menu/$category': typeof TEmpresaLocalTotemMenuCategoryRoute
+  '/t/$empresa/$local/$totem/pagar/$orderId': typeof TEmpresaLocalTotemPagarOrderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -135,14 +142,14 @@ export interface FileRoutesById {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
-  '/t/$slug/carrito': typeof TSlugCarritoRoute
-  '/t/$slug/categorias': typeof TSlugCategoriasRoute
-  '/t/$slug/checkout': typeof TSlugCheckoutRoute
-  '/t/$slug/combos': typeof TSlugCombosRoute
-  '/t/$slug/': typeof TSlugIndexRoute
-  '/t/$slug/listo/$orderId': typeof TSlugListoOrderIdRoute
-  '/t/$slug/menu/$category': typeof TSlugMenuCategoryRoute
-  '/t/$slug/pagar/$orderId': typeof TSlugPagarOrderIdRoute
+  '/t/$empresa/$local/$totem/carrito': typeof TEmpresaLocalTotemCarritoRoute
+  '/t/$empresa/$local/$totem/categorias': typeof TEmpresaLocalTotemCategoriasRoute
+  '/t/$empresa/$local/$totem/checkout': typeof TEmpresaLocalTotemCheckoutRoute
+  '/t/$empresa/$local/$totem/combos': typeof TEmpresaLocalTotemCombosRoute
+  '/t/$empresa/$local/$totem/': typeof TEmpresaLocalTotemIndexRoute
+  '/t/$empresa/$local/$totem/listo/$orderId': typeof TEmpresaLocalTotemListoOrderIdRoute
+  '/t/$empresa/$local/$totem/menu/$category': typeof TEmpresaLocalTotemMenuCategoryRoute
+  '/t/$empresa/$local/$totem/pagar/$orderId': typeof TEmpresaLocalTotemPagarOrderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -153,14 +160,14 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
-    | '/t/$slug/carrito'
-    | '/t/$slug/categorias'
-    | '/t/$slug/checkout'
-    | '/t/$slug/combos'
-    | '/t/$slug/'
-    | '/t/$slug/listo/$orderId'
-    | '/t/$slug/menu/$category'
-    | '/t/$slug/pagar/$orderId'
+    | '/t/$empresa/$local/$totem/carrito'
+    | '/t/$empresa/$local/$totem/categorias'
+    | '/t/$empresa/$local/$totem/checkout'
+    | '/t/$empresa/$local/$totem/combos'
+    | '/t/$empresa/$local/$totem/'
+    | '/t/$empresa/$local/$totem/listo/$orderId'
+    | '/t/$empresa/$local/$totem/menu/$category'
+    | '/t/$empresa/$local/$totem/pagar/$orderId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -169,14 +176,14 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
-    | '/t/$slug/carrito'
-    | '/t/$slug/categorias'
-    | '/t/$slug/checkout'
-    | '/t/$slug/combos'
-    | '/t/$slug'
-    | '/t/$slug/listo/$orderId'
-    | '/t/$slug/menu/$category'
-    | '/t/$slug/pagar/$orderId'
+    | '/t/$empresa/$local/$totem/carrito'
+    | '/t/$empresa/$local/$totem/categorias'
+    | '/t/$empresa/$local/$totem/checkout'
+    | '/t/$empresa/$local/$totem/combos'
+    | '/t/$empresa/$local/$totem'
+    | '/t/$empresa/$local/$totem/listo/$orderId'
+    | '/t/$empresa/$local/$totem/menu/$category'
+    | '/t/$empresa/$local/$totem/pagar/$orderId'
   id:
     | '__root__'
     | '/'
@@ -185,14 +192,14 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
-    | '/t/$slug/carrito'
-    | '/t/$slug/categorias'
-    | '/t/$slug/checkout'
-    | '/t/$slug/combos'
-    | '/t/$slug/'
-    | '/t/$slug/listo/$orderId'
-    | '/t/$slug/menu/$category'
-    | '/t/$slug/pagar/$orderId'
+    | '/t/$empresa/$local/$totem/carrito'
+    | '/t/$empresa/$local/$totem/categorias'
+    | '/t/$empresa/$local/$totem/checkout'
+    | '/t/$empresa/$local/$totem/combos'
+    | '/t/$empresa/$local/$totem/'
+    | '/t/$empresa/$local/$totem/listo/$orderId'
+    | '/t/$empresa/$local/$totem/menu/$category'
+    | '/t/$empresa/$local/$totem/pagar/$orderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,14 +209,14 @@ export interface RootRouteChildren {
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
-  TSlugCarritoRoute: typeof TSlugCarritoRoute
-  TSlugCategoriasRoute: typeof TSlugCategoriasRoute
-  TSlugCheckoutRoute: typeof TSlugCheckoutRoute
-  TSlugCombosRoute: typeof TSlugCombosRoute
-  TSlugIndexRoute: typeof TSlugIndexRoute
-  TSlugListoOrderIdRoute: typeof TSlugListoOrderIdRoute
-  TSlugMenuCategoryRoute: typeof TSlugMenuCategoryRoute
-  TSlugPagarOrderIdRoute: typeof TSlugPagarOrderIdRoute
+  TEmpresaLocalTotemCarritoRoute: typeof TEmpresaLocalTotemCarritoRoute
+  TEmpresaLocalTotemCategoriasRoute: typeof TEmpresaLocalTotemCategoriasRoute
+  TEmpresaLocalTotemCheckoutRoute: typeof TEmpresaLocalTotemCheckoutRoute
+  TEmpresaLocalTotemCombosRoute: typeof TEmpresaLocalTotemCombosRoute
+  TEmpresaLocalTotemIndexRoute: typeof TEmpresaLocalTotemIndexRoute
+  TEmpresaLocalTotemListoOrderIdRoute: typeof TEmpresaLocalTotemListoOrderIdRoute
+  TEmpresaLocalTotemMenuCategoryRoute: typeof TEmpresaLocalTotemMenuCategoryRoute
+  TEmpresaLocalTotemPagarOrderIdRoute: typeof TEmpresaLocalTotemPagarOrderIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -256,60 +263,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/': {
-      id: '/t/$slug/'
-      path: '/t/$slug'
-      fullPath: '/t/$slug/'
-      preLoaderRoute: typeof TSlugIndexRouteImport
+    '/t/$empresa/$local/$totem/': {
+      id: '/t/$empresa/$local/$totem/'
+      path: '/t/$empresa/$local/$totem'
+      fullPath: '/t/$empresa/$local/$totem/'
+      preLoaderRoute: typeof TEmpresaLocalTotemIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/combos': {
-      id: '/t/$slug/combos'
-      path: '/t/$slug/combos'
-      fullPath: '/t/$slug/combos'
-      preLoaderRoute: typeof TSlugCombosRouteImport
+    '/t/$empresa/$local/$totem/combos': {
+      id: '/t/$empresa/$local/$totem/combos'
+      path: '/t/$empresa/$local/$totem/combos'
+      fullPath: '/t/$empresa/$local/$totem/combos'
+      preLoaderRoute: typeof TEmpresaLocalTotemCombosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/checkout': {
-      id: '/t/$slug/checkout'
-      path: '/t/$slug/checkout'
-      fullPath: '/t/$slug/checkout'
-      preLoaderRoute: typeof TSlugCheckoutRouteImport
+    '/t/$empresa/$local/$totem/checkout': {
+      id: '/t/$empresa/$local/$totem/checkout'
+      path: '/t/$empresa/$local/$totem/checkout'
+      fullPath: '/t/$empresa/$local/$totem/checkout'
+      preLoaderRoute: typeof TEmpresaLocalTotemCheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/categorias': {
-      id: '/t/$slug/categorias'
-      path: '/t/$slug/categorias'
-      fullPath: '/t/$slug/categorias'
-      preLoaderRoute: typeof TSlugCategoriasRouteImport
+    '/t/$empresa/$local/$totem/categorias': {
+      id: '/t/$empresa/$local/$totem/categorias'
+      path: '/t/$empresa/$local/$totem/categorias'
+      fullPath: '/t/$empresa/$local/$totem/categorias'
+      preLoaderRoute: typeof TEmpresaLocalTotemCategoriasRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/carrito': {
-      id: '/t/$slug/carrito'
-      path: '/t/$slug/carrito'
-      fullPath: '/t/$slug/carrito'
-      preLoaderRoute: typeof TSlugCarritoRouteImport
+    '/t/$empresa/$local/$totem/carrito': {
+      id: '/t/$empresa/$local/$totem/carrito'
+      path: '/t/$empresa/$local/$totem/carrito'
+      fullPath: '/t/$empresa/$local/$totem/carrito'
+      preLoaderRoute: typeof TEmpresaLocalTotemCarritoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/pagar/$orderId': {
-      id: '/t/$slug/pagar/$orderId'
-      path: '/t/$slug/pagar/$orderId'
-      fullPath: '/t/$slug/pagar/$orderId'
-      preLoaderRoute: typeof TSlugPagarOrderIdRouteImport
+    '/t/$empresa/$local/$totem/pagar/$orderId': {
+      id: '/t/$empresa/$local/$totem/pagar/$orderId'
+      path: '/t/$empresa/$local/$totem/pagar/$orderId'
+      fullPath: '/t/$empresa/$local/$totem/pagar/$orderId'
+      preLoaderRoute: typeof TEmpresaLocalTotemPagarOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/menu/$category': {
-      id: '/t/$slug/menu/$category'
-      path: '/t/$slug/menu/$category'
-      fullPath: '/t/$slug/menu/$category'
-      preLoaderRoute: typeof TSlugMenuCategoryRouteImport
+    '/t/$empresa/$local/$totem/menu/$category': {
+      id: '/t/$empresa/$local/$totem/menu/$category'
+      path: '/t/$empresa/$local/$totem/menu/$category'
+      fullPath: '/t/$empresa/$local/$totem/menu/$category'
+      preLoaderRoute: typeof TEmpresaLocalTotemMenuCategoryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/t/$slug/listo/$orderId': {
-      id: '/t/$slug/listo/$orderId'
-      path: '/t/$slug/listo/$orderId'
-      fullPath: '/t/$slug/listo/$orderId'
-      preLoaderRoute: typeof TSlugListoOrderIdRouteImport
+    '/t/$empresa/$local/$totem/listo/$orderId': {
+      id: '/t/$empresa/$local/$totem/listo/$orderId'
+      path: '/t/$empresa/$local/$totem/listo/$orderId'
+      fullPath: '/t/$empresa/$local/$totem/listo/$orderId'
+      preLoaderRoute: typeof TEmpresaLocalTotemListoOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -322,14 +329,14 @@ const rootRouteChildren: RootRouteChildren = {
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
-  TSlugCarritoRoute: TSlugCarritoRoute,
-  TSlugCategoriasRoute: TSlugCategoriasRoute,
-  TSlugCheckoutRoute: TSlugCheckoutRoute,
-  TSlugCombosRoute: TSlugCombosRoute,
-  TSlugIndexRoute: TSlugIndexRoute,
-  TSlugListoOrderIdRoute: TSlugListoOrderIdRoute,
-  TSlugMenuCategoryRoute: TSlugMenuCategoryRoute,
-  TSlugPagarOrderIdRoute: TSlugPagarOrderIdRoute,
+  TEmpresaLocalTotemCarritoRoute: TEmpresaLocalTotemCarritoRoute,
+  TEmpresaLocalTotemCategoriasRoute: TEmpresaLocalTotemCategoriasRoute,
+  TEmpresaLocalTotemCheckoutRoute: TEmpresaLocalTotemCheckoutRoute,
+  TEmpresaLocalTotemCombosRoute: TEmpresaLocalTotemCombosRoute,
+  TEmpresaLocalTotemIndexRoute: TEmpresaLocalTotemIndexRoute,
+  TEmpresaLocalTotemListoOrderIdRoute: TEmpresaLocalTotemListoOrderIdRoute,
+  TEmpresaLocalTotemMenuCategoryRoute: TEmpresaLocalTotemMenuCategoryRoute,
+  TEmpresaLocalTotemPagarOrderIdRoute: TEmpresaLocalTotemPagarOrderIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -8,10 +8,14 @@ import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
+import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
-export const Route = createFileRoute("/t/$slug/checkout")({
-  loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$empresa/$local/$totem/checkout")({
+  loader: ({ params }) =>
+    getTotemMenu({
+      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
+    }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Confirmar — ${loaderData.name}` : "Confirmar" }],
   }),
@@ -24,12 +28,14 @@ type Pago = "efectivo" | "mercadopago";
 
 function CheckoutPage() {
   const menu = Route.useLoaderData();
+  const nav = Route.useParams();
+  const cartKey = totemCartKey(nav);
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const navigate = useNavigate();
   const accent = menu.accentColor || undefined;
-  useTotemIdleReset(menu.slug);
+  useTotemIdleReset(nav);
 
-  const items = useCartForSlug(menu.slug);
+  const items = useCartForSlug(cartKey);
   const clear = useTotemCart((s) => s.clear);
   const placeOrder = useServerFn(createTotemOrder);
 
@@ -56,7 +62,9 @@ function CheckoutPage() {
     try {
       const { orderId, pagarEn } = await placeOrder({
         data: {
-          slug: menu.slug,
+          empresa: nav.empresa,
+          local: nav.local,
+          totem: Number(nav.totem),
           customerName,
           deliveryMethod: delivery,
           paymentMethod: pago,
@@ -70,16 +78,16 @@ function CheckoutPage() {
       // pantalla del número y lo cobran en la caja.
       if (pagarEn) {
         navigate({
-          to: "/t/$slug/pagar/$orderId",
-          params: { slug: menu.slug, orderId: String(orderId) },
+          to: "/t/$empresa/$local/$totem/pagar/$orderId",
+          params: { ...nav, orderId: String(orderId) },
           search: { url: pagarEn },
           replace: true,
         });
         return;
       }
       navigate({
-        to: "/t/$slug/listo/$orderId",
-        params: { slug: menu.slug, orderId: String(orderId) },
+        to: "/t/$empresa/$local/$totem/listo/$orderId",
+        params: { ...nav, orderId: String(orderId) },
         replace: true,
       });
     } catch (err) {
@@ -117,7 +125,7 @@ function CheckoutPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <TotemTopBar
-        slug={menu.slug}
+        nav={nav}
         name={menu.name}
         logoUrl={menu.logoUrl}
         accent={accent}

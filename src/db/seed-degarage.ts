@@ -14,11 +14,12 @@
  * Correr con:  bun run src/db/seed-degarage.ts
  * Es idempotente: si la empresa ya existe, le rehace el catálogo y la portada.
  */
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "./index";
 import {
   companies,
   locations,
+  totems,
   users,
   userRoles,
   userLocations,
@@ -371,10 +372,22 @@ async function negocioYDuenio(companyId: number) {
   if (!locationId) {
     const [{ id }] = await db
       .insert(locations)
-      .values({ companyId, name: "De Garage", active: true })
+      .values({ companyId, name: "De Garage", slug: "de-garage", active: true })
       .$returningId();
     locationId = id;
     console.log("Negocio creado.");
+  }
+
+  // Sin una fila en `totems` la URL no resuelve y el demo queda inservible:
+  // el tótem se identifica por local y número, no por empresa.
+  const [totem] = await db
+    .select({ id: totems.id })
+    .from(totems)
+    .where(and(eq(totems.locationId, locationId), eq(totems.number, 1)))
+    .limit(1);
+  if (!totem) {
+    await db.insert(totems).values({ locationId, number: 1, label: "Mostrador", active: true });
+    console.log("Tótem 1 creado.");
   }
 
   const [duenio] = await db
@@ -542,7 +555,7 @@ async function main() {
   }
   console.log("Portada configurada.");
 
-  console.log(`\nListo. El tótem queda en /t/${SLUG}`);
+  console.log(`\nListo. El tótem queda en /t/${SLUG}/de-garage/1`);
   process.exit(0);
 }
 

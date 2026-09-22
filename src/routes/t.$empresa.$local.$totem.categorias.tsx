@@ -8,8 +8,11 @@ import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { gridColsFor, lastSpanFor } from "@/components/totem/grid";
 
-export const Route = createFileRoute("/t/$slug/categorias")({
-  loader: ({ params }) => getTotemMenu({ data: { slug: params.slug } }),
+export const Route = createFileRoute("/t/$empresa/$local/$totem/categorias")({
+  loader: ({ params }) =>
+    getTotemMenu({
+      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
+    }),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Menú — ${loaderData.name}` : "Menú" }],
   }),
@@ -19,14 +22,15 @@ export const Route = createFileRoute("/t/$slug/categorias")({
 
 function CategoriasPage() {
   const menu = Route.useLoaderData();
+  const nav = Route.useParams();
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const accent = menu.accentColor || undefined;
-  useTotemIdleReset(menu.slug);
+  useTotemIdleReset(nav);
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <TotemTopBar
-        slug={menu.slug}
+        nav={nav}
         name={menu.name}
         logoUrl={menu.logoUrl}
         accent={accent}
@@ -54,8 +58,8 @@ function CategoriasPage() {
                 conviene, no una categoría más perdida entre las otras. */}
             {menu.combos.length > 0 && (
               <Link
-                to="/t/$slug/combos"
-                params={{ slug: menu.slug }}
+                to="/t/$empresa/$local/$totem/combos"
+                params={nav}
                 className="aparece group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border-2 shadow-card transition hover:-translate-y-1"
                 style={{ borderColor: accent ?? "var(--primary)" }}
               >
@@ -95,8 +99,8 @@ function CategoriasPage() {
             {menu.categories.map((c, i) => (
               <Link
                 key={c.id}
-                to="/t/$slug/menu/$category"
-                params={{ slug: menu.slug, category: String(c.id) }}
+                to="/t/$empresa/$local/$totem/menu/$category"
+                params={{ ...nav, category: String(c.id) }}
                 className={`aparece group relative flex min-h-[200px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 shadow-card transition hover:-translate-y-1 hover:border-primary ${lastSpanFor(
                   menu.categories.length + (menu.combos.length > 0 ? 1 : 0),
                   i + (menu.combos.length > 0 ? 1 : 0),
@@ -145,7 +149,7 @@ function CategoriasPage() {
         )}
       </main>
 
-      <TotemCartBar slug={menu.slug} accent={accent} />
+      <TotemCartBar nav={nav} accent={accent} />
     </div>
   );
 }

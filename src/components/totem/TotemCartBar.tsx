@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ShoppingBag, ChevronRight } from "lucide-react";
 import { useCartForSlug, cartCount, cartTotal, formatPrice } from "@/lib/totem-cart";
+import { totemCartKey, type TotemNav } from "@/lib/totem-nav";
 
 /**
  * La barra del pedido, fija abajo de la pantalla.
@@ -18,8 +19,8 @@ import { useCartForSlug, cartCount, cartTotal, formatPrice } from "@/lib/totem-c
  * Aparece sola cuando entra el primer producto y se va cuando el carrito
  * queda vacío; mientras no hay nada, no roba espacio al menú.
  */
-export function TotemCartBar({ slug, accent }: { slug: string; accent?: string }) {
-  const items = useCartForSlug(slug);
+export function TotemCartBar({ nav, accent }: { nav: TotemNav; accent?: string }) {
+  const items = useCartForSlug(totemCartKey(nav));
   const count = cartCount(items);
   const total = cartTotal(items);
 
@@ -40,8 +41,8 @@ export function TotemCartBar({ slug, accent }: { slug: string; accent?: string }
   return (
     <div className="sticky bottom-0 z-30 border-t border-border bg-background/95 px-6 py-4 backdrop-blur md:px-12">
       <Link
-        to="/t/$slug/carrito"
-        params={{ slug }}
+        to="/t/$empresa/$local/$totem/carrito"
+        params={nav}
         className={`mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4 rounded-3xl px-6 py-5 shadow-glow transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] ${
           late ? "scale-[1.02]" : ""
         }`}

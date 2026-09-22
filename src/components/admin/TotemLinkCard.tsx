@@ -10,7 +10,17 @@ import { Input } from "@/components/ui/input";
  * El enlace del tótem, para no tener que tipear una URL larga en la tablet:
  * se copia con un botón o se escanea el QR desde el dispositivo.
  */
-export function TotemLinkCard({ slug, panelClass }: { slug: string; panelClass: string }) {
+export function TotemLinkCard({
+  empresa,
+  local,
+  totem,
+  panelClass,
+}: {
+  empresa: string;
+  local: string;
+  totem: number;
+  panelClass: string;
+}) {
   // El origin solo existe en el navegador, así que se resuelve después del render.
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
@@ -19,7 +29,7 @@ export function TotemLinkCard({ slug, panelClass }: { slug: string; panelClass: 
     setOrigin(window.location.origin);
   }, []);
 
-  const path = `/t/${slug}`;
+  const path = `/t/${empresa}/${local}/${totem}`;
   // El enlace que va a la tablet lleva el marcador: desde ahí el tótem cierra
   // cualquier sesión de panel que quede abierta en ese dispositivo. El botón
   // "Abrir" de acá al lado usa el enlace pelado, para mirar el tótem desde la

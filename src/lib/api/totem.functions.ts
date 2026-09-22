@@ -10,7 +10,10 @@ import {
   combos,
   comboProducts,
   locations,
+  totems,
   locationPrices,
+  locationProducts,
+  locationCategories,
   orders,
   orderItems,
   paymentSettings,
@@ -193,9 +196,49 @@ export interface TotemMenu {
   mercadoPago: boolean;
 }
 
+// Resuelve la URL /t/{empresa}/{local}/{totem} a una empresa y un local concretos.
+// Valida que empresa, local y tótem existan y estén activos.
+async function resolverTotem(empresaSlug: string, localSlug: string, totemNumber: number) {
+  const [company] = await db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      slug: companies.slug,
+      active: companies.active,
+    })
+    .from(companies)
+    .where(eq(companies.slug, empresaSlug))
+    .limit(1);
+  if (!company) throw new Error("No encontramos este comercio");
+  if (!company.active) throw new Error("Este comercio no está disponible en este momento");
+
+  const [location] = await db
+    .select({ id: locations.id, active: locations.active })
+    .from(locations)
+    .where(and(eq(locations.companyId, company.id), eq(locations.slug, localSlug)))
+    .limit(1);
+  if (!location || !location.active) throw new Error("Este local no está disponible");
+
+  const [totem] = await db
+    .select({ id: totems.id, active: totems.active })
+    .from(totems)
+    .where(and(eq(totems.locationId, location.id), eq(totems.number, totemNumber)))
+    .limit(1);
+  if (!totem || !totem.active) throw new Error("Este tótem no está disponible");
+
+  return { company, locationId: location.id };
+}
+
+const totemInput = {
+  empresa: z.string().trim().min(1).max(60),
+  local: z.string().trim().min(1).max(60),
+  totem: z.number().int().positive(),
+};
+
 export const getTotemHome = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ slug: z.string().trim().min(1).max(60) }))
+  .inputValidator(z.object(totemInput))
   .handler(async ({ data }): Promise<TotemHome> => {
+    const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
     const [row] = await db
       .select({
         company: companies,
@@ -203,11 +246,10 @@ export const getTotemHome = createServerFn({ method: "GET" })
       })
       .from(companies)
       .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
-      .where(eq(companies.slug, data.slug))
+      .where(eq(companies.id, resuelto.company.id))
       .limit(1);
 
     if (!row) throw new Error("No encontramos este comercio");
-    if (!row.company.active) throw new Error("Este comercio no está disponible en este momento");
 
     const s = row.settings;
     return {
@@ -233,8 +275,12 @@ export const getTotemHome = createServerFn({ method: "GET" })
   });
 
 export const getTotemMenu = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ slug: z.string().trim().min(1).max(60) }))
+  .inputValidator(z.object(totemInput))
   .handler(async ({ data }): Promise<TotemMenu> => {
+    const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
+    const companyId = resuelto.company.id;
+    const locationId = resuelto.locationId;
+
     const [row] = await db
       .select({
         company: companies,
@@ -245,28 +291,31 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       })
       .from(companies)
       .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
-      .where(eq(companies.slug, data.slug))
+      .where(eq(companies.id, companyId))
       .limit(1);
 
     if (!row) throw new Error("No encontramos este comercio");
-    if (!row.company.active) throw new Error("Este comercio no está disponible en este momento");
 
-    const companyId = row.company.id;
-
-    // El tótem usa el primer local activo de la empresa (mismo criterio que el pedido).
-    // Sus overrides de precio son los que se muestran.
-    const [loc] = await db
-      .select({ id: locations.id })
-      .from(locations)
-      .where(and(eq(locations.companyId, companyId), eq(locations.active, true)))
-      .orderBy(asc(locations.id))
-      .limit(1);
-    const locationId = loc?.id ?? null;
-
-    const [cats, prods] = await Promise.all([
+    // Se traen con el override de disponibilidad de ESTE local: si el negocio
+    // apagó un producto o una categoría acá, no tiene que aparecer en el tótem.
+    // Ausencia de fila = disponible (hereda de .active).
+    const [catRows, prodRows] = await Promise.all([
       db
-        .select()
+        .select({
+          id: categories.id,
+          name: categories.name,
+          tagline: categories.tagline,
+          photoUrl: categories.photoUrl,
+          available: locationCategories.available,
+        })
         .from(categories)
+        .leftJoin(
+          locationCategories,
+          and(
+            eq(locationCategories.categoryId, categories.id),
+            eq(locationCategories.locationId, locationId),
+          ),
+        )
         .where(and(eq(categories.companyId, companyId), eq(categories.active, true)))
         .orderBy(asc(categories.sort), asc(categories.name)),
       db
@@ -277,11 +326,22 @@ export const getTotemMenu = createServerFn({ method: "GET" })
           description: products.description,
           price: products.price,
           photoUrl: products.photoUrl,
+          available: locationProducts.available,
         })
         .from(products)
+        .leftJoin(
+          locationProducts,
+          and(
+            eq(locationProducts.productId, products.id),
+            eq(locationProducts.locationId, locationId),
+          ),
+        )
         .where(and(eq(products.companyId, companyId), eq(products.active, true)))
         .orderBy(asc(products.sort), asc(products.name)),
     ]);
+
+    const cats = catRows.filter((c) => c.available !== false);
+    const prods = prodRows.filter((p) => p.available !== false);
 
     const prodOverrides = await priceOverrides(
       locationId,
@@ -289,7 +349,10 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       prods.map((p) => p.id),
     );
     const visibleProducts: TotemProduct[] = prods.map((p) => ({
-      ...p,
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      photoUrl: p.photoUrl,
       price: prodOverrides.get(p.id) ?? p.price,
       categoryId: p.categoryId ?? UNCATEGORIZED,
     }));
@@ -377,7 +440,7 @@ export const getTotemMenu = createServerFn({ method: "GET" })
 export const createTotemOrder = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      slug: z.string().trim().min(1).max(60),
+      ...totemInput,
       customerName: z.string().trim().min(1).max(120),
       deliveryMethod: z.enum(["local", "mostrador"]),
       paymentMethod: z.enum(["efectivo", "mercadopago"]),
@@ -397,28 +460,9 @@ export const createTotemOrder = createServerFn({ method: "POST" })
   )
   .handler(
     async ({ data }): Promise<{ orderId: number; orderNumber: number; pagarEn: string | null }> => {
-      const [company] = await db
-        .select({
-          id: companies.id,
-          active: companies.active,
-          slug: companies.slug,
-          name: companies.name,
-        })
-        .from(companies)
-        .where(eq(companies.slug, data.slug))
-        .limit(1);
-
-      if (!company) throw new Error("No encontramos este comercio");
-      if (!company.active) throw new Error("Este comercio no está disponible en este momento");
-
-      const [location] = await db
-        .select({ id: locations.id })
-        .from(locations)
-        .where(and(eq(locations.companyId, company.id), eq(locations.active, true)))
-        .orderBy(asc(locations.id))
-        .limit(1);
-
-      if (!location) throw new Error("El comercio no tiene un local activo");
+      const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
+      const company = resuelto.company;
+      const location = { id: resuelto.locationId };
 
       const productIds = data.items.filter((i) => i.kind === "producto").map((i) => i.id);
       const comboIds = data.items.filter((i) => i.kind === "combo").map((i) => i.id);
@@ -533,7 +577,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           unitPrice: Number(p.unitPrice),
         }));
 
-        const volverA = `${origenPublico()}/t/${company.slug}/listo/${creado.orderId}`;
+        const volverA = `${origenPublico()}/t/${data.empresa}/${data.local}/${data.totem}/listo/${creado.orderId}`;
         const aviso = urlDeAviso();
 
         const pref = await crearPreferencia({
@@ -573,8 +617,9 @@ export interface TotemOrderSummary {
 }
 
 export const getTotemOrder = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ slug: z.string().trim().min(1).max(60), orderId: z.number().int() }))
+  .inputValidator(z.object({ ...totemInput, orderId: z.number().int() }))
   .handler(async ({ data }): Promise<TotemOrderSummary> => {
+    const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
     const [row] = await db
       .select({
         orderNumber: orders.orderNumber,
@@ -594,7 +639,7 @@ export const getTotemOrder = createServerFn({ method: "GET" })
       .innerJoin(locations, eq(locations.id, orders.locationId))
       .innerJoin(companies, eq(companies.id, locations.companyId))
       .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
-      .where(and(eq(orders.id, data.orderId), eq(companies.slug, data.slug)))
+      .where(and(eq(orders.id, data.orderId), eq(orders.locationId, resuelto.locationId)))
       .limit(1);
 
     if (!row) throw new Error("No encontramos ese pedido");
@@ -626,8 +671,9 @@ export const getTotemOrder = createServerFn({ method: "GET" })
  * más, sin montos ni datos de quien pagó.
  */
 export const getTotemPaymentStatus = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ slug: z.string().trim().min(1).max(60), orderId: z.number().int() }))
+  .inputValidator(z.object({ ...totemInput, orderId: z.number().int() }))
   .handler(async ({ data }): Promise<{ pagado: boolean; cancelado: boolean }> => {
+    const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
     const [row] = await db
       .select({
         id: orders.id,
@@ -639,7 +685,7 @@ export const getTotemPaymentStatus = createServerFn({ method: "GET" })
       .from(orders)
       .innerJoin(locations, eq(locations.id, orders.locationId))
       .innerJoin(companies, eq(companies.id, locations.companyId))
-      .where(and(eq(orders.id, data.orderId), eq(companies.slug, data.slug)))
+      .where(and(eq(orders.id, data.orderId), eq(orders.locationId, resuelto.locationId)))
       .limit(1);
 
     if (!row) throw new Error("No encontramos ese pedido");

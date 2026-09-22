@@ -50,6 +50,7 @@ import { StockSection } from "@/components/admin/StockSection";
 import { MovimientosSection } from "@/components/admin/MovimientosSection";
 import { CodigosAccionSection } from "@/components/admin/CodigosAccionSection";
 import { PreciosSection } from "@/components/admin/PreciosSection";
+import { TotemsSection } from "@/components/admin/TotemsSection";
 import { PortadaSection } from "@/components/admin/PortadaSection";
 import { OperadoresSection } from "@/components/admin/OperadoresSection";
 import { CajaSection } from "@/components/admin/CajaSection";
@@ -78,6 +79,7 @@ type SectionId =
   | "precios"
   | "caja"
   | "pagos"
+  | "totems"
   | "operadores";
 
 interface SectionDef {
@@ -188,6 +190,13 @@ const SECTIONS: SectionDef[] = [
     label: "Cobros",
     icon: CreditCard,
     desc: "Cómo cobra tu tótem",
+    ownerOnly: true,
+  },
+  {
+    id: "totems",
+    label: "Tótems",
+    icon: Monitor,
+    desc: "Enlaces y QR de cada tótem por negocio",
     ownerOnly: true,
   },
   {
@@ -590,6 +599,8 @@ function SectionContent({
       return <CajaSection panelClass={panelClass} />;
     case "pagos":
       return <PagosSection panelClass={panelClass} />;
+    case "totems":
+      return <TotemsSection panelClass={panelClass} business={business} />;
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
   }

@@ -120,14 +120,9 @@ varios a la vez.
 
 ### Bugs visibles
 
-**La disponibilidad por local no se aplica en el tótem.** `locationProducts` y `locationCategories`
-existen y el panel deja apagar cosas por sucursal, pero `getTotemMenu` lee el catálogo de la empresa
-y las ignora. Apagás un producto y el cliente lo sigue viendo. Ausencia de fila significa
-"disponible", hereda de `product.active`.
-
-**El tótem no sabe a qué local pertenece.** `createTotemOrder` manda todos los pedidos al primer
-local activo de la empresa. Con dos sucursales no funciona. Se habló de aparear el dispositivo
-(un código por tótem que lo ate a un local).
+Los dos que estaban acá —la disponibilidad por local que el tótem ignoraba y el tótem que no sabía
+a qué local pertenecía— están resueltos: la URL del tótem es `/t/{empresa}/{local}/{tótem}`, de ahí
+sale el local, y `getTotemMenu` aplica los overrides de ese local.
 
 ### Del PDF, sin empezar
 

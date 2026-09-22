@@ -39,6 +39,8 @@ import {
   productIngredients,
   ingredients,
   ingredientCategories,
+  locations,
+  totems,
   locationPrices,
   locationProducts,
   stockLimits,
@@ -951,7 +953,21 @@ async function main() {
     `\nListo: ${totalProductos} productos en ${CARTA.length} categorías` +
       (apagados > 0 ? ` (${apagados} apagados, los que la carta marca "consultar").` : "."),
   );
-  console.log(`El tótem queda en /t/${slug}`);
+  // La URL del tótem lleva empresa, local y número, así que se arma con el
+  // primer tótem que tenga la empresa. Si todavía no hay ninguno, el catálogo
+  // quedó cargado igual y el tótem se crea desde el panel.
+  const [puesto] = await db
+    .select({ local: locations.slug, numero: totems.number })
+    .from(totems)
+    .innerJoin(locations, eq(locations.id, totems.locationId))
+    .where(and(eq(locations.companyId, companyId), eq(totems.active, true)))
+    .orderBy(locations.id, totems.number)
+    .limit(1);
+  console.log(
+    puesto
+      ? `El tótem queda en /t/${slug}/${puesto.local}/${puesto.numero}`
+      : `Falta crear un tótem para esta empresa desde el panel (sección Tótems).`,
+  );
   process.exit(0);
 }
 
