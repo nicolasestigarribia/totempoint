@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Save, ExternalLink, Monitor } from "lucide-react";
+import { Loader2, Save, Monitor } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -375,8 +375,10 @@ export function PortadaSection({
             <h3 className="font-bold">Vista previa</h3>
           </div>
           <PreviewFrame className="rounded-2xl border border-white/10">
-            {/* Vista previa: nav de relleno, no se navega desde el iframe. */}
-            <TotemHome data={preview} nav={{ empresa: "preview", local: "preview", totem: "1" }} />
+            {/* Sin nav: el botón se ve pero no navega. El iframe comparte el
+                router del panel, así que un clic acá te sacaba de la pantalla
+                que estás editando. */}
+            <TotemHome data={preview} nav={null} />
           </PreviewFrame>
           <p className="text-xs text-muted-foreground">
             Los cambios se reflejan al instante, pero se aplican al tótem recién cuando guardás.

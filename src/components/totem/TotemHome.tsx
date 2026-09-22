@@ -68,25 +68,21 @@ function StartButton({
   size = "lg",
 }: {
   data: TotemHomeData;
-  nav: TotemNav;
+  nav: TotemNav | null;
   size?: "lg" | "xl";
 }) {
   const accent = data.accentColor || data.primaryColor || undefined;
-  return (
-    <Link
-      to="/t/$empresa/$local/$totem/categorias"
-      params={nav}
-      className={`late group flex w-full items-center justify-between gap-4 rounded-3xl transition hover:scale-[1.02] active:scale-[0.98] ${
-        size === "xl" ? "px-12 py-10" : "px-10 py-8"
-      }`}
-      style={
-        {
-          background: accent ?? "var(--primary)",
-          // El halo late en el color de la marca, no en blanco.
-          "--halo": `color-mix(in oklab, ${accent ?? "var(--primary)"} 55%, transparent)`,
-        } as React.CSSProperties
-      }
-    >
+  const className = `late group flex w-full items-center justify-between gap-4 rounded-3xl transition hover:scale-[1.02] active:scale-[0.98] ${
+    size === "xl" ? "px-12 py-10" : "px-10 py-8"
+  }`;
+  const style = {
+    background: accent ?? "var(--primary)",
+    // El halo late en el color de la marca, no en blanco.
+    "--halo": `color-mix(in oklab, ${accent ?? "var(--primary)"} 55%, transparent)`,
+  } as React.CSSProperties;
+
+  const contenido = (
+    <>
       <span
         className={`font-display uppercase tracking-wide text-white ${
           size === "xl" ? "text-4xl md:text-5xl" : "text-3xl md:text-4xl"
@@ -97,6 +93,28 @@ function StartButton({
       <ChevronRight
         className={`text-white transition group-hover:translate-x-1 ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`}
       />
+    </>
+  );
+
+  // Sin `nav` esto es la vista previa del panel: se ve igual pero no navega.
+  // El iframe comparte el router con el panel, así que un clic acá sacaba al
+  // dueño de su propia pantalla mientras editaba la portada.
+  if (!nav) {
+    return (
+      <div className={className} style={style} aria-hidden>
+        {contenido}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      to="/t/$empresa/$local/$totem/categorias"
+      params={nav}
+      className={className}
+      style={style}
+    >
+      {contenido}
     </Link>
   );
 }
@@ -116,7 +134,7 @@ function Title({ data, className = "" }: { data: TotemHomeData; className?: stri
 }
 
 // Hero lateral: imagen de fondo difuminada, texto a la izquierda, botón a la derecha.
-function Clasico({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
+function Clasico({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
   // Sin overflow-hidden en el contenedor: si el contenido es más alto que la
   // pantalla (celular apaisado, tablet chica) hay que poder deslizar, no recortar.
   return (
@@ -167,7 +185,7 @@ function Clasico({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
 }
 
 // Pantalla completa: imagen a sangre, todo centrado. Ideal para discotecas/eventos.
-function Completo({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
+function Completo({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-center bg-background text-center">
       {data.heroImageUrl && (
@@ -199,7 +217,7 @@ function Completo({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
 }
 
 // Split: mitad imagen, mitad panel sólido. Look de carta/menú sobrio.
-function Split({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
+function Split({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
       <div className="relative min-h-[35dvh] flex-1 overflow-hidden lg:min-h-dvh">
@@ -230,7 +248,11 @@ function Split({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
   );
 }
 
-export function TotemHome({ data, nav }: { data: TotemHomeData; nav: TotemNav }) {
+/**
+ * `nav` es null en la vista previa del panel: la portada se dibuja igual pero
+ * sin llevar a ningún lado, porque ahí todavía no hay un tótem al que ir.
+ */
+export function TotemHome({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
   const plantilla =
     data.template === "completo" ? (
       <Completo data={data} nav={nav} />

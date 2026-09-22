@@ -49,7 +49,7 @@ This is the **only file with server functions that have no auth middleware** —
 - `createTotemOrder` receives lines of `{kind: "producto" | "combo", id, quantity}`; **prices and the total are recomputed server-side** from the DB. Never trust amounts sent by the client. A combo is stored as one `order_items` row with `product_id` null and the combo's name and price, which `order_items` already freezes.
 - Products with no `categoryId` are grouped under a synthetic category with id `0` (`UNCATEGORIZED`, shown as "Otros") so they can't become invisible.
 - Order numbers are `MAX(order_number) + 1` per location inside a transaction, starting at 100. The totem knows its own location from the URL, so the order, its price overrides (`locationPrices`) and its availability all belong to that branch.
-- Per-location availability (`locationProducts`/`locationCategories`) **is** applied: a product or a category turned off for this branch doesn't reach the screen. Absence of a row still means available.
+- Per-location availability (`locationProducts`/`locationCategories`) **is** applied, in `getTotemMenu` **and** in `createTotemOrder`: the cart lives in the tablet and outlives somebody turning a product off from the panel, so checking it only when drawing the menu let a stale cart through. Absence of a row still means available. Combos have no per-location availability at all — there is no `location_combos` table.
 
 ### Totem cover and behaviour
 

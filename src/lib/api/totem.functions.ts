@@ -112,6 +112,61 @@ async function priceOverrides(
   return new Map(rows.map((r) => [r.itemId, r.price]));
 }
 
+/**
+ * Los productos de esta lista que el local tiene apagados.
+ *
+ * Un producto no se vende acá si el negocio lo apagó para este local, o si
+ * apagó la categoría entera. Ausencia de fila significa disponible: hereda de
+ * `product.active`, que ya se chequeó antes de llegar hasta acá.
+ *
+ * Existe porque la disponibilidad tiene que decidirse en los dos lados. El
+ * menú la aplica para no mostrar lo que no hay, pero el carrito vive en la
+ * tablet y sobrevive a que alguien apague un producto desde el panel: sin este
+ * control, ese carrito entraba igual y la cocina recibía algo que el local no
+ * tiene.
+ */
+async function productosApagadosEnElLocal(
+  locationId: number,
+  productos: { id: number; categoryId: number | null }[],
+): Promise<Set<number>> {
+  if (productos.length === 0) return new Set();
+
+  const ids = productos.map((p) => p.id);
+  const categoriaIds = [...new Set(productos.map((p) => p.categoryId).filter((c) => c !== null))];
+
+  const [porProducto, porCategoria] = await Promise.all([
+    db
+      .select({ productId: locationProducts.productId })
+      .from(locationProducts)
+      .where(
+        and(
+          eq(locationProducts.locationId, locationId),
+          eq(locationProducts.available, false),
+          inArray(locationProducts.productId, ids),
+        ),
+      ),
+    categoriaIds.length
+      ? db
+          .select({ categoryId: locationCategories.categoryId })
+          .from(locationCategories)
+          .where(
+            and(
+              eq(locationCategories.locationId, locationId),
+              eq(locationCategories.available, false),
+              inArray(locationCategories.categoryId, categoriaIds),
+            ),
+          )
+      : Promise.resolve([]),
+  ]);
+
+  const categoriasApagadas = new Set(porCategoria.map((c) => c.categoryId));
+  const apagados = new Set(porProducto.map((p) => p.productId));
+  for (const p of productos) {
+    if (p.categoryId !== null && categoriasApagadas.has(p.categoryId)) apagados.add(p.id);
+  }
+  return apagados;
+}
+
 // Capa pública: el tótem no tiene sesión, resuelve la empresa por slug de la URL.
 // No usa requireAuth a propósito — devolvé sólo datos que puedan verse en pantalla.
 
@@ -341,7 +396,14 @@ export const getTotemMenu = createServerFn({ method: "GET" })
     ]);
 
     const cats = catRows.filter((c) => c.available !== false);
-    const prods = prodRows.filter((p) => p.available !== false);
+    // Un producto se cae también si su categoría está apagada en este local:
+    // sin tarjeta de categoría el cliente no llega a él, pero seguía viajando
+    // en `products` y el carrito podía quedar con algo que el local no tiene.
+    const categoriasVisibles = new Set(cats.map((c) => c.id));
+    const prods = prodRows.filter(
+      (p) =>
+        p.available !== false && (p.categoryId === null || categoriasVisibles.has(p.categoryId)),
+    );
 
     const prodOverrides = await priceOverrides(
       locationId,
@@ -469,7 +531,12 @@ export const createTotemOrder = createServerFn({ method: "POST" })
 
       const productRows = productIds.length
         ? await db
-            .select({ id: products.id, name: products.name, price: products.price })
+            .select({
+              id: products.id,
+              name: products.name,
+              price: products.price,
+              categoryId: products.categoryId,
+            })
             .from(products)
             .where(
               and(
@@ -494,6 +561,14 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         : [];
 
       if (productRows.length !== productIds.length || comboRows.length !== comboIds.length) {
+        throw new Error("Algo de tu pedido ya no está disponible");
+      }
+
+      // El local puede tener apagado algo que la empresa sigue vendiendo. El
+      // menú ya no lo muestra, pero el carrito de la tablet puede ser anterior
+      // a que lo apagaran.
+      const apagados = await productosApagadosEnElLocal(location.id, productRows);
+      if (apagados.size > 0) {
         throw new Error("Algo de tu pedido ya no está disponible");
       }
 

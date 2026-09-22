@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TotemLinkCard } from "@/components/admin/TotemLinkCard";
+import { TotemLinkCard, TotemTabletTips } from "@/components/admin/TotemLinkCard";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
 import {
   listTotems,
@@ -157,6 +157,8 @@ export function TotemsSection({
           Agregar tótem
         </Button>
       </div>
+
+      <TotemTabletTips panelClass={panelClass} />
 
       {loadingData ? (
         <div className="flex justify-center py-10">

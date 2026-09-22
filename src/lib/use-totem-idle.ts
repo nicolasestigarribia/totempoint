@@ -10,6 +10,10 @@ const IDLE_MS = 90_000;
 // vuelve sola a la portada y vacía el pedido.
 export function useTotemIdleReset(nav: TotemNav) {
   const navigate = useNavigate();
+  // Los tres valores sueltos y no el objeto: el efecto engancha los listeners
+  // de la pantalla, y con una dependencia que cambia de identidad en cada
+  // render los estaría poniendo y sacando todo el tiempo.
+  const { empresa, local, totem } = nav;
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -18,7 +22,11 @@ export function useTotemIdleReset(nav: TotemNav) {
       clearTimeout(timer);
       timer = setTimeout(() => {
         useTotemCart.getState().clear();
-        navigate({ to: "/t/$empresa/$local/$totem", params: nav, replace: true });
+        navigate({
+          to: "/t/$empresa/$local/$totem",
+          params: { empresa, local, totem },
+          replace: true,
+        });
       }, IDLE_MS);
     };
 
@@ -30,5 +38,5 @@ export function useTotemIdleReset(nav: TotemNav) {
       clearTimeout(timer);
       events.forEach((e) => window.removeEventListener(e, reset));
     };
-  }, [navigate, nav]);
+  }, [navigate, empresa, local, totem]);
 }

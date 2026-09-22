@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Check, ExternalLink, QrCode, Smartphone } from "lucide-react";
+import { Copy, Check, ExternalLink, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 /**
- * El enlace del tótem, para no tener que tipear una URL larga en la tablet:
+ * El enlace de un tótem, para no tener que tipear una URL larga en la tablet:
  * se copia con un botón o se escanea el QR desde el dispositivo.
+ *
+ * Es una tarjeta por tótem, así que dice lo justo. Lo que hay que hacer una
+ * sola vez —instalarlo como aplicación, fijar la pantalla— vive en
+ * `TotemTabletTips`, arriba de la lista: repetido debajo de cada tótem era el
+ * mismo párrafo tres veces y no se leía ninguna.
  */
 export function TotemLinkCard({
   empresa,
@@ -50,18 +55,12 @@ export function TotemLinkCard({
 
   return (
     <div className={`p-6 ${panelClass}`}>
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1 space-y-4">
-          <div>
-            <h3 className="flex items-center gap-2 text-lg font-bold">
-              <QrCode className="h-5 w-5 text-primary" />
-              Enlace del tótem
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Abrí esta dirección en la tablet del mostrador. Escaneá el código con la cámara del
-              dispositivo y no vas a tener que escribirla.
-            </p>
-          </div>
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Abrí esta dirección en la tablet de este tótem. Escaneá el código con la cámara del
+            dispositivo y no vas a tener que escribirla.
+          </p>
 
           <div className="flex flex-wrap gap-2">
             <Input
@@ -84,39 +83,6 @@ export function TotemLinkCard({
               Abrir
             </a>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            Abierta con este enlace, la tablet queda marcada como tótem: cada vez que vuelve a la
-            portada cierra la sesión de panel que haya quedado abierta ahí, así nadie entra a{" "}
-            <code className="rounded bg-white/10 px-1">/admin</code> desde el mostrador. Para
-            sacarle la marca, abrila una vez con{" "}
-            <code className="rounded bg-white/10 px-1">?totem=0</code>. Igual conviene administrar
-            desde tu teléfono o tu computadora y dejar la tablet en modo kiosco.
-          </p>
-
-          <div className="rounded-2xl border border-border p-4">
-            <p className="flex items-center gap-2 text-sm font-medium">
-              <Smartphone className="h-4 w-4 text-primary" />
-              Para que no se vea la barra de direcciones
-            </p>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-              <li>
-                Abrí este enlace en la tablet y, en el menú de Chrome, tocá{" "}
-                <strong className="text-foreground">Agregar a la pantalla principal</strong>. Queda
-                un ícono con el nombre de tu negocio que abre el tótem a pantalla completa, sin
-                barra de direcciones ni pestañas.
-              </li>
-              <li>
-                Si igual lo abrís desde el navegador, el primer toque en la pantalla ya lo pone en
-                pantalla completa.
-              </li>
-              <li>
-                Para que nadie pueda salirse: Ajustes → Seguridad →{" "}
-                <strong className="text-foreground">Fijar pantalla</strong> en Android, o instalá un
-                navegador de kiosco en la tablet.
-              </li>
-            </ol>
-          </div>
         </div>
 
         {/* Fondo blanco fijo: un QR sobre el panel oscuro no lo lee ninguna cámara. */}
@@ -124,6 +90,51 @@ export function TotemLinkCard({
           <QRCodeSVG value={url} size={148} level="M" />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Cómo se deja una tablet lista, una sola vez para todos los tótems del local.
+ *
+ * Son tres cosas distintas y conviene leerlas juntas: qué hace el `?totem=1`
+ * del enlace, cómo se instala para que no se vea la barra de direcciones, y
+ * qué hay que hacer en el sistema operativo, que es lo único que la aplicación
+ * no puede resolver sola.
+ */
+export function TotemTabletTips({ panelClass }: { panelClass: string }) {
+  return (
+    <div className={`space-y-4 p-6 ${panelClass}`}>
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <Smartphone className="h-4 w-4 text-primary" />
+        Cómo dejar lista la tablet
+      </p>
+
+      <p className="text-xs text-muted-foreground">
+        Abierta con el enlace de acá abajo, la tablet queda marcada como tótem: cada vez que vuelve
+        a la portada cierra la sesión de panel que haya quedado abierta ahí, así nadie entra a{" "}
+        <code className="rounded bg-white/10 px-1">/admin</code> desde el mostrador. Para sacarle la
+        marca, abrila una vez con <code className="rounded bg-white/10 px-1">?totem=0</code>. Igual
+        conviene administrar desde tu teléfono o tu computadora.
+      </p>
+
+      <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+        <li>
+          Abrí el enlace del tótem en la tablet y, en el menú de Chrome, tocá{" "}
+          <strong className="text-foreground">Agregar a la pantalla principal</strong>. Queda un
+          ícono con el nombre de tu negocio que abre ese tótem a pantalla completa, sin barra de
+          direcciones ni pestañas. Cada tótem instala el suyo.
+        </li>
+        <li>
+          Si igual lo abrís desde el navegador, el primer toque en la pantalla ya lo pone en
+          pantalla completa.
+        </li>
+        <li>
+          Para que nadie pueda salirse: Ajustes → Seguridad →{" "}
+          <strong className="text-foreground">Fijar pantalla</strong> en Android, o instalá un
+          navegador de kiosco en la tablet.
+        </li>
+      </ol>
     </div>
   );
 }

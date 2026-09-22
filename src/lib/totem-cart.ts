@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// Carrito del tótem. Guarda el slug del negocio: si la tablet cambia de
-// comercio, el carrito se vacía en vez de mezclar productos de dos negocios.
+// Carrito del tótem. El campo `slug` guarda la clave del tótem completo
+// —empresa/local/número, ver `totem-nav.ts`— y no sólo la empresa: si la
+// tablet cambia de comercio, de sucursal o de puesto, el carrito se vacía en
+// vez de arrastrar el pedido de otra pantalla.
 /** Una línea del pedido: un producto suelto o un combo. */
 export type TotemCartKind = "producto" | "combo";
 

@@ -122,7 +122,13 @@ varios a la vez.
 
 Los dos que estaban acá —la disponibilidad por local que el tótem ignoraba y el tótem que no sabía
 a qué local pertenecía— están resueltos: la URL del tótem es `/t/{empresa}/{local}/{tótem}`, de ahí
-sale el local, y `getTotemMenu` aplica los overrides de ese local.
+sale el local, y tanto `getTotemMenu` como `createTotemOrder` aplican los overrides de ese local.
+El pedido también, y no sólo el menú: el carrito vive en la tablet y sobrevive a que alguien apague
+un producto desde el panel.
+
+**Los combos no tienen disponibilidad por local.** No existe una tabla `location_combos`, así que un
+combo se vende en todas las sucursales, incluso si adentro lleva un producto que ese local apagó.
+Hasta que se decida qué hacer, la salida provisoria es apagar el combo para toda la empresa.
 
 ### Del PDF, sin empezar
 
