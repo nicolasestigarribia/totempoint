@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TotemLinkCard } from "@/components/admin/TotemLinkCard";
+import { TotemPrinterCard } from "@/components/admin/TotemPrinterCard";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
 import {
   listTotems,
@@ -198,12 +199,21 @@ export function TotemsSection({
                 </div>
               </div>
               {location && (
-                <TotemLinkCard
-                  empresa={business.slug}
-                  local={location.slug}
-                  totem={t.number}
-                  panelClass={panelClass}
-                />
+                <>
+                  <TotemLinkCard
+                    empresa={business.slug}
+                    local={location.slug}
+                    totem={t.number}
+                    panelClass={panelClass}
+                  />
+                  <TotemPrinterCard
+                    empresa={business.slug}
+                    local={location.slug}
+                    totem={t.number}
+                    companyName={business.name}
+                    panelClass={panelClass}
+                  />
+                </>
               )}
             </div>
           ))}
