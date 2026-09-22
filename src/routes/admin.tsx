@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
@@ -366,6 +366,10 @@ function AdminPage() {
     return canViewSection(permissions, s.permission);
   });
   const puedeVerComandera = isOwner || canViewSection(permissions, "comandera");
+  // La comandera vive dentro del grupo Empresa (debajo de Tótems). Un encargado
+  // con permiso de Comandera pero sin ninguna sección de Empresa dejaría ese
+  // grupo vacío, así que en ese caso el enlace cae suelto más abajo.
+  const empresaVisible = visibleSections.some((s) => !s.hidden && s.group === "empresa");
   const current = SECTIONS.find((s) => s.id === section)!;
   const firstVisible = visibleSections.find((s) => !s.hidden)?.id;
   const sectionAllowed = visibleSections.some((s) => s.id === section);
@@ -503,31 +507,42 @@ function AdminPage() {
                 </button>
                 {!collapsed &&
                   items.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setSection(s.id);
-                        if (window.innerWidth < 1024) setSidebarOpen(false);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                        section === s.id
-                          ? "bg-primary/15 text-foreground"
-                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                      }`}
-                    >
-                      <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
-                      {s.label}
-                    </button>
+                    <Fragment key={s.id}>
+                      <button
+                        onClick={() => {
+                          setSection(s.id);
+                          if (window.innerWidth < 1024) setSidebarOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                          section === s.id
+                            ? "bg-primary/15 text-foreground"
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        }`}
+                      >
+                        <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
+                        {s.label}
+                      </button>
+                      {/*
+                        La comandera no es una sección del panel sino otra
+                        pantalla (/kitchen). Va debajo de Tótems dentro de
+                        Empresa; sin este enlace, a quien le habilitan
+                        "Comandera" no le queda forma de llegar.
+                      */}
+                      {s.id === "totems" && puedeVerComandera && (
+                        <a
+                          href="/kitchen"
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
+                        >
+                          <ChefHat className="h-5 w-5" />
+                          Comandera
+                        </a>
+                      )}
+                    </Fragment>
                   ))}
               </div>
             );
           })}
         </nav>
-        {/*
-          La comandera no es una sección del panel sino otra pantalla (/kitchen),
-          así que no entra en el nav de arriba. Sin este enlace, a quien le
-          habilitan "Comandera" no le queda forma de llegar.
-        */}
         <div className="px-3 pb-1">
           <a
             href="/cuenta"
@@ -537,7 +552,8 @@ function AdminPage() {
             Mi cuenta
           </a>
         </div>
-        {puedeVerComandera && (
+        {/* Fallback: quien ve Comandera pero no tiene grupo Empresa (encargado). */}
+        {puedeVerComandera && !empresaVisible && (
           <div className="px-3 pb-1">
             <a
               href="/kitchen"
