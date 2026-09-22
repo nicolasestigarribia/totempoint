@@ -91,6 +91,8 @@ interface SectionDef {
   ownerOnly?: boolean;
   /** Sección delegable: el encargado la ve si el dueño le dio permiso. */
   permission?: PanelSection;
+  /** No se muestra en el nav, pero se puede abrir por otro camino (ej: Portada desde Tótems). */
+  hidden?: boolean;
 }
 
 const SECTIONS: SectionDef[] = [
@@ -102,11 +104,20 @@ const SECTIONS: SectionDef[] = [
     ownerOnly: true,
   },
   {
+    id: "totems",
+    label: "Tótems",
+    icon: Monitor,
+    desc: "Enlaces, QR y portada de cada tótem",
+    ownerOnly: true,
+  },
+  {
+    // Se edita desde el botón "Editar portada" en la sección Tótems.
     id: "portada",
     label: "Portada",
     icon: Monitor,
     desc: "Pantalla de inicio de tu tótem",
     permission: "portada",
+    hidden: true,
   },
   {
     id: "locales",
@@ -190,13 +201,6 @@ const SECTIONS: SectionDef[] = [
     label: "Cobros",
     icon: CreditCard,
     desc: "Cómo cobra tu tótem",
-    ownerOnly: true,
-  },
-  {
-    id: "totems",
-    label: "Tótems",
-    icon: Monitor,
-    desc: "Enlaces y QR de cada tótem por negocio",
     ownerOnly: true,
   },
   {
@@ -339,7 +343,7 @@ function AdminPage() {
   });
   const puedeVerComandera = isOwner || canViewSection(permissions, "comandera");
   const current = SECTIONS.find((s) => s.id === section)!;
-  const firstVisible = visibleSections[0]?.id;
+  const firstVisible = visibleSections.find((s) => !s.hidden)?.id;
   const sectionAllowed = visibleSections.some((s) => s.id === section);
 
   // Si la sección abierta no está permitida, cae en la primera que sí lo esté.
@@ -457,7 +461,9 @@ function AdminPage() {
             página de atrás. overscroll-contain evita que al llegar al final
             el deslizamiento siga en el contenido de abajo. */}
         <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
-          {visibleSections.map((s) => (
+          {visibleSections
+            .filter((s) => !s.hidden)
+            .map((s) => (
             <button
               key={s.id}
               onClick={() => {
@@ -550,6 +556,7 @@ function AdminPage() {
               business={business!}
               branding={branding}
               panelClass={PANEL}
+              onEditPortada={() => setSection("portada")}
             />
           </ReadOnlyContext.Provider>
         </div>
@@ -564,11 +571,13 @@ function SectionContent({
   business,
   branding,
   panelClass,
+  onEditPortada,
 }: {
   section: SectionId;
   business: MyBusiness;
   branding: BrandingProps;
   panelClass: string;
+  onEditPortada: () => void;
 }) {
   switch (section) {
     case "resumen":
@@ -600,7 +609,9 @@ function SectionContent({
     case "pagos":
       return <PagosSection panelClass={panelClass} />;
     case "totems":
-      return <TotemsSection panelClass={panelClass} business={business} />;
+      return (
+        <TotemsSection panelClass={panelClass} business={business} onEditPortada={onEditPortada} />
+      );
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
   }

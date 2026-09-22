@@ -26,9 +26,11 @@ import type { MyBusiness } from "@/lib/api/business.functions";
 export function TotemsSection({
   panelClass,
   business,
+  onEditPortada,
 }: {
   panelClass: string;
   business: MyBusiness;
+  onEditPortada: () => void;
 }) {
   const fetchLocations = useServerFn(listLocations);
   const fetchTotems = useServerFn(listTotems);
@@ -152,10 +154,16 @@ export function TotemsSection({
             ))}
           </SelectContent>
         </Select>
-        <Button className="ml-auto gap-2" onClick={handleCreate} disabled={creating}>
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          Agregar tótem
-        </Button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={onEditPortada}>
+            <Monitor className="h-4 w-4" />
+            Editar portada
+          </Button>
+          <Button className="gap-2" onClick={handleCreate} disabled={creating}>
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Agregar tótem
+          </Button>
+        </div>
       </div>
 
       {loadingData ? (
