@@ -80,11 +80,23 @@ type SectionId =
   | "totems"
   | "operadores";
 
+type NavGroupId = "empresa" | "menu" | "sucursales" | "caja";
+
+/** Encabezados del nav, en el orden en que se muestran. */
+const NAV_GROUPS: { id: NavGroupId; label: string }[] = [
+  { id: "empresa", label: "Empresa" },
+  { id: "menu", label: "Menú" },
+  { id: "sucursales", label: "Sucursales" },
+  { id: "caja", label: "Caja" },
+];
+
 interface SectionDef {
   id: SectionId;
   label: string;
   icon: LucideIcon;
   desc: string;
+  /** Grupo del nav bajo el que se agrupa el botón. */
+  group: NavGroupId;
   /** Secciones que solo ve el dueño de la empresa, no los encargados. */
   ownerOnly?: boolean;
   /** Sección delegable: el encargado la ve si el dueño le dio permiso. */
@@ -99,6 +111,7 @@ const SECTIONS: SectionDef[] = [
     label: "Empresa",
     icon: LayoutDashboard,
     desc: "Marca, datos y sucursales de tu empresa",
+    group: "empresa",
     ownerOnly: true,
   },
   {
@@ -106,6 +119,7 @@ const SECTIONS: SectionDef[] = [
     label: "Tótems",
     icon: Monitor,
     desc: "Enlaces, QR y portada de cada tótem",
+    group: "empresa",
     ownerOnly: true,
   },
   {
@@ -114,6 +128,7 @@ const SECTIONS: SectionDef[] = [
     label: "Portada",
     icon: Monitor,
     desc: "Pantalla de inicio de tu tótem",
+    group: "empresa",
     permission: "portada",
     hidden: true,
   },
@@ -122,6 +137,7 @@ const SECTIONS: SectionDef[] = [
     label: "Categorías",
     icon: FolderTree,
     desc: "Categorías del menú",
+    group: "menu",
     permission: "categorias",
   },
   {
@@ -129,6 +145,7 @@ const SECTIONS: SectionDef[] = [
     label: "Productos",
     icon: Package,
     desc: "Productos y precios",
+    group: "menu",
     permission: "productos",
   },
   {
@@ -136,6 +153,7 @@ const SECTIONS: SectionDef[] = [
     label: "Combos",
     icon: Boxes,
     desc: "Combos armados con productos",
+    group: "menu",
     permission: "combos",
   },
   {
@@ -144,6 +162,7 @@ const SECTIONS: SectionDef[] = [
     label: "Ingredientes",
     icon: Carrot,
     desc: "Ingredientes de tus productos",
+    group: "menu",
   },
   {
     id: "disponibilidad",
@@ -151,13 +170,23 @@ const SECTIONS: SectionDef[] = [
     label: "Disponibilidad",
     icon: Store,
     desc: "Qué se muestra en cada sucursal",
+    group: "sucursales",
   },
   {
     id: "stock",
     label: "Stock",
     icon: Warehouse,
     desc: "Stock de ingredientes por sucursal",
+    group: "sucursales",
     permission: "stock",
+  },
+  {
+    id: "precios",
+    label: "Precios",
+    icon: DollarSign,
+    desc: "Precios de productos y combos por sucursal",
+    group: "sucursales",
+    permission: "precios",
   },
   {
     id: "movimientos",
@@ -165,26 +194,22 @@ const SECTIONS: SectionDef[] = [
     label: "Movimientos",
     icon: ScrollText,
     desc: "Historial de movimientos de la empresa",
+    group: "caja",
   },
   {
     id: "codigos",
     label: "Códigos de acción",
     icon: Tags,
     desc: "Motivos de ingresos y egresos",
+    group: "caja",
     permission: "codigos",
-  },
-  {
-    id: "precios",
-    label: "Precios",
-    icon: DollarSign,
-    desc: "Precios de productos y combos por sucursal",
-    permission: "precios",
   },
   {
     id: "caja",
     label: "Recaudación",
     icon: CircleDollarSign,
     desc: "Lo cobrado en la jornada",
+    group: "caja",
     permission: "caja",
   },
   {
@@ -192,6 +217,7 @@ const SECTIONS: SectionDef[] = [
     label: "Cobros",
     icon: CreditCard,
     desc: "Cómo cobra tu tótem",
+    group: "empresa",
     ownerOnly: true,
   },
   {
@@ -199,6 +225,7 @@ const SECTIONS: SectionDef[] = [
     label: "Operadores",
     icon: Users,
     desc: "Encargados y las sucursales que manejan",
+    group: "empresa",
     ownerOnly: true,
   },
 ];
@@ -451,26 +478,35 @@ function AdminPage() {
             la pantalla de un celular, y sin esto el gesto se lo comía la
             página de atrás. overscroll-contain evita que al llegar al final
             el deslizamiento siga en el contenido de abajo. */}
-        <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
-          {visibleSections
-            .filter((s) => !s.hidden)
-            .map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSection(s.id);
-                if (window.innerWidth < 1024) setSidebarOpen(false);
-              }}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                section === s.id
-                  ? "bg-primary/15 text-foreground"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              }`}
-            >
-              <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
-              {s.label}
-            </button>
-          ))}
+        <nav className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
+          {NAV_GROUPS.map((g) => {
+            const items = visibleSections.filter((s) => !s.hidden && s.group === g.id);
+            if (items.length === 0) return null;
+            return (
+              <div key={g.id} className="space-y-1">
+                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  {g.label}
+                </p>
+                {items.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setSection(s.id);
+                      if (window.innerWidth < 1024) setSidebarOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                      section === s.id
+                        ? "bg-primary/15 text-foreground"
+                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    }`}
+                  >
+                    <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         {/*
           La comandera no es una sección del panel sino otra pantalla (/kitchen),
