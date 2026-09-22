@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Totempoint</string>
+    <string name="title_activity_main">Totempoint</string>
+    <string name="package_name">com.totempoint.app</string>
+    <string name="custom_url_scheme">com.totempoint.app</string>
+</resources>
