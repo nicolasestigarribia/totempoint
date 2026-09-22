@@ -34,11 +34,17 @@ interface BleDevice {
   name?: string;
   gatt?: BleServer;
 }
+interface BleFilter {
+  namePrefix?: string;
+  services?: (number | string)[];
+}
+interface BleRequestOptions {
+  acceptAllDevices?: boolean;
+  filters?: BleFilter[];
+  optionalServices?: (number | string)[];
+}
 interface BleApi {
-  requestDevice(opts: {
-    acceptAllDevices?: boolean;
-    optionalServices?: (number | string)[];
-  }): Promise<BleDevice>;
+  requestDevice(opts: BleRequestOptions): Promise<BleDevice>;
   getDevices?: () => Promise<BleDevice[]>;
 }
 
@@ -66,14 +72,32 @@ export function soportaWebBluetooth(): boolean {
   return typeof navigator !== "undefined" && !!navigator.bluetooth;
 }
 
+// Nombres típicos de impresoras térmicas para el filtro de respaldo.
+const NOMBRES_IMPRESORA = ["TM", "TM-", "Epson", "EPSON", "MTP", "MPT", "Printer", "BT", "POS"];
+
 /** Abre el selector del navegador, conecta y ubica una característica de escritura. */
 export async function elegirYConectar(): Promise<Impresora> {
-  if (!navigator.bluetooth) throw new Error("Este navegador no soporta Web Bluetooth");
+  const bt = navigator.bluetooth;
+  if (!bt) throw new Error("Este navegador no soporta Web Bluetooth");
 
-  const device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: SERVICIOS_CANDIDATOS,
-  });
+  let device: BleDevice;
+  try {
+    // Chrome soporta acceptAllDevices: lista todo, ideal para no adivinar.
+    device = await bt.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: SERVICIOS_CANDIDATOS,
+    });
+  } catch {
+    // Bluefy (iOS) no soporta acceptAllDevices y rechaza sin abrir el selector.
+    // Reintenta con filtros por nombre de impresora y por servicios conocidos.
+    device = await bt.requestDevice({
+      filters: [
+        ...NOMBRES_IMPRESORA.map((n) => ({ namePrefix: n })),
+        ...SERVICIOS_CANDIDATOS.map((s) => ({ services: [s] })),
+      ],
+      optionalServices: SERVICIOS_CANDIDATOS,
+    });
+  }
   return conectar(device);
 }
 
