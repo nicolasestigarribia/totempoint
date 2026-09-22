@@ -45,22 +45,32 @@ export function TotemPrinterCard({
   const [paired, setPaired] = useState(() => getPaired(empresa, local, totem));
   const [conn, setConn] = useState<Impresora | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
 
   const soportado = soportaWebBluetooth();
 
+  const anotar = (m: string) =>
+    setLog((prev) => [...prev, `${new Date().toLocaleTimeString()}  ${m}`]);
+  const detalleError = (err: unknown) => {
+    if (err instanceof Error) return `ERROR ${err.name}: ${err.message}`;
+    return `ERROR: ${String(err)}`;
+  };
+
   const emparejar = async () => {
     setBusy(true);
-    setMsg(null);
+    setLog([]);
     try {
+      anotar("Abriendo selector Bluetooth...");
       const c = await elegirYConectar();
+      anotar(`Dispositivo: ${c.device.name ?? "(sin nombre)"}`);
+      anotar("Característica de escritura encontrada.");
       const p = { deviceId: c.device.id, name: c.device.name ?? "Impresora" };
       savePaired(empresa, local, totem, p);
       setPaired(p);
       setConn(c);
-      setMsg(`Emparejada: ${p.name}`);
+      anotar(`Emparejada: ${p.name}`);
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : String(err));
+      anotar(detalleError(err));
     } finally {
       setBusy(false);
     }
@@ -68,19 +78,24 @@ export function TotemPrinterCard({
 
   const probar = async () => {
     setBusy(true);
-    setMsg(null);
+    setLog([]);
     try {
       let c = conn;
-      if (!c && paired) c = await reconectarGuardada(paired.deviceId);
+      if (!c && paired) {
+        anotar("Reconectando a la impresora guardada...");
+        c = await reconectarGuardada(paired.deviceId);
+      }
       if (!c) {
-        setMsg("No se pudo reconectar. Volvé a emparejar desde esta tablet.");
+        anotar("No se pudo reconectar. Volvé a emparejar desde esta tablet.");
         return;
       }
       setConn(c);
-      await imprimir(c, buildTicket(ticketDemo(companyName)));
-      setMsg("Ticket enviado. Revisá la impresora.");
+      const bytes = buildTicket(ticketDemo(companyName));
+      anotar(`Enviando ${bytes.length} bytes...`);
+      await imprimir(c, bytes);
+      anotar("Ticket enviado. Revisá la impresora.");
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : String(err));
+      anotar(detalleError(err));
     } finally {
       setBusy(false);
     }
@@ -90,7 +105,7 @@ export function TotemPrinterCard({
     clearPaired(empresa, local, totem);
     setPaired(null);
     setConn(null);
-    setMsg(null);
+    setLog([]);
   };
 
   return (
@@ -146,7 +161,13 @@ export function TotemPrinterCard({
         </>
       )}
 
-      {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
+      {log.length > 0 && (
+        <div className="space-y-0.5 rounded-md border border-white/10 bg-black/40 p-2 font-mono text-[11px] leading-tight text-muted-foreground">
+          {log.map((l, i) => (
+            <div key={i}>{l}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
