@@ -12,7 +12,6 @@ import {
   Save,
   AlertTriangle,
   LayoutDashboard,
-  MapPin,
   FolderTree,
   Package,
   Carrot,
@@ -65,9 +64,8 @@ export const Route = createFileRoute("/admin")({
 });
 
 type SectionId =
-  | "resumen"
+  | "empresa"
   | "portada"
-  | "locales"
   | "categorias"
   | "productos"
   | "ingredientes"
@@ -97,10 +95,10 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   {
-    id: "resumen",
-    label: "Resumen",
+    id: "empresa",
+    label: "Empresa",
     icon: LayoutDashboard,
-    desc: "Datos y marca de tu empresa",
+    desc: "Marca, datos y negocios de tu empresa",
     ownerOnly: true,
   },
   {
@@ -118,13 +116,6 @@ const SECTIONS: SectionDef[] = [
     desc: "Pantalla de inicio de tu tótem",
     permission: "portada",
     hidden: true,
-  },
-  {
-    id: "locales",
-    label: "Negocios",
-    icon: MapPin,
-    desc: "Sucursales de tu empresa",
-    ownerOnly: true,
   },
   {
     id: "categorias",
@@ -250,7 +241,7 @@ function AdminPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#000000");
 
-  const [section, setSection] = useState<SectionId>("resumen");
+  const [section, setSection] = useState<SectionId>("empresa");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Auto-cierra el sidebar al achicar la ventana (< lg)
@@ -580,12 +571,15 @@ function SectionContent({
   onEditPortada: () => void;
 }) {
   switch (section) {
-    case "resumen":
-      return <BrandingForm business={business} branding={branding} panelClass={panelClass} />;
+    case "empresa":
+      return (
+        <div className="space-y-6">
+          <BrandingForm business={business} branding={branding} panelClass={panelClass} />
+          <LocalesSection panelClass={panelClass} />
+        </div>
+      );
     case "portada":
       return <PortadaSection panelClass={panelClass} business={business} />;
-    case "locales":
-      return <LocalesSection panelClass={panelClass} />;
     case "categorias":
       return <CategoriasSection panelClass={panelClass} />;
     case "productos":
