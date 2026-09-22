@@ -573,7 +573,7 @@ function SectionContent({
   switch (section) {
     case "empresa":
       return (
-        <div className="grid items-start gap-6 xl:grid-cols-2">
+        <div className="grid items-start gap-6 lg:grid-cols-2">
           <BrandingForm business={business} branding={branding} panelClass={panelClass} />
           <LocalesSection panelClass={panelClass} />
         </div>
