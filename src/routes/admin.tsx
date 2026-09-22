@@ -98,7 +98,7 @@ const SECTIONS: SectionDef[] = [
     id: "empresa",
     label: "Empresa",
     icon: LayoutDashboard,
-    desc: "Marca, datos y negocios de tu empresa",
+    desc: "Marca, datos y sucursales de tu empresa",
     ownerOnly: true,
   },
   {
@@ -150,13 +150,13 @@ const SECTIONS: SectionDef[] = [
     permission: "disponibilidad",
     label: "Disponibilidad",
     icon: Store,
-    desc: "Qué se muestra en cada negocio",
+    desc: "Qué se muestra en cada sucursal",
   },
   {
     id: "stock",
     label: "Stock",
     icon: Warehouse,
-    desc: "Stock de ingredientes por negocio",
+    desc: "Stock de ingredientes por sucursal",
     permission: "stock",
   },
   {
@@ -177,7 +177,7 @@ const SECTIONS: SectionDef[] = [
     id: "precios",
     label: "Precios",
     icon: DollarSign,
-    desc: "Precios de productos y combos por negocio",
+    desc: "Precios de productos y combos por sucursal",
     permission: "precios",
   },
   {
@@ -198,7 +198,7 @@ const SECTIONS: SectionDef[] = [
     id: "operadores",
     label: "Operadores",
     icon: Users,
-    desc: "Encargados y los negocios que manejan",
+    desc: "Encargados y las sucursales que manejan",
     ownerOnly: true,
   },
 ];

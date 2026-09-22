@@ -169,7 +169,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
       }
     }
     if (role === "encargado" && assigned.length === 0) {
-      toast.error("Asigná al menos un negocio al encargado");
+      toast.error("Asigná al menos una sucursal al encargado");
       return;
     }
 
@@ -251,7 +251,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
     },
     {
       key: "locations",
-      header: "Negocios",
+      header: "Sucursales",
       cell: (r) => {
         if (r.roles.includes("owner")) {
           return <span className="text-muted-foreground">Todos</span>;
@@ -325,7 +325,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
         <div>
           <h3 className="text-lg font-bold">Operadores</h3>
           <p className="text-sm text-muted-foreground">
-            Encargados de tus negocios. Cada uno ve solamente los negocios que le asignes.
+            Encargados de tus sucursales. Cada uno ve solamente las sucursales que le asignes.
           </p>
         </div>
         <Button className="gap-2" onClick={openCreate} disabled={loading}>
@@ -420,12 +420,12 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Negocios asignados</Label>
+              <Label>Sucursales asignados</Label>
               {locations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {loading
-                    ? "Cargando negocios…"
-                    : "No hay negocios cargados todavía. Creá uno en la sección Negocios."}
+                    ? "Cargando sucursales…"
+                    : "No hay sucursales cargados todavía. Creá uno en la sección Sucursales."}
                 </p>
               ) : (
                 <div className="space-y-2 rounded-md border border-border p-3">
@@ -451,7 +451,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
             <div className="space-y-2">
               <Label>Qué puede hacer en el panel</Label>
               <p className="text-xs text-muted-foreground">
-                Sin acceso, la sección no le aparece. Los datos de la empresa, los negocios y los
+                Sin acceso, la sección no le aparece. Los datos de la empresa, las sucursales y los
                 operadores los maneja solo el dueño.
               </p>
               <div className="space-y-2 rounded-md border border-border p-3">

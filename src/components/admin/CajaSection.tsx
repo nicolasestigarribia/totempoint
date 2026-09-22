@@ -127,7 +127,7 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
             <table className="w-full text-sm">
               <thead className="bg-white/5 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3">Negocio</th>
+                  <th className="px-5 py-3">Sucursal</th>
                   <th className="px-5 py-3 text-right">Efectivo</th>
                   <th className="px-5 py-3 text-right">Mercado Pago</th>
                   <th className="px-5 py-3 text-right">Total cobrado</th>

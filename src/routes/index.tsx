@@ -4,18 +4,18 @@ import { Monitor, LogIn, Store, Users, Receipt } from "lucide-react";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Totempoint — Autoservicio para tu negocio" },
+      { title: "Totempoint — Autoservicio para tu sucursal" },
       {
         name: "description",
         content:
-          "Tótems de autoservicio para bares, sanguicherías y casas de comida: el cliente pide desde la pantalla y la comanda le llega al negocio.",
+          "Tótems de autoservicio para bares, sanguicherías y casas de comida: el cliente pide desde la pantalla y la comanda le llega al sucursal.",
       },
     ],
   }),
   component: Home,
 });
 
-// La raíz es la puerta de entrada de la plataforma, no la de un negocio.
+// La raíz es la puerta de entrada de la plataforma, no la de una sucursal.
 // Cada tótem se abre por su propia URL: /t/<slug>.
 const FEATURES = [
   {
@@ -25,18 +25,18 @@ const FEATURES = [
   },
   {
     icon: Receipt,
-    title: "La comanda llega al negocio",
+    title: "La comanda llega al sucursal",
     desc: "Cada pedido entra con su número y su detalle, listo para preparar y entregar.",
   },
   {
     icon: Store,
-    title: "Un menú por negocio",
-    desc: "Cada negocio activa lo que vende y con qué precio, sobre el catálogo de la empresa.",
+    title: "Un menú por sucursal",
+    desc: "Cada sucursal activa lo que vende y con qué precio, sobre el catálogo de la empresa.",
   },
   {
     icon: Users,
-    title: "Encargados por negocio",
-    desc: "El dueño da de alta a su gente y cada uno ve solamente los negocios que maneja.",
+    title: "Encargados por sucursal",
+    desc: "El dueño da de alta a su gente y cada uno ve solamente las sucursales que maneja.",
   },
 ];
 
@@ -66,13 +66,13 @@ function Home() {
               Autoservicio
             </p>
             <h1 className="font-display text-5xl leading-[0.95] sm:text-6xl md:text-7xl">
-              Tu negocio toma
+              Tu sucursal toma
               <br />
               <span className="text-primary">los pedidos solo</span>
             </h1>
             <p className="max-w-xl text-balance text-lg text-muted-foreground">
               Ponés una tablet en el mostrador, el cliente arma su pedido y la comanda te llega al
-              instante. Vos administrás tu empresa, sus negocios y el menú desde el panel.
+              instante. Vos administrás tu empresa, sus sucursales y el menú desde el panel.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Link
@@ -83,7 +83,7 @@ function Home() {
                 Entrar al panel
               </Link>
               <p className="text-sm text-muted-foreground">
-                ¿Sos cliente? El tótem se abre con el enlace que te da el negocio.
+                ¿Sos cliente? El tótem se abre con el enlace que te da la sucursal.
               </p>
             </div>
           </div>

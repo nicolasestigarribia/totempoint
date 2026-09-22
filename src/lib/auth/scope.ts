@@ -48,7 +48,7 @@ export async function accessibleLocationIds(user: SessionUser): Promise<number[]
 export async function assertLocationAccess(user: SessionUser, locationId: number): Promise<void> {
   const allowed = await accessibleLocationIds(user);
   if (!allowed.includes(locationId)) {
-    throw new Error("No tenés acceso a ese local");
+    throw new Error("No tenés acceso a esa sucursal");
   }
 }
 

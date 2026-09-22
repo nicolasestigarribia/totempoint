@@ -54,7 +54,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
       const data = await fetchLocations();
       setRows(data);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar las sucursales");
     }
   };
 
@@ -65,7 +65,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
         const data = await fetchLocations();
         if (mounted) setRows(data);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar las sucursales");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -110,7 +110,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             active,
           },
         });
-        toast.success("Negocio actualizado");
+        toast.success("Sucursal actualizada");
       } else {
         await create({
           data: {
@@ -119,12 +119,12 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             phone: phone.trim() || null,
           },
         });
-        toast.success("Negocio creado");
+        toast.success("Sucursal creada");
       }
       setDialogOpen(false);
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo guardar el negocio");
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar la sucursal");
     } finally {
       setSaving(false);
     }
@@ -135,11 +135,11 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
     setDeleting(true);
     try {
       await remove({ data: { id: toDelete.id } });
-      toast.success("Negocio eliminado");
+      toast.success("Sucursal eliminada");
       setToDelete(null);
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el negocio");
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar la sucursal");
     } finally {
       setDeleting(false);
     }
@@ -203,7 +203,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             variant="ghost"
             size="icon"
             onClick={() => openEdit(row)}
-            aria-label="Editar negocio"
+            aria-label="Editar sucursal"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -211,7 +211,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             variant="ghost"
             size="icon"
             onClick={() => setToDelete(row)}
-            aria-label="Eliminar negocio"
+            aria-label="Eliminar sucursal"
           >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
@@ -223,10 +223,10 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <h3 className="text-lg font-bold">Negocios</h3>
+        <h3 className="text-lg font-bold">Sucursales</h3>
         <Button className="gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" />
-          Nuevo negocio
+          Nueva sucursal
         </Button>
       </div>
 
@@ -236,10 +236,10 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
         getRowId={(r) => r.id}
         panelClass={panelClass}
         loading={loading}
-        emptyMessage="No hay negocios todavía."
+        emptyMessage="No hay sucursales todavía."
         emptyIcon={<MapPin className="h-8 w-8 opacity-40" />}
         searchKeys={[(r) => r.name, (r) => r.address ?? "", (r) => r.phone ?? ""]}
-        searchPlaceholder="Buscar negocio..."
+        searchPlaceholder="Buscar sucursal..."
         toolbar={
           <Select
             value={estadoFilter}
@@ -266,7 +266,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar negocio" : "Nuevo negocio"}</DialogTitle>
+            <DialogTitle>{editing ? "Editar sucursal" : "Nueva sucursal"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -275,7 +275,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
                 id="local-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Nombre del negocio"
+                placeholder="Nombre de la sucursal"
                 maxLength={120}
               />
             </div>
@@ -328,10 +328,10 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
       <Dialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar negocio</DialogTitle>
+            <DialogTitle>Eliminar sucursal</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            ¿Seguro que querés eliminar el negocio{" "}
+            ¿Seguro que querés eliminar la sucursal{" "}
             <span className="font-medium text-foreground">{toDelete?.name}</span>? Esta acción no se
             puede deshacer.
           </p>

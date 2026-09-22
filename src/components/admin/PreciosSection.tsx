@@ -76,7 +76,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
         setLocations(data);
         if (data.length > 0) setLocationId(data[0].id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar las sucursales");
       } finally {
         if (mounted) setLoadingLocations(false);
       }
@@ -344,7 +344,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
         className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}
       >
         <MapPin className="h-8 w-8 opacity-40" />
-        <span>Primero creá un negocio en la sección Negocios.</span>
+        <span>Primero creá una sucursal en la sección Sucursales.</span>
       </div>
     );
   }
@@ -352,13 +352,13 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-sm text-muted-foreground">Negocio:</Label>
+        <Label className="text-sm text-muted-foreground">Sucursal:</Label>
         <Select
           value={locationId === null ? "" : String(locationId)}
           onValueChange={(v) => setLocationId(Number(v))}
         >
           <SelectTrigger className="h-10 w-64">
-            <SelectValue placeholder="Elegí un negocio" />
+            <SelectValue placeholder="Elegí una sucursal" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (
@@ -369,7 +369,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          El precio de este negocio pisa al precio base.
+          El precio de esta sucursal pisa al precio base.
         </p>
       </div>
 
@@ -492,7 +492,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
                         </p>
                       </>
                     ) : (
-                      <> de este negocio: el catálogo completo.</>
+                      <> de esta sucursal: el catálogo completo.</>
                     )}
                   </>
                 )}
@@ -557,7 +557,7 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
             </div>
           ) : history.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Sin cambios registrados para este negocio.
+              Sin cambios registrados para esta sucursal.
             </p>
           ) : (
             <div className="max-h-80 space-y-1 overflow-auto">

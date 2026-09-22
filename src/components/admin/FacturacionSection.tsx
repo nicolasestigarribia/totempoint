@@ -130,7 +130,7 @@ export function FacturacionSection() {
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th className="px-4 py-4 md:px-6">Negocio</th>
+              <th className="px-4 py-4 md:px-6">Sucursal</th>
               <th className="px-4 py-4 text-right md:px-6">Pedidos</th>
               <th className="px-4 py-4 text-right md:px-6">Facturado</th>
               <th className="hidden px-6 py-4 text-right md:table-cell">Ticket prom.</th>
@@ -149,7 +149,7 @@ export function FacturacionSection() {
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
                   <Receipt className="mx-auto mb-3 h-8 w-8 opacity-40" />
-                  Todavía no hay negocios.
+                  Todavía no hay sucursales.
                 </td>
               </tr>
             )}

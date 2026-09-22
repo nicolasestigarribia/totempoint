@@ -592,7 +592,7 @@ function SuperadminPage() {
           </DialogHeader>
           <form onSubmit={handleAssignOwner} className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Esta empresa no tiene dueño, así que nadie del negocio puede entrar al panel. El
+              Esta empresa no tiene dueño, así que nadie de la sucursal puede entrar al panel. El
               usuario que crees acá queda como dueño y administra todo lo suyo.
             </p>
             <div className="space-y-2">

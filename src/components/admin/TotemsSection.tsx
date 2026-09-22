@@ -54,7 +54,7 @@ export function TotemsSection({
         setLocations(data);
         if (data.length > 0) setLocationId(data[0].id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudieron cargar los negocios");
+        toast.error(err instanceof Error ? err.message : "No se pudieron cargar las sucursales");
       } finally {
         if (mounted) setLoadingLocations(false);
       }
@@ -130,7 +130,7 @@ export function TotemsSection({
         className={`flex flex-col items-center gap-2 p-10 text-center text-muted-foreground ${panelClass}`}
       >
         <MapPin className="h-8 w-8 opacity-40" />
-        <span>Primero creá un negocio en la sección Negocios.</span>
+        <span>Primero creá una sucursal en la sección Sucursales.</span>
       </div>
     );
   }
@@ -138,13 +138,13 @@ export function TotemsSection({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Label className="text-sm text-muted-foreground">Negocio:</Label>
+        <Label className="text-sm text-muted-foreground">Sucursal:</Label>
         <Select
           value={locationId === null ? "" : String(locationId)}
           onValueChange={(v) => setLocationId(Number(v))}
         >
           <SelectTrigger className="h-10 w-64">
-            <SelectValue placeholder="Elegí un negocio" />
+            <SelectValue placeholder="Elegí una sucursal" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (

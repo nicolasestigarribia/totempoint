@@ -132,6 +132,7 @@ Don't remove either layer when touching server entry code — they cover differe
 
 ### UI conventions
 
+- **Vocabulary: a location is a "Sucursal" in the UI.** The tenant is an *empresa* (`companies`); each branch (`locations`) is shown as **Sucursal / Sucursales** in all user-facing text (Nicolas' decision, replacing the earlier "Negocio"). Keep gender agreement — *sucursal* is feminine (una sucursal, la sucursal, las sucursales). The delivery method label "Comer en el local" is unrelated (dine-in) and stays. Internal identifiers stay in English (`locations`, `locationId`, `LocalesSection`).
 - **Scrollbars use the system colour.** All scrollbars in the app are styled globally in `src/styles.css` with the `*` selector: `scrollbar-color: var(--primary) transparent` plus the `::-webkit-scrollbar` rules (thin, rounded thumb in `var(--primary)`, transparent track). Do not add per-element scrollbar styles that diverge from this; if a new surface scrolls, it inherits the global style automatically. In the totem `var(--primary)` follows the chosen theme, so the bars re-colour per shop.
 
 ### Deployment

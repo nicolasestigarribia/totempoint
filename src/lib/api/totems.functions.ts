@@ -86,7 +86,7 @@ export const deleteTotem = createServerFn({ method: "POST" })
       .select({ n: sql<number>`COUNT(*)` })
       .from(totems)
       .where(eq(totems.locationId, t.locationId));
-    if (n <= 1) throw new Error("El local tiene que tener al menos un tótem");
+    if (n <= 1) throw new Error("La sucursal tiene que tener al menos un tótem");
 
     await db.delete(totems).where(eq(totems.id, data.id));
     return { ok: true };

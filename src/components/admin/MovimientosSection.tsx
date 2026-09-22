@@ -136,7 +136,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
   const handleCreate = async () => {
     const qty = Number(mQty);
     if (!mLocation) {
-      toast.error("Elegí un negocio");
+      toast.error("Elegí una sucursal");
       return;
     }
     if (!mCode) {
@@ -193,7 +193,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
       },
       {
         key: "location",
-        header: "Negocio",
+        header: "Sucursal",
         sortable: true,
         sortAccessor: (r) => r.locationName ?? "",
         cell: (r) => r.locationName ?? "—",
@@ -276,13 +276,13 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
           </Button>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Label className="text-sm text-muted-foreground">Negocio:</Label>
+          <Label className="text-sm text-muted-foreground">Sucursal:</Label>
           <Select value={locationFilter} onValueChange={setLocationFilter}>
             <SelectTrigger className="h-10 w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos los negocios</SelectItem>
+              <SelectItem value="todos">Todos las sucursales</SelectItem>
               {locations.map((l) => (
                 <SelectItem key={l.id} value={String(l.id)}>
                   {l.name}
@@ -343,10 +343,10 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Negocio</Label>
+                <Label>Sucursal</Label>
                 <Select value={mLocation} onValueChange={setMLocation}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Elegí un negocio" />
+                    <SelectValue placeholder="Elegí una sucursal" />
                   </SelectTrigger>
                   <SelectContent>
                     {locations.map((l) => (
@@ -455,7 +455,7 @@ export function MovimientosSection({ panelClass }: { panelClass: string }) {
                 id="mov-detail"
                 value={mDetail}
                 maxLength={255}
-                placeholder="Aclaración, nº de remito, a qué negocio, etc."
+                placeholder="Aclaración, nº de remito, a qué sucursal, etc."
                 onChange={(e) => setMDetail(e.target.value)}
               />
             </div>
