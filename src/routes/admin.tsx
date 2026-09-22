@@ -31,6 +31,7 @@ import {
   KeyRound,
   CircleDollarSign,
   CreditCard,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -270,6 +271,11 @@ function AdminPage() {
 
   const [section, setSection] = useState<SectionId>("empresa");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<NavGroupId, boolean>>(
+    {} as Record<NavGroupId, boolean>,
+  );
+  const toggleGroup = (id: NavGroupId) =>
+    setCollapsedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
 
   // Auto-cierra el sidebar al achicar la ventana (< lg)
   useEffect(() => {
@@ -482,28 +488,37 @@ function AdminPage() {
           {NAV_GROUPS.map((g) => {
             const items = visibleSections.filter((s) => !s.hidden && s.group === g.id);
             if (items.length === 0) return null;
+            const collapsed = collapsedGroups[g.id];
             return (
               <div key={g.id} className="space-y-1">
-                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.id)}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 transition hover:text-foreground"
+                >
                   {g.label}
-                </p>
-                {items.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      setSection(s.id);
-                      if (window.innerWidth < 1024) setSidebarOpen(false);
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                      section === s.id
-                        ? "bg-primary/15 text-foreground"
-                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                    }`}
-                  >
-                    <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
-                    {s.label}
-                  </button>
-                ))}
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                  />
+                </button>
+                {!collapsed &&
+                  items.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setSection(s.id);
+                        if (window.innerWidth < 1024) setSidebarOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                        section === s.id
+                          ? "bg-primary/15 text-foreground"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
+                      {s.label}
+                    </button>
+                  ))}
               </div>
             );
           })}
