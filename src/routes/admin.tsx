@@ -182,7 +182,7 @@ const SECTIONS: SectionDef[] = [
   },
   {
     id: "caja",
-    label: "Cierre de caja",
+    label: "Recaudación",
     icon: CircleDollarSign,
     desc: "Lo cobrado en la jornada",
     permission: "caja",

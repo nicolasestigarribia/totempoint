@@ -36,7 +36,7 @@ export const SECTION_LABEL: Record<PanelSection, string> = {
   codigos: "Códigos de acción",
   precios: "Precios por sucursal",
   comandera: "Comandera",
-  caja: "Cierre de caja",
+  caja: "Recaudación",
 };
 
 /**
