@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { CheckCircle2 } from "lucide-react";
-import { getTotemOrder } from "@/lib/api/totem.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { CheckCircle2, Printer, Loader2 } from "lucide-react";
+import { getTotemOrder, getTotemTicket, type TotemTicket } from "@/lib/api/totem.functions";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { TotemError } from "@/components/totem/TotemError";
 import { formatPrice } from "@/lib/totem-cart";
+import { buildTicket, type TicketData } from "@/lib/print/ticket";
+import { getPaired } from "@/lib/print/printer-store";
+import { reconectarGuardada, imprimir } from "@/lib/print/bluetooth";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")({
   loader: ({ params }) =>
@@ -33,13 +37,74 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")
  */
 const SEGUNDOS = 25;
 
+function aTicketData(t: TotemTicket): TicketData {
+  return {
+    companyName: t.companyName,
+    orderNumber: t.orderNumber,
+    customerName: t.customerName,
+    createdAt: new Date(t.createdAt),
+    deliveryMethod: t.deliveryMethod,
+    paymentMethod: t.paymentMethod,
+    total: Number(t.total),
+    comments: t.comments,
+    items: t.items.map((i) => ({
+      name: i.name,
+      quantity: i.quantity,
+      unitPrice: Number(i.unitPrice),
+    })),
+  };
+}
+
+type EstadoImpresion = "idle" | "imprimiendo" | "listo" | "error";
+
 function ListoPage() {
   const order = Route.useLoaderData();
   const nav = Route.useParams();
   const navigate = useNavigate();
+  const fetchTicket = useServerFn(getTotemTicket);
   useTotemTheme(order.accentColor, order.theme, order.fontTheme, order.corners);
   const accent = order.accentColor || undefined;
   const [restan, setRestan] = useState(SEGUNDOS);
+
+  // Impresión del ticket en la impresora emparejada a este tótem (si hay).
+  const [hayImpresora, setHayImpresora] = useState(false);
+  const [estado, setEstado] = useState<EstadoImpresion>("idle");
+  const yaImprimio = useRef(false);
+
+  const imprimirTicket = async () => {
+    const paired = getPaired(nav.empresa, nav.local, Number(nav.totem));
+    if (!paired) return;
+    setEstado("imprimiendo");
+    try {
+      const ticket = await fetchTicket({
+        data: {
+          empresa: nav.empresa,
+          local: nav.local,
+          totem: Number(nav.totem),
+          orderId: Number(nav.orderId),
+        },
+      });
+      const conn = await reconectarGuardada(paired.deviceId);
+      if (!conn) {
+        setEstado("error");
+        return;
+      }
+      await imprimir(conn, buildTicket(aTicketData(ticket)));
+      setEstado("listo");
+    } catch {
+      setEstado("error");
+    }
+  };
+
+  // Auto-imprime una sola vez al llegar a la pantalla de confirmación.
+  useEffect(() => {
+    const paired = getPaired(nav.empresa, nav.local, Number(nav.totem));
+    setHayImpresora(!!paired);
+    if (!paired || yaImprimio.current) return;
+    yaImprimio.current = true;
+    void imprimirTicket();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setRestan((s) => s - 1), 1000);
@@ -73,6 +138,35 @@ function ListoPage() {
         </div>
         <div className="mt-3 text-lg text-muted-foreground">Total: {formatPrice(order.total)}</div>
       </div>
+
+      {hayImpresora && (
+        <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+          {estado === "imprimiendo" ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Imprimiendo ticket...
+            </>
+          ) : estado === "listo" ? (
+            <button
+              type="button"
+              onClick={() => void imprimirTicket()}
+              className="flex items-center gap-2 rounded-full border border-border px-4 py-2 transition hover:text-foreground"
+            >
+              <Printer className="h-4 w-4" />
+              Reimprimir ticket
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void imprimirTicket()}
+              className="flex items-center gap-2 rounded-full border border-border px-4 py-2 transition hover:text-foreground"
+            >
+              <Printer className="h-4 w-4" />
+              {estado === "error" ? "No se pudo imprimir. Reintentar" : "Imprimir ticket"}
+            </button>
+          )}
+        </div>
+      )}
 
       <Link
         to="/t/$empresa/$local/$totem"
