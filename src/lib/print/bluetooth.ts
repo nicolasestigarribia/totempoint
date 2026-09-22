@@ -89,6 +89,24 @@ export function soportaWebBluetooth(): boolean {
   return typeof navigator !== "undefined" && !!navigator.bluetooth;
 }
 
+// Si el navegador puede reconectar a una impresora ya emparejada sin abrir el
+// selector. Chrome/Android sí; Bluefy (iOS) no expone getDevices(), así que en
+// una página nueva no puede recuperar la impresora y hay que emparejar de nuevo
+// o mantener la conexión viva en la misma sesión.
+export function soportaReconexion(): boolean {
+  return typeof navigator !== "undefined" && !!navigator.bluetooth?.getDevices;
+}
+
+// Última conexión lograda, a nivel módulo: sobrevive a la navegación entre
+// pantallas del tótem dentro de la misma pestaña (la app es una SPA, no recarga
+// la página). Sirve para imprimir en la confirmación sin depender de
+// getDevices(), clave en iOS.
+let conexionActual: Impresora | null = null;
+export function conexionEnMemoria(): Impresora | null {
+  if (conexionActual && conexionActual.device.gatt?.connected) return conexionActual;
+  return null;
+}
+
 // Nombres típicos de impresoras térmicas para el filtro de respaldo.
 const NOMBRES_IMPRESORA = ["TM", "TM-", "Epson", "EPSON", "MTP", "MPT", "Printer", "BT", "POS"];
 
@@ -148,13 +166,14 @@ async function conectar(device: BleDevice): Promise<Impresora> {
     escribibles.find((e) => CHARS_IMPRESION.some((p) => e.char.uuid.toLowerCase().includes(p))) ??
     escribibles[0];
 
-  return {
+  conexionActual = {
     device,
     characteristic: elegida.char,
     serviceUuid: elegida.service,
     charUuid: elegida.char.uuid,
     diagnostico,
   };
+  return conexionActual;
 }
 
 /**

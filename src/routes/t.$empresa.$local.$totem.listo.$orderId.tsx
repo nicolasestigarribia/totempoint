@@ -8,7 +8,12 @@ import { TotemError } from "@/components/totem/TotemError";
 import { formatPrice } from "@/lib/totem-cart";
 import { buildTicket, type TicketData } from "@/lib/print/ticket";
 import { getPaired } from "@/lib/print/printer-store";
-import { reconectarGuardada, imprimir } from "@/lib/print/bluetooth";
+import {
+  reconectarGuardada,
+  imprimir,
+  conexionEnMemoria,
+  soportaReconexion,
+} from "@/lib/print/bluetooth";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")({
   loader: ({ params }) =>
@@ -69,12 +74,14 @@ function ListoPage() {
   // Impresión del ticket en la impresora emparejada a este tótem (si hay).
   const [hayImpresora, setHayImpresora] = useState(false);
   const [estado, setEstado] = useState<EstadoImpresion>("idle");
+  const [motivo, setMotivo] = useState<string | null>(null);
   const yaImprimio = useRef(false);
 
   const imprimirTicket = async () => {
     const paired = getPaired(nav.empresa, nav.local, Number(nav.totem));
     if (!paired) return;
     setEstado("imprimiendo");
+    setMotivo(null);
     try {
       const ticket = await fetchTicket({
         data: {
@@ -84,14 +91,22 @@ function ListoPage() {
           orderId: Number(nav.orderId),
         },
       });
-      const conn = await reconectarGuardada(paired.deviceId);
+      // Reusa la conexión viva de la sesión si la hay; si no, reconecta.
+      let conn = conexionEnMemoria();
+      if (!conn) conn = await reconectarGuardada(paired.deviceId);
       if (!conn) {
+        setMotivo(
+          soportaReconexion()
+            ? "No se pudo reconectar la impresora."
+            : "Este navegador no reconecta en una pantalla nueva. Emparejá desde el tótem en Android.",
+        );
         setEstado("error");
         return;
       }
       await imprimir(conn, buildTicket(aTicketData(ticket)));
       setEstado("listo");
-    } catch {
+    } catch (err) {
+      setMotivo(err instanceof Error ? err.message : String(err));
       setEstado("error");
     }
   };
@@ -166,6 +181,9 @@ function ListoPage() {
             </button>
           )}
         </div>
+      )}
+      {hayImpresora && estado === "error" && motivo && (
+        <p className="mt-2 max-w-xs text-center text-xs text-muted-foreground">{motivo}</p>
       )}
 
       <Link
