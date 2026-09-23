@@ -28,9 +28,12 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      # El runner ubuntu-latest ya trae el Android SDK y sdkmanager en el PATH.
+      # El runner ubuntu-latest trae el SDK pero sdkmanager no está en el PATH:
+      # vive en $ANDROID_HOME/cmdline-tools/latest/bin.
       - name: Instalar paquetes del SDK
         run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
