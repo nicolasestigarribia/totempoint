@@ -14,6 +14,7 @@ import {
   locationPrices,
   locationProducts,
   locationCategories,
+  locationCombos,
   orders,
   orderItems,
   paymentSettings,
@@ -163,6 +164,60 @@ async function productosApagadosEnElLocal(
   const apagados = new Set(porProducto.map((p) => p.productId));
   for (const p of productos) {
     if (p.categoryId !== null && categoriasApagadas.has(p.categoryId)) apagados.add(p.id);
+  }
+  return apagados;
+}
+
+/**
+ * Los combos de esta lista que el local no puede vender.
+ *
+ * Son dos cosas distintas y las dos cuentan. Una es el interruptor de la
+ * sección Disponibilidad, que apaga el combo para este local y nada más. La
+ * otra no se guarda en ninguna tabla: si el local tiene apagado alguno de los
+ * productos que el combo lleva adentro, no puede armarlo, así que el combo se
+ * cae solo. Guardarlo sería peor — habría que acordarse de apagar a mano cada
+ * combo cada vez que se apaga un producto, y el día que alguien se olvide el
+ * cliente compra algo que el mostrador no puede entregar.
+ */
+async function combosApagadosEnElLocal(
+  locationId: number,
+  comboIds: number[],
+): Promise<Set<number>> {
+  if (comboIds.length === 0) return new Set();
+
+  const [override, componentes] = await Promise.all([
+    db
+      .select({ comboId: locationCombos.comboId })
+      .from(locationCombos)
+      .where(
+        and(
+          eq(locationCombos.locationId, locationId),
+          eq(locationCombos.available, false),
+          inArray(locationCombos.comboId, comboIds),
+        ),
+      ),
+    db
+      .select({
+        comboId: comboProducts.comboId,
+        productId: products.id,
+        categoryId: products.categoryId,
+        activo: products.active,
+      })
+      .from(comboProducts)
+      .innerJoin(products, eq(products.id, comboProducts.productId))
+      .where(inArray(comboProducts.comboId, comboIds)),
+  ]);
+
+  const apagados = new Set(override.map((o) => o.comboId));
+
+  const productosApagados = await productosApagadosEnElLocal(
+    locationId,
+    componentes.map((c) => ({ id: c.productId, categoryId: c.categoryId })),
+  );
+  for (const c of componentes) {
+    // Un componente dado de baja en toda la empresa también deja el combo sin
+    // qué entregar, no sólo uno apagado en este local.
+    if (!c.activo || productosApagados.has(c.productId)) apagados.add(c.comboId);
   }
   return apagados;
 }
@@ -458,12 +513,19 @@ export const getTotemMenu = createServerFn({ method: "GET" })
           )
       : [];
 
+    // Los que este local no puede armar no llegan a la pantalla.
+    const combosApagados = await combosApagadosEnElLocal(
+      locationId,
+      comboRows.map((c) => c.id),
+    );
+    const combosVendibles = comboRows.filter((c) => !combosApagados.has(c.id));
+
     const comboOverrides = await priceOverrides(
       locationId,
       "combo",
-      comboRows.map((c) => c.id),
+      combosVendibles.map((c) => c.id),
     );
-    const totemCombos: TotemCombo[] = comboRows.map((c) => ({
+    const totemCombos: TotemCombo[] = combosVendibles.map((c) => ({
       ...c,
       price: comboOverrides.get(c.id) ?? c.price,
       items: comboItems
@@ -567,8 +629,11 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       // El local puede tener apagado algo que la empresa sigue vendiendo. El
       // menú ya no lo muestra, pero el carrito de la tablet puede ser anterior
       // a que lo apagaran.
-      const apagados = await productosApagadosEnElLocal(location.id, productRows);
-      if (apagados.size > 0) {
+      const [apagados, combosApagados] = await Promise.all([
+        productosApagadosEnElLocal(location.id, productRows),
+        combosApagadosEnElLocal(location.id, comboIds),
+      ]);
+      if (apagados.size > 0 || combosApagados.size > 0) {
         throw new Error("Algo de tu pedido ya no está disponible");
       }
 

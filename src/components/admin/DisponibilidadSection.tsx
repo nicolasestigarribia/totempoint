@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { MapPin, FolderTree, Package, Loader2 } from "lucide-react";
+import { MapPin, FolderTree, Package, Layers, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -18,8 +18,10 @@ import {
   getLocationAvailability,
   setCategoryAvailability,
   setProductAvailability,
+  setComboAvailability,
   type AvailCategory,
   type AvailProduct,
+  type AvailCombo,
 } from "@/lib/api/availability.functions";
 
 export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
@@ -28,11 +30,13 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
   const fetchAvailability = useServerFn(getLocationAvailability);
   const toggleCategory = useServerFn(setCategoryAvailability);
   const toggleProduct = useServerFn(setProductAvailability);
+  const toggleCombo = useServerFn(setComboAvailability);
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [locationId, setLocationId] = useState<number | null>(null);
   const [cats, setCats] = useState<AvailCategory[]>([]);
   const [prods, setProds] = useState<AvailProduct[]>([]);
+  const [combos, setCombos] = useState<AvailCombo[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -43,6 +47,9 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
     "todos",
   );
   const [prodCatFilter, setProdCatFilter] = useState<string>("todas");
+  const [comboAvailFilter, setComboAvailFilter] = useState<"todos" | "disponibles" | "ocultos">(
+    "todos",
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -73,6 +80,7 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
         if (!mounted) return;
         setCats(data.categories);
         setProds(data.products);
+        setCombos(data.combos);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "No se pudo cargar la disponibilidad");
       } finally {
@@ -84,11 +92,36 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
     };
   }, [locationId, fetchAvailability]);
 
+  // Apagar un producto o una categoría puede dejar combos sin con qué armarse.
+  // Se vuelven a pedir para que la columna "Motivo" diga la verdad enseguida y
+  // no en la próxima visita a la sección.
+  const refrescarCombos = async (locId: number) => {
+    try {
+      const data = await fetchAvailability({ data: { locationId: locId } });
+      setCombos(data.combos);
+    } catch {
+      // Si falla, la pantalla sigue mostrando lo anterior; el tótem ya decide
+      // por su cuenta y no depende de esto.
+    }
+  };
+
+  const onToggleCombo = async (combo: AvailCombo, next: boolean) => {
+    if (locationId === null) return;
+    setCombos((prev) => prev.map((c) => (c.id === combo.id ? { ...c, available: next } : c)));
+    try {
+      await toggleCombo({ data: { locationId, comboId: combo.id, available: next } });
+    } catch (err) {
+      setCombos((prev) => prev.map((c) => (c.id === combo.id ? { ...c, available: !next } : c)));
+      toast.error(err instanceof Error ? err.message : "No se pudo cambiar la disponibilidad");
+    }
+  };
+
   const onToggleCategory = async (cat: AvailCategory, next: boolean) => {
     if (locationId === null) return;
     setCats((prev) => prev.map((c) => (c.id === cat.id ? { ...c, available: next } : c)));
     try {
       await toggleCategory({ data: { locationId, categoryId: cat.id, available: next } });
+      await refrescarCombos(locationId);
     } catch (err) {
       setCats((prev) => prev.map((c) => (c.id === cat.id ? { ...c, available: !next } : c)));
       toast.error(err instanceof Error ? err.message : "No se pudo cambiar la disponibilidad");
@@ -100,6 +133,7 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
     setProds((prev) => prev.map((p) => (p.id === prod.id ? { ...p, available: next } : p)));
     try {
       await toggleProduct({ data: { locationId, productId: prod.id, available: next } });
+      await refrescarCombos(locationId);
     } catch (err) {
       setProds((prev) => prev.map((p) => (p.id === prod.id ? { ...p, available: !next } : p)));
       toast.error(err instanceof Error ? err.message : "No se pudo cambiar la disponibilidad");
@@ -191,6 +225,55 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
             />
           </div>
         ),
+      },
+    ],
+    [locationId],
+  );
+
+  const comboColumns: Column<AvailCombo>[] = useMemo(
+    () => [
+      {
+        key: "name",
+        header: "Combo",
+        sortable: true,
+        sortAccessor: (r) => r.name.toLowerCase(),
+        cell: (r) => <span className="font-medium">{r.name}</span>,
+      },
+      {
+        key: "motivo",
+        header: "Motivo",
+        cell: (r) =>
+          r.blockedBy.length === 0 ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <span className="text-xs text-amber-400">
+              No tenés {r.blockedBy.join(", ")} en esta sucursal
+            </span>
+          ),
+      },
+      {
+        key: "available",
+        header: "Disponible",
+        align: "right",
+        cell: (r) => {
+          // Si le falta un componente, el combo no se muestra aunque el
+          // interruptor esté encendido: el switch queda como está —es la
+          // decisión del dueño y se respeta— pero el cartel dice lo que
+          // realmente pasa en el tótem.
+          const enElTotem = r.available && r.blockedBy.length === 0;
+          return (
+            <div className="flex items-center justify-end gap-2">
+              <span className={`text-xs ${enElTotem ? "text-green-400" : "text-muted-foreground"}`}>
+                {enElTotem ? "Disponible" : "Oculto"}
+              </span>
+              <Switch
+                checked={r.available}
+                onCheckedChange={(v) => onToggleCombo(r, v)}
+                disabled={readOnly}
+              />
+            </div>
+          );
+        },
       },
     ],
     [locationId],
@@ -313,6 +396,38 @@ export function DisponibilidadSection({ panelClass }: { panelClass: string }) {
                   ? r.categoryName === null
                   : r.categoryName === prodCatFilter;
             return okAvail && okCat;
+          }}
+          initialSort={{ key: "name", dir: "asc" }}
+          pageSize={10}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-primary" />
+          <h3 className="text-lg font-bold">Combos</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Un combo también se oculta solo si esta sucursal no tiene alguno de los productos que
+          lleva adentro: sin el componente no hay con qué armarlo.
+        </p>
+        <DataTable<AvailCombo>
+          rows={combos}
+          columns={comboColumns}
+          getRowId={(r) => r.id}
+          panelClass={panelClass}
+          loading={loadingData}
+          emptyMessage="No hay combos."
+          searchKeys={[(r) => r.name]}
+          searchPlaceholder="Buscar combo..."
+          toolbar={availSelect(comboAvailFilter, setComboAvailFilter)}
+          filter={(r) => {
+            const enElTotem = r.available && r.blockedBy.length === 0;
+            return comboAvailFilter === "todos"
+              ? true
+              : comboAvailFilter === "disponibles"
+                ? enElTotem
+                : !enElTotem;
           }}
           initialSort={{ key: "name", dir: "asc" }}
           pageSize={10}

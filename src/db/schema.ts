@@ -360,6 +360,25 @@ export const locationCategories = mysqlTable(
   ],
 );
 
+// Disponibilidad de combo por local (override). Ausencia = disponible.
+//
+// Además del override, un combo se cae solo en el local que tenga apagado
+// alguno de los productos que lleva adentro: si la sucursal no tiene el
+// componente, no puede armar el combo. Esa parte se calcula, no se guarda.
+export const locationCombos = mysqlTable(
+  "location_combos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    locationId: int("location_id").notNull(),
+    comboId: int("combo_id").notNull(),
+    available: boolean("available").notNull().default(true),
+  },
+  (t) => [
+    unique("location_combos_uq").on(t.locationId, t.comboId),
+    index("location_combos_location_idx").on(t.locationId),
+  ],
+);
+
 // Precio por local de un producto o combo (override). Ausencia = usa el precio base.
 export const locationPrices = mysqlTable(
   "location_prices",
@@ -589,3 +608,4 @@ export const orderItems = mysqlTable(
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
 );
+
