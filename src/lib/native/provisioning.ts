@@ -33,19 +33,31 @@ export async function clearTotemUrl(): Promise<void> {
 }
 
 /**
- * Valida y parsea un enlace de tótem `/t/{empresa}/{local}/{totem}`. Rechaza
- * cualquier cosa que no sea del dominio del sistema, para que un QR cualquiera
- * no deje la tablet apuntando a otro lado.
+ * Valida y parsea un enlace de tótem `/t/{empresa}/{local}/{totem}`.
+ *
+ * No importa el host del enlace escaneado: el QR del panel puede salir con
+ * `localhost` (dev) o con el dominio de prod. Lo que define que es un tótem es
+ * la forma del path. La URL final se arma siempre contra el host de prod, así
+ * que la tablet abre producción aunque el QR viniera de otro lado.
  */
 export function parseTotemUrl(raw: string): TotemRef | null {
-  let u: URL;
+  const texto = raw.trim();
+  // Acepta URL completa o un path suelto /t/e/l/n.
+  const path = texto.startsWith("/") ? texto : safePathname(texto);
+  if (!path) return null;
+  const m = path.match(/^\/t\/([a-z0-9-]{1,60})\/([a-z0-9-]{1,60})\/(\d+)\/?$/i);
+  if (!m) return null;
+  const empresa = m[1];
+  const local = m[2];
+  const totem = Number(m[3]);
+  const url = `https://${HOST}/t/${empresa}/${local}/${totem}?totem=1`;
+  return { empresa, local, totem, url };
+}
+
+function safePathname(raw: string): string | null {
   try {
-    u = new URL(raw.trim());
+    return new URL(raw).pathname;
   } catch {
     return null;
   }
-  if (u.host !== HOST) return null;
-  const m = u.pathname.match(/^\/t\/([a-z0-9-]{1,60})\/([a-z0-9-]{1,60})\/(\d+)\/?$/i);
-  if (!m) return null;
-  return { empresa: m[1], local: m[2], totem: Number(m[3]), url: u.toString() };
 }
