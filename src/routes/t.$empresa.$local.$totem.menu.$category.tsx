@@ -76,9 +76,33 @@ function MenuCategoryPage() {
       />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
-        {/* Carrusel de categorías: saltar de una a otra sin volver atrás. */}
-        {menu.categories.length > 1 && (
-          <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+        {/* Carrusel de categorías: saltar de una a otra sin volver atrás.
+            Mini-tarjetas con foto; en la tablet se desplaza con el dedo, sin
+            barra visible. */}
+        {(menu.categories.length > 1 || menu.combos.length > 0) && (
+          <div className="no-scrollbar mb-6 flex gap-3 overflow-x-auto pb-1">
+            {menu.combos.length > 0 && (
+              <Link
+                to="/t/$empresa/$local/$totem/combos"
+                params={nav}
+                className="group relative flex h-28 w-52 shrink-0 flex-col justify-end overflow-hidden rounded-2xl border border-border/60 shadow-card"
+              >
+                {menu.combos[0].photoUrl ? (
+                  <img
+                    src={menu.combos[0].photoUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-muted" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
+                <div className="relative z-10 p-3">
+                  <h3 className="font-display text-xl leading-none text-white">Combos</h3>
+                  <p className="mt-1 text-xs text-white/70">{menu.combos.length} combos</p>
+                </div>
+              </Link>
+            )}
             {menu.categories.map((c) => {
               const activa = c.id === category.id;
               return (
@@ -86,14 +110,27 @@ function MenuCategoryPage() {
                   key={c.id}
                   to="/t/$empresa/$local/$totem/menu/$category"
                   params={{ ...nav, category: String(c.id) }}
-                  className={`whitespace-nowrap rounded-full border px-5 py-2.5 font-display text-lg uppercase tracking-wide transition ${
-                    activa
-                      ? "border-transparent text-white"
-                      : "border-border text-muted-foreground hover:text-foreground"
+                  className={`group relative flex h-28 w-52 shrink-0 flex-col justify-end overflow-hidden rounded-2xl shadow-card ${
+                    activa ? "border-2" : "border border-border/60"
                   }`}
-                  style={activa ? { background: accent ?? "var(--primary)" } : {}}
+                  style={activa ? { borderColor: accent ?? "var(--primary)" } : {}}
                 >
-                  {c.name}
+                  {c.photoUrl ? (
+                    <img
+                      src={c.photoUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-muted" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
+                  <div className="relative z-10 p-3">
+                    <h3 className="font-display text-xl leading-none text-white">{c.name}</h3>
+                    <p className="mt-1 text-xs text-white/70">
+                      {c.productCount} {c.productCount === 1 ? "producto" : "productos"}
+                    </p>
+                  </div>
                 </Link>
               );
             })}
