@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { getTotemMenu, type TotemProduct } from "@/lib/api/totem.functions";
+import { type TotemProduct } from "@/lib/api/totem.functions";
+import { getMenuCached } from "@/lib/totem-menu-cache";
 import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
@@ -14,9 +15,7 @@ import { gridColsFor, lastSpanFor } from "@/components/totem/grid";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/menu/$category")({
   loader: async ({ params }) => {
-    const menu = await getTotemMenu({
-      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
-    });
+    const menu = await getMenuCached(params.empresa, params.local, Number(params.totem));
     const categoryId = Number(params.category);
     const category = menu.categories.find((c) => c.id === categoryId);
     if (!category) throw notFound();
