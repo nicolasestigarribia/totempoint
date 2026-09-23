@@ -209,10 +209,12 @@ export function TotemsSection({
                     panelClass={panelClass}
                   />
                   <TotemPrinterCard
+                    totemId={t.id}
                     empresa={business.slug}
                     local={location.slug}
                     totem={t.number}
                     companyName={business.name}
+                    dbPrinterName={t.printerName}
                     panelClass={panelClass}
                   />
                 </>

@@ -47,7 +47,11 @@
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
-    <!-- Android 12+ (API 31): conectar a dispositivos ya emparejados. -->
+    <!-- Android 12+ (API 31): conectar y descubrir dispositivos cercanos.
+         neverForLocation evita tener que pedir permiso de ubicación. -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
 </manifest>

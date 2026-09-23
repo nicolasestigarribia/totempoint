@@ -56,6 +56,14 @@ export const totems = mysqlTable(
     number: int("number").notNull(),
     label: varchar("label", { length: 60 }),
     active: boolean("active").notNull().default(true),
+    /**
+     * Impresora térmica asignada a este tótem, grabada desde el panel. Es el
+     * respaldo de la asociación tablet↔impresora: la tablet la lee si perdió su
+     * cache local, y permite cambiarla desde otra PC. Igual la impresora tiene
+     * que estar emparejada por Bluetooth en la tablet; la MAC sola no conecta.
+     */
+    printerMac: varchar("printer_mac", { length: 20 }),
+    printerName: varchar("printer_name", { length: 80 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

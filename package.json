@@ -13,9 +13,11 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@capacitor-mlkit/barcode-scanning": "^8.2.1",
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "@capacitor/preferences": "^8.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@kduma-autoid/capacitor-bluetooth-printer": "^0.2.1",
     "@radix-ui/react-accordion": "^1.2.12",

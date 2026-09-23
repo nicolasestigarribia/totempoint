@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Printer, Loader2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { setTotemPrinter } from "@/lib/api/totems.functions";
 import { buildTicket, type TicketData } from "@/lib/print/ticket";
 import {
   soportaWebBluetooth,
@@ -36,18 +38,23 @@ function ticketDemo(empresa: string): TicketData {
 }
 
 export function TotemPrinterCard({
+  totemId,
   empresa,
   local,
   totem,
   companyName,
+  dbPrinterName,
   panelClass,
 }: {
+  totemId: number;
   empresa: string;
   local: string;
   totem: number;
   companyName: string;
+  dbPrinterName: string | null;
   panelClass: string;
 }) {
+  const guardarEnDb = useServerFn(setTotemPrinter);
   const [paired, setPaired] = useState(() => getPaired(empresa, local, totem));
   const [conn, setConn] = useState<Impresora | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,6 +69,15 @@ export function TotemPrinterCard({
   const detalleError = (err: unknown) => {
     if (err instanceof Error) return `ERROR ${err.name}: ${err.message}`;
     return `ERROR: ${String(err)}`;
+  };
+
+  // Deja la impresora grabada en la base (respaldo, editable desde el panel).
+  const persistirEnDb = async (mac: string | null, name: string | null) => {
+    try {
+      await guardarEnDb({ data: { id: totemId, mac, name } });
+    } catch (err) {
+      anotar(detalleError(err));
+    }
   };
 
   // En la app nativa (APK) se elige de los dispositivos ya emparejados en el
@@ -86,11 +102,13 @@ export function TotemPrinterCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nativo]);
 
-  const elegirNativo = (d: DispositivoBt) => {
+  const elegirNativo = async (d: DispositivoBt) => {
     const p = { deviceId: d.address, name: d.name || d.address };
     savePaired(empresa, local, totem, p);
     setPaired(p);
     anotar(`Impresora del tótem: ${p.name}`);
+    // La MAC nativa sí sirve de respaldo: se guarda en la base.
+    await persistirEnDb(d.address, p.name);
   };
 
   const probarNativo = async () => {
@@ -155,11 +173,13 @@ export function TotemPrinterCard({
     }
   };
 
-  const quitar = () => {
+  const quitar = async () => {
     clearPaired(empresa, local, totem);
     setPaired(null);
     setConn(null);
     setLog([]);
+    // Quitar la impresora del tótem también la borra de la base.
+    await persistirEnDb(null, null);
   };
 
   return (
@@ -167,10 +187,10 @@ export function TotemPrinterCard({
       <div className="flex items-center gap-2">
         <Printer className="h-4 w-4 text-primary" />
         <span className="text-sm font-semibold">Impresora del tótem</span>
-        {paired && (
+        {(paired || dbPrinterName) && (
           <span className="ml-auto flex items-center gap-1 text-xs text-green-400">
             <Check className="h-3.5 w-3.5" />
-            {paired.name}
+            {paired?.name ?? dbPrinterName}
           </span>
         )}
       </div>
@@ -195,7 +215,7 @@ export function TotemPrinterCard({
                   size="sm"
                   variant="ghost"
                   className="gap-1 text-destructive hover:text-destructive"
-                  onClick={quitar}
+                  onClick={() => void quitar()}
                   disabled={busy}
                 >
                   <X className="h-4 w-4" />
@@ -210,7 +230,7 @@ export function TotemPrinterCard({
                 <button
                   key={d.address}
                   type="button"
-                  onClick={() => elegirNativo(d)}
+                  onClick={() => void elegirNativo(d)}
                   className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
                     paired?.deviceId === d.address
                       ? "border-primary bg-primary/10"
@@ -253,7 +273,7 @@ export function TotemPrinterCard({
                   size="sm"
                   variant="ghost"
                   className="gap-1 text-destructive hover:text-destructive"
-                  onClick={quitar}
+                  onClick={() => void quitar()}
                   disabled={busy}
                 >
                   <X className="h-4 w-4" />

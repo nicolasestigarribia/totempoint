@@ -80,7 +80,9 @@ function ListoPage() {
 
   const imprimirTicket = async () => {
     const paired = getPaired(nav.empresa, nav.local, Number(nav.totem));
-    if (!paired) return;
+    const nativo = esAppNativa();
+    // Web necesita el emparejado local; el APK puede usar la MAC de la DB.
+    if (!paired && !nativo) return;
     setEstado("imprimiendo");
     setMotivo(null);
     try {
@@ -94,16 +96,22 @@ function ListoPage() {
       });
       const bytes = buildTicket(aTicketData(ticket));
 
-      // En el APK: Bluetooth nativo, reconecta por MAC en cada impresión.
-      if (esAppNativa()) {
-        await imprimirNativo(paired.deviceId, bytes);
+      // En el APK: Bluetooth nativo por MAC. La MAC de la DB (panel) gana sobre
+      // la cache local, así que un cambio desde otra PC lo toma la tablet.
+      if (nativo) {
+        const mac = ticket.printerMac ?? paired?.deviceId ?? null;
+        if (!mac) {
+          setEstado("idle");
+          return;
+        }
+        await imprimirNativo(mac, bytes);
         setEstado("listo");
         return;
       }
 
       // En Chrome: reusa la conexión viva de la sesión si la hay; si no, reconecta.
       let conn = conexionEnMemoria();
-      if (!conn) conn = await reconectarGuardada(paired.deviceId);
+      if (!conn && paired) conn = await reconectarGuardada(paired.deviceId);
       if (!conn) {
         setMotivo(
           soportaReconexion()
@@ -124,8 +132,9 @@ function ListoPage() {
   // Auto-imprime una sola vez al llegar a la pantalla de confirmación.
   useEffect(() => {
     const paired = getPaired(nav.empresa, nav.local, Number(nav.totem));
-    setHayImpresora(!!paired);
-    if (!paired || yaImprimio.current) return;
+    const nativo = esAppNativa();
+    setHayImpresora(!!paired || nativo);
+    if ((!paired && !nativo) || yaImprimio.current) return;
     yaImprimio.current = true;
     void imprimirTicket();
     // eslint-disable-next-line react-hooks/exhaustive-deps

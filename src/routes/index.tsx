@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Monitor, LogIn, Store, Users, Receipt } from "lucide-react";
+import { Monitor, LogIn, Store, Users, Receipt, Loader2 } from "lucide-react";
+import { esAppNativa } from "@/lib/print/native";
+import { getTotemUrl } from "@/lib/native/provisioning";
+import { TotemSetupScreen } from "@/components/totem/TotemSetupScreen";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +45,31 @@ const FEATURES = [
 ];
 
 function Home() {
+  // En la app nativa la raíz no es la landing: si la tablet ya está pegada a un
+  // tótem, va directo ahí; si no, muestra el wizard de setup. En el navegador
+  // (web) es siempre la landing de la plataforma.
+  const [modo, setModo] = useState<"web" | "cargando" | "setup">("web");
+
+  useEffect(() => {
+    if (!esAppNativa()) return;
+    setModo("cargando");
+    void (async () => {
+      const url = await getTotemUrl();
+      if (url) window.location.replace(url);
+      else setModo("setup");
+    })();
+  }, []);
+
+  if (modo === "cargando") {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (modo === "setup") return <TotemSetupScreen />;
+
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="flex items-center justify-between gap-4 px-6 py-6 md:px-12">
