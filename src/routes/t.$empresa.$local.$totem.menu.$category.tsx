@@ -11,7 +11,7 @@ import { useTotemCart, useCartForSlug, formatPrice, itemKey } from "@/lib/totem-
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
-import { gridColsFor, lastSpanFor } from "@/components/totem/grid";
+import { gridColsFor } from "@/components/totem/grid";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/menu/$category")({
   loader: async ({ params }) => {
@@ -175,7 +175,7 @@ function MenuCategoryPage() {
           <h1 className="mt-1 font-display text-4xl md:text-6xl">{category.name}</h1>
         </div>
 
-        <div className={`grid auto-rows-fr gap-5 ${gridColsFor(items.length)}`}>
+        <div className={`grid gap-5 ${gridColsFor(items.length)}`}>
           {items.map((p, i) => {
             // Todas las variantes del producto, con cambios y sin cambios.
             const inCart = cart
@@ -193,7 +193,7 @@ function MenuCategoryPage() {
                 // el número de cada contador.
                 className={`aparece flex flex-col overflow-hidden rounded-3xl border bg-card/40 shadow-card transition ${
                   inCart > 0 ? "border-2" : "border-border/60"
-                } ${lastSpanFor(items.length, i)}`}
+                }`}
                 style={{
                   // Cada tarjeta entra unos milisegundos después que la anterior.
                   animationDelay: `${Math.min(i, 8) * 45}ms`,
