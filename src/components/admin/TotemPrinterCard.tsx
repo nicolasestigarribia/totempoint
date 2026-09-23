@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Printer, Loader2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { buildTicket, type TicketData } from "@/lib/print/ticket";
@@ -9,6 +9,12 @@ import {
   imprimir,
   type Impresora,
 } from "@/lib/print/bluetooth";
+import {
+  esAppNativa,
+  listarEmparejados,
+  imprimirNativo,
+  type DispositivoBt,
+} from "@/lib/print/native";
 import { getPaired, savePaired, clearPaired } from "@/lib/print/printer-store";
 
 function ticketDemo(empresa: string): TicketData {
@@ -46,7 +52,9 @@ export function TotemPrinterCard({
   const [conn, setConn] = useState<Impresora | null>(null);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+  const [dispositivos, setDispositivos] = useState<DispositivoBt[]>([]);
 
+  const nativo = esAppNativa();
   const soportado = soportaWebBluetooth();
 
   const anotar = (m: string) =>
@@ -54,6 +62,50 @@ export function TotemPrinterCard({
   const detalleError = (err: unknown) => {
     if (err instanceof Error) return `ERROR ${err.name}: ${err.message}`;
     return `ERROR: ${String(err)}`;
+  };
+
+  // En la app nativa (APK) se elige de los dispositivos ya emparejados en el
+  // sistema; el emparejado Bluetooth se hace en Ajustes de Android.
+  const cargarDispositivos = async () => {
+    setBusy(true);
+    setLog([]);
+    try {
+      anotar("Buscando dispositivos emparejados...");
+      const ds = await listarEmparejados();
+      setDispositivos(ds);
+      anotar(`${ds.length} dispositivo(s) emparejado(s) en el sistema.`);
+    } catch (err) {
+      anotar(detalleError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (nativo) void cargarDispositivos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nativo]);
+
+  const elegirNativo = (d: DispositivoBt) => {
+    const p = { deviceId: d.address, name: d.name || d.address };
+    savePaired(empresa, local, totem, p);
+    setPaired(p);
+    anotar(`Impresora del tótem: ${p.name}`);
+  };
+
+  const probarNativo = async () => {
+    if (!paired) return;
+    setBusy(true);
+    setLog([]);
+    try {
+      anotar(`Imprimiendo prueba en ${paired.name}...`);
+      await imprimirNativo(paired.deviceId, buildTicket(ticketDemo(companyName)));
+      anotar("Ticket enviado. Revisá la impresora.");
+    } catch (err) {
+      anotar(detalleError(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const emparejar = async () => {
@@ -123,7 +175,60 @@ export function TotemPrinterCard({
         )}
       </div>
 
-      {!soportado ? (
+      {nativo ? (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" className="gap-2" onClick={cargarDispositivos} disabled={busy}>
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+              Buscar impresoras
+            </Button>
+            {paired && (
+              <>
+                <Button size="sm" variant="outline" onClick={probarNativo} disabled={busy}>
+                  Imprimir prueba
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-destructive hover:text-destructive"
+                  onClick={quitar}
+                  disabled={busy}
+                >
+                  <X className="h-4 w-4" />
+                  Quitar
+                </Button>
+              </>
+            )}
+          </div>
+          {dispositivos.length > 0 && (
+            <div className="space-y-1">
+              {dispositivos.map((d) => (
+                <button
+                  key={d.address}
+                  type="button"
+                  onClick={() => elegirNativo(d)}
+                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
+                    paired?.deviceId === d.address
+                      ? "border-primary bg-primary/10"
+                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <span className="font-medium">{d.name || d.address}</span>
+                  <span className="text-xs text-muted-foreground">{d.address}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Emparejá la impresora en Ajustes → Bluetooth de la tablet; acá aparece para elegirla.
+            Queda guardada en este tótem.
+          </p>
+        </>
+      ) : !soportado ? (
         <p className="text-xs text-muted-foreground">
           Este navegador no puede emparejar Bluetooth. Abrí esta pantalla en la tablet del tótem con
           Chrome (Android) para emparejar la impresora.

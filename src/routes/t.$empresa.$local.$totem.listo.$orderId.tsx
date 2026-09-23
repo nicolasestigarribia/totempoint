@@ -14,6 +14,7 @@ import {
   conexionEnMemoria,
   soportaReconexion,
 } from "@/lib/print/bluetooth";
+import { esAppNativa, imprimirNativo } from "@/lib/print/native";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")({
   loader: ({ params }) =>
@@ -91,7 +92,16 @@ function ListoPage() {
           orderId: Number(nav.orderId),
         },
       });
-      // Reusa la conexión viva de la sesión si la hay; si no, reconecta.
+      const bytes = buildTicket(aTicketData(ticket));
+
+      // En el APK: Bluetooth nativo, reconecta por MAC en cada impresión.
+      if (esAppNativa()) {
+        await imprimirNativo(paired.deviceId, bytes);
+        setEstado("listo");
+        return;
+      }
+
+      // En Chrome: reusa la conexión viva de la sesión si la hay; si no, reconecta.
       let conn = conexionEnMemoria();
       if (!conn) conn = await reconectarGuardada(paired.deviceId);
       if (!conn) {
@@ -103,7 +113,7 @@ function ListoPage() {
         setEstado("error");
         return;
       }
-      await imprimir(conn, buildTicket(aTicketData(ticket)));
+      await imprimir(conn, bytes);
       setEstado("listo");
     } catch (err) {
       setMotivo(err instanceof Error ? err.message : String(err));

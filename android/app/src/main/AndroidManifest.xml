@@ -38,4 +38,16 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Impresión por Bluetooth (térmica). -->
+    <!-- Android <= 11: permisos clásicos de Bluetooth. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <!-- Android 12+ (API 31): conectar a dispositivos ya emparejados. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_CONNECT" />
 </manifest>
