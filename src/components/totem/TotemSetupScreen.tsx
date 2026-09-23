@@ -41,8 +41,9 @@ export function TotemSetupScreen() {
     try {
       const texto = await escanearQr();
       if (texto) await fijarTotem(texto);
-    } catch {
-      setError("No se pudo abrir la cámara. Pegá el enlace del tótem a mano.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`${msg} — o pegá el enlace del tótem a mano.`);
     } finally {
       setBusy(false);
     }
