@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
 import { getTotemMenu, type TotemProduct } from "@/lib/api/totem.functions";
 import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
@@ -76,6 +76,30 @@ function MenuCategoryPage() {
       />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
+        {/* Carrusel de categorías: saltar de una a otra sin volver atrás. */}
+        {menu.categories.length > 1 && (
+          <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+            {menu.categories.map((c) => {
+              const activa = c.id === category.id;
+              return (
+                <Link
+                  key={c.id}
+                  to="/t/$empresa/$local/$totem/menu/$category"
+                  params={{ ...nav, category: String(c.id) }}
+                  className={`whitespace-nowrap rounded-full border px-5 py-2.5 font-display text-lg uppercase tracking-wide transition ${
+                    activa
+                      ? "border-transparent text-white"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                  style={activa ? { background: accent ?? "var(--primary)" } : {}}
+                >
+                  {c.name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
         <div className="mb-6">
           {category.tagline && (
             <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: accent }}>
