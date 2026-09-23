@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, desc, inArray, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, orderItems, locations } from "@/db/schema";
+import { orders, orderItems, orderItemRemovals, locations } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
 import {
   accessibleLocationIds,
@@ -12,6 +12,7 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 import { verificarPagoMP } from "@/lib/payments/verificar";
 import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
+import { devolverVenta } from "@/lib/stock/venta";
 
 export type OrderStatus = "recibido" | "preparacion" | "entregado" | "cancelado";
 export type PaymentMethod = "efectivo" | "mercadopago";
@@ -21,6 +22,8 @@ export interface KitchenOrderItem {
   productName: string;
   quantity: number;
   unitPrice: string;
+  /** Lo que el cliente pidió sacar, ya con el nombre congelado del pedido. */
+  removed: string[];
 }
 
 export interface KitchenOrder {
@@ -129,6 +132,23 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
         ),
       );
 
+    // El "sin cebolla" de cada línea. Es lo primero que mira quien prepara, así
+    // que viaja con el pedido y no se pide aparte.
+    const sacados = items.length
+      ? await db
+          .select({
+            orderItemId: orderItemRemovals.orderItemId,
+            ingredientName: orderItemRemovals.ingredientName,
+          })
+          .from(orderItemRemovals)
+          .where(
+            inArray(
+              orderItemRemovals.orderItemId,
+              items.map((i) => i.id),
+            ),
+          )
+      : [];
+
     return rows.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
@@ -148,6 +168,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
           productName: i.productName,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
+          removed: sacados.filter((s) => s.orderItemId === i.id).map((s) => s.ingredientName),
         })),
     }));
   });
@@ -337,6 +358,16 @@ export const cancelOrder = createServerFn({ method: "POST" })
         paymentStatus: target.paymentStatus === "pagado" ? "reembolso_pendiente" : "pendiente",
       })
       .where(eq(orders.id, data.orderId));
+
+    // Lo que el pedido había descontado del stock vuelve. Se descuenta al
+    // tomarlo, así que cancelar sin devolver dejaría el inventario corto para
+    // siempre. Nunca puede voltear la cancelación: el pedido ya está cancelado
+    // y el stock se arregla con un ajuste, al revés no.
+    try {
+      await devolverVenta(data.orderId);
+    } catch (error) {
+      console.error(`No se pudo devolver el stock del pedido ${data.orderId}:`, error);
+    }
 
     await registrarAuditoria(user, {
       category: "pedidos",

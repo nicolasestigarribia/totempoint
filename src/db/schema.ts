@@ -273,6 +273,12 @@ export const products = mysqlTable(
     // stockable = producto de reventa con stock propio (ej: bebidas). Se descuenta al vender.
     // No stockable = preparado; su stock deriva de los ingredientes de la receta.
     stockable: boolean("stockable").notNull().default(false),
+    // Si el cliente puede sacarle ingredientes desde el tótem. Lo decide el
+    // dueño producto por producto y no es una regla general: un sánguche de
+    // miga viene como viene, una hamburguesa no. Apagado, el tótem ni ofrece
+    // la opción; encendido, sólo se pueden sacar los ingredientes marcados
+    // como `removable` en `product_ingredients`.
+    customizable: boolean("customizable").notNull().default(false),
     // Unidad y unidades por bulto: sólo aplican a productos stockable (reventa).
     unit: varchar("unit", { length: 20 }),
     unitsPerBulk: decimal("units_per_bulk", { precision: 10, scale: 2 }).notNull().default("1"),
@@ -323,6 +329,10 @@ export const productIngredients = mysqlTable(
     productId: int("product_id").notNull(),
     ingredientId: int("ingredient_id").notNull(),
     quantity: decimal("quantity", { precision: 10, scale: 2 }),
+    // Si este ingrediente en particular se puede sacar. La carne de una
+    // hamburguesa no; la cebolla sí. Sólo cuenta si el producto además está
+    // marcado como `customizable`.
+    removable: boolean("removable").notNull().default(false),
   },
   (t) => [
     unique("product_ingredients_uq").on(t.productId, t.ingredientId),
@@ -477,6 +487,11 @@ export const movements = mysqlTable(
     locationId: int("location_id").notNull(),
     ingredientId: int("ingredient_id"), // null para caja o para stock de producto de reventa
     productId: int("product_id"), // seteado para stock de producto de reventa
+    // Pedido que originó el movimiento, para las ventas automáticas. Null en
+    // todo lo que se carga a mano. Es lo que permite devolver exactamente lo
+    // que salió cuando se cancela un pedido, sin recalcular recetas que
+    // pudieron cambiar desde entonces.
+    orderId: int("order_id"),
     type: mysqlEnum("type", ["stock", "caja"]).notNull().default("stock"),
     actionCode: varchar("action_code", { length: 40 }).notNull(),
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
@@ -485,6 +500,7 @@ export const movements = mysqlTable(
   },
   (t) => [
     index("movements_company_idx").on(t.companyId),
+    index("movements_order_idx").on(t.orderId),
     index("movements_location_idx").on(t.locationId),
     index("movements_ingredient_idx").on(t.ingredientId),
     index("movements_product_idx").on(t.productId),
@@ -607,6 +623,26 @@ export const orderItems = mysqlTable(
     quantity: int("quantity").notNull(),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
+);
+
+// Qué ingredientes sacó el cliente de una línea del pedido: el "sin cebolla".
+//
+// Congela el nombre del ingrediente igual que `order_items` congela el del
+// producto, porque la comanda de un pedido viejo tiene que seguir diciendo lo
+// mismo aunque después se renombre o se borre el ingrediente. Guarda también
+// el id para poder devolver el stock que no se consumió.
+export const orderItemRemovals = mysqlTable(
+  "order_item_removals",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    orderItemId: int("order_item_id").notNull(),
+    ingredientId: int("ingredient_id").notNull(),
+    ingredientName: varchar("ingredient_name", { length: 120 }).notNull(),
+  },
+  (t) => [
+    unique("order_item_removals_uq").on(t.orderItemId, t.ingredientId),
+    index("order_item_removals_item_idx").on(t.orderItemId),
+  ],
 );
 
 // Auditoría de cambios críticos del panel: permisos, precios, cobros, accesos.

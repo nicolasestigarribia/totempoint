@@ -69,7 +69,14 @@ function CheckoutPage() {
           deliveryMethod: delivery,
           paymentMethod: pago,
           comments: comments.trim() || undefined,
-          items: items.map((i) => ({ kind: i.kind, id: i.refId, quantity: i.quantity })),
+          items: items.map((i) => ({
+            kind: i.kind,
+            id: i.refId,
+            quantity: i.quantity,
+            // El servidor revalida esto contra la receta: manda lo elegido,
+            // no lo que se puede elegir.
+            removedIngredientIds: i.removed.map((r) => r.id),
+          })),
         },
       });
       clear();

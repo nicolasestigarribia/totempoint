@@ -33,6 +33,8 @@ interface DraftIngredient {
   name: string;
   unit: string | null;
   quantity: string;
+  /** Si el cliente puede pedir que se lo saquen desde el tótem. */
+  removable: boolean;
 }
 
 const UNITS = ["Grs", "Kg", "Mg", "Ml", "Lts", "Cc", "Cm", "Mm", "Mts", "Unidad"] as const;
@@ -61,6 +63,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   const [photoUrl, setPhotoUrl] = useState("");
   const [active, setActive] = useState(true);
   const [stockable, setStockable] = useState(false);
+  const [customizable, setCustomizable] = useState(false);
   const [unit, setUnit] = useState("");
   const [unitsPerBulk, setUnitsPerBulk] = useState("1");
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
@@ -122,6 +125,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setPhotoUrl("");
     setActive(true);
     setStockable(false);
+    setCustomizable(false);
     setUnit("");
     setUnitsPerBulk("1");
     setDraftIngredients([]);
@@ -138,6 +142,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setPhotoUrl(row.photoUrl ?? "");
     setActive(row.active);
     setStockable(row.stockable);
+    setCustomizable(row.customizable);
     setUnit(row.unit ?? "");
     setUnitsPerBulk(row.unitsPerBulk ?? "1");
     setDraftIngredients(
@@ -146,6 +151,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
         name: i.name,
         unit: i.unit,
         quantity: i.quantity ?? "",
+        removable: i.removable,
       })),
     );
     setIngredientSearch("");
@@ -157,7 +163,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     if (!ing) return;
     setDraftIngredients((prev) => [
       ...prev,
-      { ingredientId: ing.id, name: ing.name, unit: ing.unit, quantity: "" },
+      { ingredientId: ing.id, name: ing.name, unit: ing.unit, quantity: "", removable: false },
     ]);
   }
 
@@ -168,6 +174,12 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   function setDraftQuantity(id: number, value: string) {
     setDraftIngredients((prev) =>
       prev.map((d) => (d.ingredientId === id ? { ...d, quantity: value } : d)),
+    );
+  }
+
+  function setDraftRemovable(id: number, value: boolean) {
+    setDraftIngredients((prev) =>
+      prev.map((d) => (d.ingredientId === id ? { ...d, removable: value } : d)),
     );
   }
 
@@ -192,6 +204,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
           return {
             ingredientId: d.ingredientId,
             quantity: parsed === null || Number.isNaN(parsed) ? null : parsed,
+            removable: d.removable,
           };
         });
 
@@ -216,6 +229,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             active,
             sort: editing.sort,
             stockable,
+            customizable,
             unit: unitVal,
             unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
@@ -231,6 +245,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             categoryId: parsedCategory,
             photoUrl: trimmedPhoto || undefined,
             stockable,
+            customizable,
             unit: unitVal,
             unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
@@ -466,17 +481,36 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                     Maneja stock propio y se vende sin receta (ej: bebidas).
                   </p>
                 </div>
-                <Switch
-                  id="product-stockable"
-                  checked={stockable}
-                  onCheckedChange={setStockable}
-                />
+                <Switch id="product-stockable" checked={stockable} onCheckedChange={setStockable} />
               </div>
+              {/* Un producto de reventa no tiene receta, así que no hay nada
+                  que sacarle: el interruptor ni aparece en ese caso. */}
+              {!stockable && (
+                <div className="flex items-center justify-between rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
+                  <div>
+                    <Label htmlFor="product-customizable" className="cursor-pointer">
+                      El cliente puede sacarle ingredientes
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      En el tótem aparece &quot;¿le sacamos algo?&quot; con los ingredientes que
+                      marques abajo. No cambia el precio.
+                    </p>
+                  </div>
+                  <Switch
+                    id="product-customizable"
+                    checked={customizable}
+                    onCheckedChange={setCustomizable}
+                  />
+                </div>
+              )}
               {stockable && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="product-unit">Unidad de stock</Label>
-                    <Select value={unit || "none"} onValueChange={(v) => setUnit(v === "none" ? "" : v)}>
+                    <Select
+                      value={unit || "none"}
+                      onValueChange={(v) => setUnit(v === "none" ? "" : v)}
+                    >
                       <SelectTrigger id="product-unit" className="h-11">
                         <SelectValue placeholder="Sin unidad" />
                       </SelectTrigger>
@@ -552,88 +586,105 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
               </h4>
               {stockable ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
-                  Los productos de reventa no llevan receta. Su stock se gestiona en la sección Stock.
+                  Los productos de reventa no llevan receta. Su stock se gestiona en la sección
+                  Stock.
                 </p>
               ) : (
                 <>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={ingredientSearch}
-                  placeholder="Buscar ingrediente..."
-                  className="h-11 pl-9"
-                  onChange={(e) => setIngredientSearch(e.target.value)}
-                />
-              </div>
-              <div className="max-h-40 divide-y divide-white/5 overflow-auto rounded-md border border-white/10">
-                {availableIngredients.length === 0 ? (
-                  <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-                    {ingredients.length === 0 ? "No hay ingredientes cargados" : "Sin resultados"}
-                  </p>
-                ) : (
-                  availableIngredients.map((i) => (
-                    <button
-                      key={i.id}
-                      type="button"
-                      onClick={() => addIngredient(i.id)}
-                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-white/5"
-                    >
-                      <span>
-                        {i.name}
-                        {i.unit ? (
-                          <span className="ml-1 text-xs text-muted-foreground">({i.unit})</span>
-                        ) : null}
-                      </span>
-                      <Plus className="h-4 w-4 text-primary" />
-                    </button>
-                  ))
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Seleccionados ({draftIngredients.length})
-                </p>
-                {draftIngredients.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Todavía no agregaste ingredientes.
-                  </p>
-                ) : (
-                  <div className="max-h-56 space-y-2 overflow-auto pr-1">
-                    {draftIngredients.map((d) => (
-                      <div
-                        key={d.ingredientId}
-                        className="flex items-center gap-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2"
-                      >
-                        <span className="flex-1 text-sm font-medium">
-                          {d.name}
-                          {d.unit ? (
-                            <span className="ml-1 text-xs text-muted-foreground">({d.unit})</span>
-                          ) : null}
-                        </span>
-                        {d.unit ? (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={d.quantity}
-                            placeholder="Cant."
-                            className="h-9 w-24"
-                            onChange={(e) => setDraftQuantity(d.ingredientId, e.target.value)}
-                          />
-                        ) : null}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Quitar ingrediente"
-                          onClick={() => removeDraftIngredient(d.ingredientId)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={ingredientSearch}
+                      placeholder="Buscar ingrediente..."
+                      className="h-11 pl-9"
+                      onChange={(e) => setIngredientSearch(e.target.value)}
+                    />
                   </div>
-                )}
-              </div>
+                  <div className="max-h-40 divide-y divide-white/5 overflow-auto rounded-md border border-white/10">
+                    {availableIngredients.length === 0 ? (
+                      <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                        {ingredients.length === 0
+                          ? "No hay ingredientes cargados"
+                          : "Sin resultados"}
+                      </p>
+                    ) : (
+                      availableIngredients.map((i) => (
+                        <button
+                          key={i.id}
+                          type="button"
+                          onClick={() => addIngredient(i.id)}
+                          className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-white/5"
+                        >
+                          <span>
+                            {i.name}
+                            {i.unit ? (
+                              <span className="ml-1 text-xs text-muted-foreground">({i.unit})</span>
+                            ) : null}
+                          </span>
+                          <Plus className="h-4 w-4 text-primary" />
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Seleccionados ({draftIngredients.length})
+                    </p>
+                    {draftIngredients.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Todavía no agregaste ingredientes.
+                      </p>
+                    ) : (
+                      <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                        {draftIngredients.map((d) => (
+                          <div
+                            key={d.ingredientId}
+                            className="flex items-center gap-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2"
+                          >
+                            <span className="flex-1 text-sm font-medium">
+                              {d.name}
+                              {d.unit ? (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({d.unit})
+                                </span>
+                              ) : null}
+                            </span>
+                            {d.unit ? (
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={d.quantity}
+                                placeholder="Cant."
+                                className="h-9 w-24"
+                                onChange={(e) => setDraftQuantity(d.ingredientId, e.target.value)}
+                              />
+                            ) : null}
+                            {/* Se elige ingrediente por ingrediente: la carne de
+                            una hamburguesa no se saca, la cebolla sí. Sólo
+                            tiene sentido si el producto está habilitado. */}
+                            {customizable && (
+                              <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                <Switch
+                                  checked={d.removable}
+                                  onCheckedChange={(v) => setDraftRemovable(d.ingredientId, v)}
+                                />
+                                se puede sacar
+                              </label>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Quitar ingrediente"
+                              onClick={() => removeDraftIngredient(d.ingredientId)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </div>

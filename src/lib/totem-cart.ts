@@ -8,6 +8,12 @@ import { persist } from "zustand/middleware";
 /** Una línea del pedido: un producto suelto o un combo. */
 export type TotemCartKind = "producto" | "combo";
 
+/** Un ingrediente que el cliente sacó de una línea. */
+export interface TotemCartRemoval {
+  id: number;
+  name: string;
+}
+
 export interface TotemCartItem {
   kind: TotemCartKind;
   /** Id del producto o del combo, según kind. */
@@ -16,17 +22,42 @@ export interface TotemCartItem {
   price: string;
   photoUrl: string | null;
   quantity: number;
+  /**
+   * Lo que el cliente le sacó. Vacío es el producto tal como viene. Sacar algo
+   * no cambia el precio: es la misma hamburguesa, sin la cebolla.
+   */
+  removed: TotemCartRemoval[];
 }
 
-/** Clave de una línea: producto 3 y combo 3 son cosas distintas. */
-export const itemKey = (kind: TotemCartKind, refId: number) => `${kind}-${refId}`;
+/**
+ * Clave de una línea.
+ *
+ * Producto 3 y combo 3 son cosas distintas, y una hamburguesa sin cebolla
+ * también es distinta de una hamburguesa: si compartieran clave, pedir las dos
+ * daría "cantidad 2" de una sola y la cocina no sabría cuál lleva qué. Los ids
+ * van ordenados para que el orden en que el cliente tocó los ingredientes no
+ * genere dos líneas iguales.
+ */
+export const itemKey = (kind: TotemCartKind, refId: number, removed: TotemCartRemoval[] = []) => {
+  const sacados = removed
+    .map((r) => r.id)
+    .sort((a, b) => a - b)
+    .join(".");
+  return sacados ? `${kind}-${refId}-sin${sacados}` : `${kind}-${refId}`;
+};
 
 interface CartState {
   slug: string | null;
   items: TotemCartItem[];
-  add: (slug: string, item: Omit<TotemCartItem, "quantity">) => void;
-  removeOne: (kind: TotemCartKind, refId: number) => void;
-  removeAll: (kind: TotemCartKind, refId: number) => void;
+  add: (
+    slug: string,
+    item: Omit<TotemCartItem, "quantity" | "removed"> & {
+      removed?: TotemCartRemoval[];
+    },
+  ) => void;
+  /** Se sacan por clave, no por id: hay que decir cuál de las variantes. */
+  removeOne: (clave: string) => void;
+  removeAll: (clave: string) => void;
   clear: () => void;
 }
 
@@ -38,30 +69,33 @@ export const useTotemCart = create<CartState>()(
       add: (slug, item) =>
         set((s) => {
           const items = s.slug === slug ? s.items : [];
-          const clave = itemKey(item.kind, item.refId);
-          const found = items.find((i) => itemKey(i.kind, i.refId) === clave);
+          const removed = item.removed ?? [];
+          const clave = itemKey(item.kind, item.refId, removed);
+          const found = items.find((i) => itemKey(i.kind, i.refId, i.removed) === clave);
           return {
             slug,
             items: found
               ? items.map((i) =>
-                  itemKey(i.kind, i.refId) === clave ? { ...i, quantity: i.quantity + 1 } : i,
+                  itemKey(i.kind, i.refId, i.removed) === clave
+                    ? { ...i, quantity: i.quantity + 1 }
+                    : i,
                 )
-              : [...items, { ...item, quantity: 1 }],
+              : [...items, { ...item, removed, quantity: 1 }],
           };
         }),
-      removeOne: (kind, refId) =>
+      removeOne: (clave) =>
         set((s) => ({
           items: s.items
             .map((i) =>
-              itemKey(i.kind, i.refId) === itemKey(kind, refId)
+              itemKey(i.kind, i.refId, i.removed) === clave
                 ? { ...i, quantity: i.quantity - 1 }
                 : i,
             )
             .filter((i) => i.quantity > 0),
         })),
-      removeAll: (kind, refId) =>
+      removeAll: (clave) =>
         set((s) => ({
-          items: s.items.filter((i) => itemKey(i.kind, i.refId) !== itemKey(kind, refId)),
+          items: s.items.filter((i) => itemKey(i.kind, i.refId, i.removed) !== clave),
         })),
       clear: () => set({ items: [] }),
     }),
@@ -69,18 +103,21 @@ export const useTotemCart = create<CartState>()(
       name: "totem-cart",
       // El carrito viejo guardaba productId y no distinguía combos. Las tablets
       // que tengan uno a medio armar se migran en vez de romperse.
-      version: 2,
+      version: 3,
       migrate: (state: unknown) => {
         const viejo = state as { slug?: string | null; items?: Record<string, unknown>[] };
         return {
           slug: viejo?.slug ?? null,
           items: (viejo?.items ?? []).map((i) => ({
-            kind: "producto" as const,
+            kind: (i.kind as TotemCartKind) ?? "producto",
             refId: Number(i.refId ?? i.productId ?? 0),
             name: String(i.name ?? ""),
             price: String(i.price ?? "0"),
             photoUrl: (i.photoUrl as string | null) ?? null,
             quantity: Number(i.quantity ?? 1),
+            // Los carritos de antes no tenían personalización: van sin nada
+            // sacado, que es justo lo que el cliente había pedido.
+            removed: (i.removed as TotemCartRemoval[]) ?? [],
           })),
         };
       },

@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
-import { getTotemMenu } from "@/lib/api/totem.functions";
+import { getTotemMenu, type TotemProduct } from "@/lib/api/totem.functions";
+import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { TotemCartBar } from "@/components/totem/TotemCartBar";
-import { useTotemCart, useCartForSlug, formatPrice } from "@/lib/totem-cart";
+import { useTotemCart, useCartForSlug, formatPrice, itemKey } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -40,6 +42,27 @@ function MenuCategoryPage() {
   const removeOne = useTotemCart((s) => s.removeOne);
   const cart = useCartForSlug(cartKey);
   useTotemIdleReset(nav);
+  // El producto cuya pantalla de "¿le sacamos algo?" está abierta.
+  const [personalizando, setPersonalizando] = useState<TotemProduct | null>(null);
+
+  // Un producto configurable puede estar varias veces en el pedido con cambios
+  // distintos, así que el contador de la tarjeta suma todas sus variantes y el
+  // − / + de la tarjeta sólo maneja la versión sin cambios. Las otras se
+  // editan desde el carrito, que es donde se ven una por una.
+  const agregar = (p: TotemProduct, sacados: { id: number; name: string }[] = []) =>
+    add(cartKey, {
+      kind: "producto",
+      refId: p.id,
+      name: p.name,
+      price: p.price,
+      photoUrl: p.photoUrl,
+      removed: sacados,
+    });
+
+  const alTocarAgregar = (p: TotemProduct) => {
+    if (p.removables.length > 0) setPersonalizando(p);
+    else agregar(p);
+  };
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -64,8 +87,14 @@ function MenuCategoryPage() {
 
         <div className={`grid auto-rows-fr gap-5 ${gridColsFor(items.length)}`}>
           {items.map((p, i) => {
-            const inCart =
-              cart.find((i) => i.kind === "producto" && i.refId === p.id)?.quantity ?? 0;
+            // Todas las variantes del producto, con cambios y sin cambios.
+            const inCart = cart
+              .filter((i) => i.kind === "producto" && i.refId === p.id)
+              .reduce((n, i) => n + i.quantity, 0);
+            // El − / + de la tarjeta maneja la versión sin cambios; las
+            // personalizadas se editan en el carrito, donde se ven separadas.
+            const claveSinCambios = itemKey("producto", p.id);
+            const configurable = p.removables.length > 0;
             return (
               <article
                 key={p.id}
@@ -100,7 +129,7 @@ function MenuCategoryPage() {
                     <span className="font-display text-3xl" style={{ color: accent }}>
                       {formatPrice(p.price)}
                     </span>
-                    {inCart > 0 ? (
+                    {inCart > 0 && !configurable ? (
                       // Con unidades en el pedido el botón se abre en − cantidad +:
                       // equivocarse tocando no puede obligar a ir hasta el carrito.
                       <div
@@ -109,7 +138,7 @@ function MenuCategoryPage() {
                       >
                         <button
                           type="button"
-                          onClick={() => removeOne("producto", p.id)}
+                          onClick={() => removeOne(claveSinCambios)}
                           aria-label={inCart === 1 ? `Quitar ${p.name}` : `Quitar una unidad`}
                           className="flex h-12 w-12 items-center justify-center rounded-xl text-white transition hover:bg-black/20 active:scale-95"
                         >
@@ -124,15 +153,7 @@ function MenuCategoryPage() {
                         </span>
                         <button
                           type="button"
-                          onClick={() =>
-                            add(cartKey, {
-                              kind: "producto",
-                              refId: p.id,
-                              name: p.name,
-                              price: p.price,
-                              photoUrl: p.photoUrl,
-                            })
-                          }
+                          onClick={() => agregar(p)}
                           aria-label="Agregar una unidad"
                           className="flex h-12 w-12 items-center justify-center rounded-xl text-white transition hover:bg-black/20 active:scale-95"
                         >
@@ -142,20 +163,18 @@ function MenuCategoryPage() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() =>
-                          add(cartKey, {
-                            kind: "producto",
-                            refId: p.id,
-                            name: p.name,
-                            price: p.price,
-                            photoUrl: p.photoUrl,
-                          })
-                        }
+                        onClick={() => alTocarAgregar(p)}
                         className="flex h-14 items-center gap-2 rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
                         style={{ background: accent ?? "var(--primary)" }}
                       >
                         <Plus className="h-5 w-5" />
-                        Agregar
+                        {/* Un producto configurable no suma de a uno callado:
+                            el botón anuncia que va a preguntar antes. */}
+                        {configurable
+                          ? inCart > 0
+                            ? `Agregar otro · ${inCart}`
+                            : "Elegir"
+                          : "Agregar"}
                       </button>
                     )}
                   </div>
@@ -167,6 +186,18 @@ function MenuCategoryPage() {
       </main>
 
       <TotemCartBar nav={nav} accent={accent} />
+
+      {personalizando && (
+        <TotemPersonalizar
+          producto={personalizando}
+          accent={accent}
+          onCancel={() => setPersonalizando(null)}
+          onConfirm={(sacados) => {
+            agregar(personalizando, sacados);
+            setPersonalizando(null);
+          }}
+        />
+      )}
     </div>
   );
 }
