@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
 import { getTotemMenu, type TotemProduct } from "@/lib/api/totem.functions";
-import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
+import { TotemQuitables } from "@/components/totem/TotemQuitables";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { TotemCartBar } from "@/components/totem/TotemCartBar";
@@ -42,26 +42,39 @@ function MenuCategoryPage() {
   const removeOne = useTotemCart((s) => s.removeOne);
   const cart = useCartForSlug(cartKey);
   useTotemIdleReset(nav);
-  // El producto cuya pantalla de "¿le sacamos algo?" está abierta.
-  const [personalizando, setPersonalizando] = useState<TotemProduct | null>(null);
+  // Qué sacó el cliente de cada producto. Vive acá y no en la tarjeta porque
+  // agregar al carrito lo tiene que limpiar: la próxima unidad arranca de
+  // nuevo, como viene.
+  const [sacados, setSacados] = useState<Record<number, number[]>>({});
+
+  const alternarIngrediente = (productId: number, ingredientId: number) =>
+    setSacados((prev) => {
+      const actuales = prev[productId] ?? [];
+      return {
+        ...prev,
+        [productId]: actuales.includes(ingredientId)
+          ? actuales.filter((x) => x !== ingredientId)
+          : [...actuales, ingredientId],
+      };
+    });
 
   // Un producto configurable puede estar varias veces en el pedido con cambios
   // distintos, así que el contador de la tarjeta suma todas sus variantes y el
-  // − / + de la tarjeta sólo maneja la versión sin cambios. Las otras se
-  // editan desde el carrito, que es donde se ven una por una.
-  const agregar = (p: TotemProduct, sacados: { id: number; name: string }[] = []) =>
+  // − / + sólo maneja la versión sin cambios. Las otras se editan desde el
+  // carrito, que es donde se ven una por una.
+  const agregar = (p: TotemProduct) => {
+    const elegidos = sacados[p.id] ?? [];
     add(cartKey, {
       kind: "producto",
       refId: p.id,
       name: p.name,
       price: p.price,
       photoUrl: p.photoUrl,
-      removed: sacados,
+      removed: p.removables.filter((r) => elegidos.includes(r.id)),
     });
-
-  const alTocarAgregar = (p: TotemProduct) => {
-    if (p.removables.length > 0) setPersonalizando(p);
-    else agregar(p);
+    // Vuelve a cero: si el cliente quiere otra igual, la vuelve a armar, y si
+    // quiere una normal no se le cuela el cambio de la anterior.
+    setSacados((prev) => ({ ...prev, [p.id]: [] }));
   };
 
   return (
@@ -95,6 +108,10 @@ function MenuCategoryPage() {
             // personalizadas se editan en el carrito, donde se ven separadas.
             const claveSinCambios = itemKey("producto", p.id);
             const configurable = p.removables.length > 0;
+            const elegidos = sacados[p.id] ?? [];
+            // Con algo tachado el botón agrega esa variante, así que el
+            // − / + de la unidad sin cambios no corresponde.
+            const conCambios = elegidos.length > 0;
             return (
               <article
                 key={p.id}
@@ -125,11 +142,19 @@ function MenuCategoryPage() {
                   {p.description && (
                     <p className="text-sm text-muted-foreground">{p.description}</p>
                   )}
+                  {configurable && (
+                    <TotemQuitables
+                      quitables={p.removables}
+                      sacados={elegidos}
+                      accent={accent}
+                      onAlternar={(ingredientId) => alternarIngrediente(p.id, ingredientId)}
+                    />
+                  )}
                   <div className="mt-auto flex items-center justify-between gap-3 pt-3">
                     <span className="font-display text-3xl" style={{ color: accent }}>
                       {formatPrice(p.price)}
                     </span>
-                    {inCart > 0 && !configurable ? (
+                    {inCart > 0 && !conCambios ? (
                       // Con unidades en el pedido el botón se abre en − cantidad +:
                       // equivocarse tocando no puede obligar a ir hasta el carrito.
                       <div
@@ -163,18 +188,14 @@ function MenuCategoryPage() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => alTocarAgregar(p)}
+                        onClick={() => agregar(p)}
                         className="flex h-14 items-center gap-2 rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
                         style={{ background: accent ?? "var(--primary)" }}
                       >
                         <Plus className="h-5 w-5" />
-                        {/* Un producto configurable no suma de a uno callado:
-                            el botón anuncia que va a preguntar antes. */}
-                        {configurable
-                          ? inCart > 0
-                            ? `Agregar otro · ${inCart}`
-                            : "Elegir"
-                          : "Agregar"}
+                        {/* El mismo botón de siempre. Sólo cambia cuando el
+                            cliente tachó algo, y ahí dice qué va a agregar. */}
+                        {conCambios ? "Agregar así" : "Agregar"}
                       </button>
                     )}
                   </div>
@@ -186,18 +207,6 @@ function MenuCategoryPage() {
       </main>
 
       <TotemCartBar nav={nav} accent={accent} />
-
-      {personalizando && (
-        <TotemPersonalizar
-          producto={personalizando}
-          accent={accent}
-          onCancel={() => setPersonalizando(null)}
-          onConfirm={(sacados) => {
-            agregar(personalizando, sacados);
-            setPersonalizando(null);
-          }}
-        />
-      )}
     </div>
   );
 }
