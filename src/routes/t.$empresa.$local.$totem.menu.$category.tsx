@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
-import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
+import { ImageOff, Plus, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { getTotemMenu, type TotemProduct } from "@/lib/api/totem.functions";
 import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { TotemError } from "@/components/totem/TotemError";
@@ -45,6 +45,12 @@ function MenuCategoryPage() {
   // El producto cuya pantalla de "¿le sacamos algo?" está abierta.
   const [personalizando, setPersonalizando] = useState<TotemProduct | null>(null);
 
+  // Carrusel de categorías: en la tablet se desplaza con el dedo; en la PC, con
+  // las flechas o la rueda del mouse (que acá mueve en horizontal).
+  const carruselRef = useRef<HTMLDivElement>(null);
+  const scrollCarrusel = (dir: number) =>
+    carruselRef.current?.scrollBy({ left: dir * 320, behavior: "smooth" });
+
   // Un producto configurable puede estar varias veces en el pedido con cambios
   // distintos, así que el contador de la tarjeta suma todas sus variantes y el
   // − / + de la tarjeta sólo maneja la versión sin cambios. Las otras se
@@ -80,44 +86,23 @@ function MenuCategoryPage() {
             Mini-tarjetas con foto; en la tablet se desplaza con el dedo, sin
             barra visible. */}
         {(menu.categories.length > 1 || menu.combos.length > 0) && (
-          <div className="no-scrollbar mb-6 flex gap-3 overflow-x-auto pb-1">
-            {menu.combos.length > 0 && (
-              <Link
-                to="/t/$empresa/$local/$totem/combos"
-                params={nav}
-                className="group relative flex h-28 w-52 shrink-0 flex-col justify-end overflow-hidden rounded-2xl border border-border/60 shadow-card"
-              >
-                {menu.combos[0].photoUrl ? (
-                  <img
-                    src={menu.combos[0].photoUrl}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-muted" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
-                <div className="relative z-10 p-3">
-                  <h3 className="font-display text-xl leading-none text-white">Combos</h3>
-                  <p className="mt-1 text-xs text-white/70">{menu.combos.length} combos</p>
-                </div>
-              </Link>
-            )}
-            {menu.categories.map((c) => {
-              const activa = c.id === category.id;
-              return (
+          <div className="group/carr relative mb-6">
+            <div
+              ref={carruselRef}
+              onWheel={(e) => {
+                if (e.deltaY !== 0) carruselRef.current?.scrollBy({ left: e.deltaY });
+              }}
+              className="no-scrollbar flex gap-3 overflow-x-auto pb-1"
+            >
+              {menu.combos.length > 0 && (
                 <Link
-                  key={c.id}
-                  to="/t/$empresa/$local/$totem/menu/$category"
-                  params={{ ...nav, category: String(c.id) }}
-                  className={`group relative flex h-28 w-52 shrink-0 flex-col justify-end overflow-hidden rounded-2xl shadow-card ${
-                    activa ? "border-2" : "border border-border/60"
-                  }`}
-                  style={activa ? { borderColor: accent ?? "var(--primary)" } : {}}
+                  to="/t/$empresa/$local/$totem/combos"
+                  params={nav}
+                  className="group relative flex h-28 w-52 shrink-0 flex-col justify-end overflow-hidden rounded-2xl border border-border/60 shadow-card"
                 >
-                  {c.photoUrl ? (
+                  {menu.combos[0].photoUrl ? (
                     <img
-                      src={c.photoUrl}
+                      src={menu.combos[0].photoUrl}
                       alt=""
                       className="absolute inset-0 h-full w-full object-cover"
                     />
@@ -126,14 +111,59 @@ function MenuCategoryPage() {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
                   <div className="relative z-10 p-3">
-                    <h3 className="font-display text-xl leading-none text-white">{c.name}</h3>
-                    <p className="mt-1 text-xs text-white/70">
-                      {c.productCount} {c.productCount === 1 ? "producto" : "productos"}
-                    </p>
+                    <h3 className="font-display text-xl leading-none text-white">Combos</h3>
+                    <p className="mt-1 text-xs text-white/70">{menu.combos.length} combos</p>
                   </div>
                 </Link>
-              );
-            })}
+              )}
+              {menu.categories.map((c) => {
+                const activa = c.id === category.id;
+                return (
+                  <Link
+                    key={c.id}
+                    to="/t/$empresa/$local/$totem/menu/$category"
+                    params={{ ...nav, category: String(c.id) }}
+                    className={`group relative flex h-28 w-52 shrink-0 flex-col justify-end overflow-hidden rounded-2xl shadow-card ${
+                      activa ? "border-2" : "border border-border/60"
+                    }`}
+                    style={activa ? { borderColor: accent ?? "var(--primary)" } : {}}
+                  >
+                    {c.photoUrl ? (
+                      <img
+                        src={c.photoUrl}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-muted" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
+                    <div className="relative z-10 p-3">
+                      <h3 className="font-display text-xl leading-none text-white">{c.name}</h3>
+                      <p className="mt-1 text-xs text-white/70">
+                        {c.productCount} {c.productCount === 1 ? "producto" : "productos"}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              aria-label="Categorías anteriores"
+              onClick={() => scrollCarrusel(-1)}
+              className="absolute left-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/80 p-1.5 text-muted-foreground shadow-card backdrop-blur transition hover:text-foreground sm:flex"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Más categorías"
+              onClick={() => scrollCarrusel(1)}
+              className="absolute right-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/80 p-1.5 text-muted-foreground shadow-card backdrop-blur transition hover:text-foreground sm:flex"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
         )}
 
