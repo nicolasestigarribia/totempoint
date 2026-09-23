@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, locations } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
@@ -10,6 +10,8 @@ import {
   assertCanOperateKitchen,
 } from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
+import { verificarPagoMP } from "@/lib/payments/verificar";
+import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
 
 export type OrderStatus = "recibido" | "preparacion" | "entregado" | "cancelado";
 export type PaymentMethod = "efectivo" | "mercadopago";
@@ -33,8 +35,18 @@ export interface KitchenOrder {
   locationName: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  /**
+   * Mercado Pago confirmó el pago. Un cobro así no lo puede desmarcar nadie
+   * desde la cocina: la plata está en la cuenta, se haya visto o no.
+   */
+  mpConfirmado: boolean;
   items: KitchenOrderItem[];
 }
+
+/** Cuánto hacia atrás la cocina sale a buscar pagos de Mercado Pago sin confirmar. */
+const VENTANA_VERIFICACION_MS = 3 * 60 * 60 * 1000;
+/** Tope de consultas a Mercado Pago por refresco de la comandera. */
+const MAX_VERIFICACIONES = 8;
 
 /**
  * Negocios cuyos pedidos puede ver quien llama: el dueño los ve todos, el
@@ -68,6 +80,45 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
 
     if (rows.length === 0) return [];
 
+    // Un pedido con Mercado Pago queda "sin cobrar" si el cliente se fue de la
+    // pantalla antes de que se confirmara el pago y además se perdió el aviso.
+    // La cocina está abierta todo el día y refresca sola, así que es el lugar
+    // natural para ir a preguntar por esos pedidos sin depender de nadie.
+    const desde = Date.now() - VENTANA_VERIFICACION_MS;
+    const sinConfirmar = rows
+      .filter(
+        (o) =>
+          o.paymentMethod === "mercadopago" &&
+          o.paymentStatus === "pendiente" &&
+          o.status !== "cancelado" &&
+          o.createdAt.getTime() >= desde,
+      )
+      .slice(0, MAX_VERIFICACIONES);
+    const companyId = user.companyId;
+    if (sinConfirmar.length > 0 && companyId) {
+      const resultados = await Promise.all(
+        sinConfirmar.map((o) => verificarPagoMP(o.id, companyId)),
+      );
+      const acreditados = sinConfirmar.filter((_, i) => resultados[i]).map((o) => o.id);
+      if (acreditados.length > 0) {
+        // Se relee para traer el id del pago que quedó guardado.
+        const frescos = await db
+          .select({
+            id: orders.id,
+            paymentStatus: orders.paymentStatus,
+            mpPaymentId: orders.mpPaymentId,
+          })
+          .from(orders)
+          .where(inArray(orders.id, acreditados));
+        for (const f of frescos) {
+          const o = rows.find((r) => r.id === f.id);
+          if (!o) continue;
+          o.paymentStatus = f.paymentStatus;
+          o.mpPaymentId = f.mpPaymentId;
+        }
+      }
+    }
+
     const items = await db
       .select()
       .from(orderItems)
@@ -90,6 +141,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       locationName: locs.find((l) => l.id === o.locationId)?.name ?? "",
       paymentMethod: o.paymentMethod,
       paymentStatus: o.paymentStatus,
+      mpConfirmado: o.mpPaymentId !== null,
       items: items
         .filter((i) => i.orderId === o.id)
         .map((i) => ({
@@ -131,39 +183,128 @@ export const setOrderStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** El pedido, si es de una sucursal que quien llama puede ver. */
+async function pedidoVisible(user: SessionUser, orderId: number) {
+  const locs = await visibleLocations(user);
+  const locIds = locs.map((l) => l.id);
+  if (locIds.length === 0) throw new Error("Ese pedido no es de una sucursal tuya");
+
+  const [target] = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      status: orders.status,
+      total: orders.total,
+      paymentMethod: orders.paymentMethod,
+      paymentStatus: orders.paymentStatus,
+      mpPaymentId: orders.mpPaymentId,
+      locationId: orders.locationId,
+      companyId: locations.companyId,
+    })
+    .from(orders)
+    .innerJoin(locations, eq(locations.id, orders.locationId))
+    .where(and(eq(orders.id, orderId), inArray(orders.locationId, locIds)))
+    .limit(1);
+  if (!target) throw new Error("Ese pedido no es de una sucursal tuya");
+  return { ...target, locationName: locs.find((l) => l.id === target.locationId)?.name ?? "" };
+}
+
+/**
+ * Le pregunta a Mercado Pago por un pedido puntual, a pedido de la cocina.
+ *
+ * Es el paso previo a marcar a mano un pedido de Mercado Pago: antes de dar por
+ * hecho que el cliente pagó en la caja, se confirma que no haya pagado ya con
+ * el celular.
+ */
+export const verifyOrderPayment = createServerFn({ method: "POST" })
+  .middleware([requireCompany])
+  .inputValidator(z.object({ orderId: z.number().int() }))
+  .handler(async ({ context, data }): Promise<{ pagado: boolean }> => {
+    const user = context.user as SessionUser;
+    assertCanViewKitchen(user);
+    const target = await pedidoVisible(user, data.orderId);
+    if (target.paymentStatus === "pagado") return { pagado: true };
+    if (target.paymentMethod !== "mercadopago") return { pagado: false };
+
+    const r = await verificarPagoMP(target.id, target.companyId);
+    if (r === null) {
+      throw new Error("No pudimos consultar a Mercado Pago. Probá de nuevo en unos segundos");
+    }
+    return { pagado: r };
+  });
+
 /**
  * Marca un pedido como cobrado (o lo vuelve a pendiente si se marcó por error).
  *
- * El tótem no cobra: el efectivo se recibe en el mostrador y Mercado Pago
- * todavía no está integrado. Entonces quien atiende es el que dice "esto ya se
- * pagó", y de ahí sale el cierre de caja.
+ * El efectivo se recibe en el mostrador, así que quien atiende es el que dice
+ * "esto ya se pagó", y de ahí sale el cierre de caja.
+ *
+ * Mercado Pago no se marca a mano: lo confirma Mercado Pago. Si un pedido que
+ * iba a pagarse con el celular se marca como cobrado, primero se le pregunta a
+ * Mercado Pago; si el pago está, se acredita como tal, y si no, es que el
+ * cliente terminó pagando en la caja y el pedido pasa a efectivo. Así el cierre
+ * separa bien las dos cosas: lo de Mercado Pago tiene que coincidir con la
+ * cuenta, y lo de efectivo con el cajón.
  */
 export const setOrderPaid = createServerFn({ method: "POST" })
   .middleware([requireCompany])
   .inputValidator(z.object({ orderId: z.number().int(), paid: z.boolean() }))
-  .handler(async ({ context, data }) => {
+  .handler(async ({ context, data }): Promise<{ ok: true; via: PaymentMethod | null }> => {
     const user = context.user as SessionUser;
     assertCanOperateKitchen(user);
 
-    const locs = await visibleLocations(user);
-    const locIds = locs.map((l) => l.id);
-    if (locIds.length === 0) throw new Error("Ese pedido no es de una sucursal tuya");
-
-    const [target] = await db
-      .select({ id: orders.id, status: orders.status })
-      .from(orders)
-      .where(and(eq(orders.id, data.orderId), inArray(orders.locationId, locIds)))
-      .limit(1);
-    if (!target) throw new Error("Ese pedido no es de una sucursal tuya");
+    const target = await pedidoVisible(user, data.orderId);
     if (target.status === "cancelado") {
       throw new Error("Ese pedido está cancelado");
     }
 
-    await db
-      .update(orders)
-      .set({ paymentStatus: data.paid ? "pagado" : "pendiente" })
-      .where(eq(orders.id, data.orderId));
-    return { ok: true };
+    if (!data.paid) {
+      if (target.mpPaymentId) {
+        throw new Error(
+          "Este pago lo confirmó Mercado Pago y no se puede desmarcar. Si hay que devolverlo, cancelá el pedido",
+        );
+      }
+      if (target.paymentStatus !== "pagado") return { ok: true, via: null };
+      await db
+        .update(orders)
+        .set({ paymentStatus: "pendiente" })
+        .where(eq(orders.id, data.orderId));
+      // Desmarcar un cobro saca plata del cierre de caja: es justo lo que
+      // alguien querría revisar si la caja no cierra.
+      await registrarAuditoria(user, {
+        category: "cobros",
+        action: "pedido.descobrar",
+        summary: `Desmarcó como cobrado el pedido #${target.orderNumber} de ${target.locationName} (${pesosAuditoria(target.total)} en ${target.paymentMethod === "efectivo" ? "efectivo" : "Mercado Pago"})`,
+        details: { orderId: target.id },
+      });
+      return { ok: true, via: null };
+    }
+
+    if (target.paymentStatus === "pagado") return { ok: true, via: target.paymentMethod };
+
+    if (target.paymentMethod === "mercadopago") {
+      const r = await verificarPagoMP(target.id, target.companyId);
+      if (r) return { ok: true, via: "mercadopago" };
+      if (r === null) {
+        throw new Error(
+          "No pudimos consultar a Mercado Pago, así que no sabemos si ya pagó con el celular. Probá de nuevo en unos segundos",
+        );
+      }
+      await db
+        .update(orders)
+        .set({ paymentStatus: "pagado", paymentMethod: "efectivo" })
+        .where(eq(orders.id, data.orderId));
+      await registrarAuditoria(user, {
+        category: "cobros",
+        action: "pedido.mp_a_efectivo",
+        summary: `Cobró en efectivo el pedido #${target.orderNumber} de ${target.locationName} (${pesosAuditoria(target.total)}), que era para Mercado Pago y Mercado Pago no registraba el pago`,
+        details: { orderId: target.id },
+      });
+      return { ok: true, via: "efectivo" };
+    }
+
+    await db.update(orders).set({ paymentStatus: "pagado" }).where(eq(orders.id, data.orderId));
+    return { ok: true, via: "efectivo" };
   });
 
 /**
@@ -184,16 +325,7 @@ export const cancelOrder = createServerFn({ method: "POST" })
     const user = context.user as SessionUser;
     assertCanOperateKitchen(user);
 
-    const locs = await visibleLocations(user);
-    const locIds = locs.map((l) => l.id);
-    if (locIds.length === 0) throw new Error("Ese pedido no es de una sucursal tuya");
-
-    const [target] = await db
-      .select({ id: orders.id, status: orders.status, paymentStatus: orders.paymentStatus })
-      .from(orders)
-      .where(and(eq(orders.id, data.orderId), inArray(orders.locationId, locIds)))
-      .limit(1);
-    if (!target) throw new Error("Ese pedido no es de una sucursal tuya");
+    const target = await pedidoVisible(user, data.orderId);
     if (target.status === "cancelado") throw new Error("Ese pedido ya está cancelado");
 
     await db
@@ -205,6 +337,15 @@ export const cancelOrder = createServerFn({ method: "POST" })
         paymentStatus: target.paymentStatus === "pagado" ? "reembolso_pendiente" : "pendiente",
       })
       .where(eq(orders.id, data.orderId));
+
+    await registrarAuditoria(user, {
+      category: "pedidos",
+      action: "pedido.cancelar",
+      summary:
+        `Canceló el pedido #${target.orderNumber} de ${target.locationName} (${pesosAuditoria(target.total)})` +
+        (target.paymentStatus === "pagado" ? ", que ya estaba cobrado: queda para devolver" : ""),
+      details: { orderId: target.id, paymentMethod: target.paymentMethod },
+    });
 
     return { ok: true, reembolso: target.paymentStatus === "pagado" };
   });
@@ -221,7 +362,8 @@ export interface CashCloseLine {
 }
 
 export interface CashClose {
-  date: string;
+  desde: string;
+  hasta: string;
   lines: CashCloseLine[];
   totalCobrado: number;
   totalPendiente: number;
@@ -240,18 +382,27 @@ export interface CashClose {
  * entregó y nadie marcó, y conviene verlo antes de cerrar.
  *
  * Trabaja sobre business_date, no sobre la hora de creación: la jornada la
- * define el día del pedido.
+ * define el día del pedido. Acepta un rango de jornadas; para el cierre de un
+ * día, desde y hasta son la misma fecha.
  */
 export const getCashClose = createServerFn({ method: "GET" })
   .middleware([requireCompany])
-  .inputValidator(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
+  .inputValidator(
+    z
+      .object({
+        desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      })
+      .refine((d) => d.desde <= d.hasta, "La fecha desde no puede ser posterior a la fecha hasta"),
+  )
   .handler(async ({ context, data }): Promise<CashClose> => {
     const user = context.user as SessionUser;
     assertCanViewKitchen(user);
 
     const locs = await visibleLocations(user);
     const vacio: CashClose = {
-      date: data.date,
+      desde: data.desde,
+      hasta: data.hasta,
       lines: [],
       totalCobrado: 0,
       totalPendiente: 0,
@@ -276,7 +427,8 @@ export const getCashClose = createServerFn({ method: "GET" })
             orders.locationId,
             locs.map((l) => l.id),
           ),
-          eq(orders.businessDate, data.date),
+          gte(orders.businessDate, data.desde),
+          lte(orders.businessDate, data.hasta),
         ),
       );
 
@@ -319,7 +471,8 @@ export const getCashClose = createServerFn({ method: "GET" })
     );
 
     return {
-      date: data.date,
+      desde: data.desde,
+      hasta: data.hasta,
       lines,
       totalCobrado: lines.reduce((t, l) => t + l.efectivoCobrado + l.mercadopagoCobrado, 0),
       totalPendiente: lines.reduce((t, l) => t + l.pendienteDeCobro, 0),

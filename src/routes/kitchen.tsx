@@ -9,19 +9,20 @@ import {
   ChevronRight,
   Undo2,
   Loader2,
-  LogOut,
   RefreshCw,
-  KeyRound,
+  ArrowLeft,
   Ban,
   Banknote,
   Smartphone,
+  BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
-import { me, logout } from "@/lib/api/auth.functions";
+import { me } from "@/lib/api/auth.functions";
 import {
   listKitchenOrders,
   setOrderStatus,
   setOrderPaid,
+  verifyOrderPayment,
   cancelOrder,
   type KitchenOrder,
   type OrderStatus,
@@ -101,10 +102,10 @@ function timeAgo(iso: string) {
 function Kitchen() {
   const navigate = useNavigate();
   const doMe = useServerFn(me);
-  const doLogout = useServerFn(logout);
   const fetchOrders = useServerFn(listKitchenOrders);
   const updateStatus = useServerFn(setOrderStatus);
   const updatePaid = useServerFn(setOrderPaid);
+  const doVerify = useServerFn(verifyOrderPayment);
   const doCancel = useServerFn(cancelOrder);
 
   const [loading, setLoading] = useState(true);
@@ -119,6 +120,13 @@ function Kitchen() {
   // queda fuera de lugar y a veces ni aparece.
   const [aCancelar, setACancelar] = useState<KitchenOrder | null>(null);
   const [cancelando, setCancelando] = useState(false);
+  // Quien entra desde el panel vuelve al panel. El personal de cocina no tiene
+  // panel: para ellos esta pantalla es todo, y no se les muestra salida.
+  const [tienePanel, setTienePanel] = useState(false);
+  // Pedido de Mercado Pago que Mercado Pago no registra como pagado: antes de
+  // pasarlo a efectivo se pregunta, porque cambia cómo cuenta en el cierre.
+  const [aEfectivo, setAEfectivo] = useState<KitchenOrder | null>(null);
+  const [cobrando, setCobrando] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -137,6 +145,11 @@ function Kitchen() {
         return;
       }
       if (alive) {
+        setTienePanel(
+          user.roles.includes("owner") ||
+            user.roles.includes("encargado") ||
+            user.roles.includes("superadmin"),
+        );
         setPuedeOperar(
           user.roles.includes("kitchen") ||
             user.roles.includes("owner") ||
@@ -188,11 +201,46 @@ function Kitchen() {
 
   const togglePagado = async (order: KitchenOrder) => {
     const pagado = order.paymentStatus === "pagado";
+    setCobrando(order.id);
     try {
+      // Un pedido de Mercado Pago no se da por cobrado a ojo: primero se le
+      // pregunta a Mercado Pago. Si no lo tiene, recién ahí se ofrece
+      // cobrarlo en efectivo.
+      if (!pagado && order.paymentMethod === "mercadopago") {
+        const { pagado: confirmado } = await doVerify({ data: { orderId: order.id } });
+        if (confirmado) {
+          toast.success(`Mercado Pago confirmó el pago del pedido #${order.orderNumber}`);
+          await load();
+        } else {
+          setAEfectivo(order);
+        }
+        return;
+      }
       await updatePaid({ data: { orderId: order.id, paid: !pagado } });
       await load();
     } catch (err) {
       toast.error(mensajeDeError(err, "No se pudo cambiar el estado del cobro"));
+    } finally {
+      setCobrando(null);
+    }
+  };
+
+  const cobrarEnEfectivo = async () => {
+    if (!aEfectivo) return;
+    setCobrando(aEfectivo.id);
+    try {
+      const r = await updatePaid({ data: { orderId: aEfectivo.id, paid: true } });
+      toast.success(
+        r.via === "mercadopago"
+          ? "Justo entró el pago por Mercado Pago"
+          : `Pedido #${aEfectivo.orderNumber} cobrado en efectivo`,
+      );
+      setAEfectivo(null);
+      await load();
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo marcar como cobrado"));
+    } finally {
+      setCobrando(null);
     }
   };
 
@@ -232,7 +280,17 @@ function Kitchen() {
         {/* Encabezado al mínimo: cada píxel que se lleva el título es un pedido
             menos a la vista, y acá lo que importa son los pedidos. */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-center gap-3">
+            {tienePanel && (
+              <a
+                href="/admin"
+                className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary"
+                title="Volver al panel"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Panel</span>
+              </a>
+            )}
             <h1 className="font-display text-3xl md:text-4xl">Cocina</h1>
             <p className="text-sm text-muted-foreground">
               {orders.length} {orders.length === 1 ? "pedido" : "pedidos"}
@@ -247,26 +305,6 @@ function Kitchen() {
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Actualizar
-            </button>
-            <a
-              href="/cuenta"
-              className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary"
-              title="Mi cuenta"
-            >
-              <KeyRound className="h-4 w-4" />
-              <span className="hidden sm:inline">Mi cuenta</span>
-            </a>
-            <button
-              type="button"
-              onClick={async () => {
-                await doLogout();
-                navigate({ to: "/login", replace: true });
-              }}
-              className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary"
-              title="Salir"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
         </div>
@@ -361,23 +399,43 @@ function Kitchen() {
                                 {pagoMeta[o.paymentMethod].label}
                               </span>
 
-                              {/* El cobro se marca a mano: el tótem solo cobra
-                                  por Mercado Pago, el efectivo entra acá. */}
+                              {/* El efectivo se marca a mano. Lo de Mercado Pago
+                                  lo confirma Mercado Pago: cobrado así no se
+                                  puede desmarcar, y sin confirmar se consulta
+                                  antes de darlo por cobrado en la caja. */}
                               {o.paymentStatus === "reembolso_pendiente" ? (
                                 <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
                                   Devolver
                                 </span>
-                              ) : o.status === "cancelado" ? null : puedeOperar ? (
+                              ) : o.status === "cancelado" ? null : o.mpConfirmado ? (
+                                <span
+                                  className="flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300"
+                                  title="Mercado Pago confirmó el pago"
+                                >
+                                  <BadgeCheck className="h-3 w-3" />
+                                  Cobrado
+                                </span>
+                              ) : puedeOperar ? (
                                 <button
                                   type="button"
                                   onClick={() => togglePagado(o)}
-                                  className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${
+                                  disabled={cobrando === o.id}
+                                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${
                                     o.paymentStatus === "pagado"
                                       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                                      : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                                      : o.paymentMethod === "mercadopago"
+                                        ? "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:border-sky-300"
+                                        : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
                                   }`}
                                 >
-                                  {o.paymentStatus === "pagado" ? "Cobrado" : "Sin cobrar"}
+                                  {cobrando === o.id && (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  )}
+                                  {o.paymentStatus === "pagado"
+                                    ? "Cobrado"
+                                    : o.paymentMethod === "mercadopago"
+                                      ? "Esperando pago"
+                                      : "Sin cobrar"}
                                 </button>
                               ) : (
                                 <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -423,6 +481,44 @@ function Kitchen() {
           </div>
         )}
       </main>
+
+      <Dialog open={aEfectivo !== null} onOpenChange={(o) => !o && setAEfectivo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Mercado Pago no registra el pago del #{aEfectivo?.orderNumber}
+            </DialogTitle>
+            <DialogDescription>
+              El cliente eligió pagar con Mercado Pago, pero el pago no aparece en la cuenta. Si lo
+              cobraste en la caja, marcalo como efectivo: así cuenta en el cierre junto con el resto
+              del efectivo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setAEfectivo(null)}
+              disabled={cobrando !== null}
+              className="flex h-11 items-center rounded-xl border border-border px-5 text-sm font-bold transition hover:border-primary"
+            >
+              Todavía no pagó
+            </button>
+            <button
+              type="button"
+              onClick={cobrarEnEfectivo}
+              disabled={cobrando !== null}
+              className="flex h-11 items-center gap-2 rounded-xl bg-gradient-primary px-5 text-sm font-bold text-primary-foreground transition hover:brightness-110"
+            >
+              {cobrando !== null ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Banknote className="h-4 w-4" />
+              )}
+              Cobrado en efectivo
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={aCancelar !== null} onOpenChange={(o) => !o && setACancelar(null)}>
         <DialogContent>
