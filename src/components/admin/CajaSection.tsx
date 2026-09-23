@@ -3,17 +3,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, Banknote, Smartphone, CircleDollarSign, Ban, Clock } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { getCashClose, type CashClose } from "@/lib/api/orders.functions";
 import { mensajeDeError } from "@/lib/error-message";
-
-function hoy(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
+import { DateRangeFilter, hoyIso } from "@/components/admin/DateRangeFilter";
 
 function pesos(n: number): string {
   return `$${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -30,15 +22,16 @@ function pesos(n: number): string {
 export function CajaSection({ panelClass }: { panelClass: string }) {
   const fetchClose = useServerFn(getCashClose);
 
-  const [date, setDate] = useState(hoy());
+  const [desde, setDesde] = useState(hoyIso());
+  const [hasta, setHasta] = useState(hoyIso());
   const [data, setData] = useState<CashClose | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(
-    async (dia: string) => {
+    async (d: string, h: string) => {
       setLoading(true);
       try {
-        setData(await fetchClose({ data: { date: dia } }));
+        setData(await fetchClose({ data: { desde: d, hasta: h } }));
       } catch (err) {
         toast.error(mensajeDeError(err, "No se pudo cargar el cierre de caja"));
       } finally {
@@ -49,8 +42,10 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
   );
 
   useEffect(() => {
-    load(date);
-  }, [load, date]);
+    load(desde, hasta);
+  }, [load, desde, hasta]);
+
+  const unDia = desde === hasta;
 
   const tiles = [
     {
@@ -82,22 +77,17 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
         <div>
           <h3 className="text-lg font-bold">Recaudación</h3>
           <p className="text-sm text-muted-foreground">
-            Lo cobrado en la jornada, separado por forma de pago.
+            Lo cobrado {unDia ? "en la jornada" : "en esas jornadas"}, separado por forma de pago.
           </p>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="caja-fecha" className="text-xs text-muted-foreground">
-            Jornada
-          </Label>
-          <Input
-            id="caja-fecha"
-            type="date"
-            value={date}
-            max={hoy()}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            className="h-11 w-48"
-          />
-        </div>
+        <DateRangeFilter
+          desde={desde}
+          hasta={hasta}
+          onChange={(d, h) => {
+            setDesde(d);
+            setHasta(h);
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -120,7 +110,7 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
           </div>
         ) : !data || data.lines.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground">
-            No hubo pedidos en esta jornada.
+            {unDia ? "No hubo pedidos en esta jornada." : "No hubo pedidos en esas fechas."}
           </div>
         ) : (
           <div className="overflow-x-auto">

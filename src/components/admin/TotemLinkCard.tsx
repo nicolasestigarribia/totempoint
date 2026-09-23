@@ -122,7 +122,7 @@ export function TotemTabletTips({ panelClass }: { panelClass: string }) {
         <li>
           Abrí el enlace del tótem en la tablet y, en el menú de Chrome, tocá{" "}
           <strong className="text-foreground">Agregar a la pantalla principal</strong>. Queda un
-          ícono con el nombre de tu negocio que abre ese tótem a pantalla completa, sin barra de
+          ícono con el nombre de tu empresa que abre ese tótem a pantalla completa, sin barra de
           direcciones ni pestañas. Cada tótem instala el suyo.
         </li>
         <li>

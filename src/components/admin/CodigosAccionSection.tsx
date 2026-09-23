@@ -58,7 +58,7 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
     try {
       setRows(await fetchAll());
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los códigos");
+      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los motivos");
     } finally {
       setLoading(false);
     }
@@ -229,11 +229,11 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-lg font-bold">Códigos de acción</h3>
+        <h3 className="text-lg font-bold">Motivos de movimiento</h3>
         {!readOnly && (
           <Button className="gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" />
-            Nuevo código
+            Nuevo motivo
           </Button>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -256,7 +256,7 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
         getRowId={(r) => r.id}
         panelClass={panelClass}
         loading={loading}
-        emptyMessage="No hay códigos de acción."
+        emptyMessage="No hay motivos cargados."
         emptyIcon={<Tags className="h-8 w-8 opacity-40" />}
         searchKeys={[(r) => r.code, (r) => r.label]}
         searchPlaceholder="Buscar código..."
@@ -268,7 +268,7 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar código" : "Nuevo código de acción"}</DialogTitle>
+            <DialogTitle>{editing ? "Editar motivo" : "Nuevo motivo"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -345,7 +345,7 @@ export function CodigosAccionSection({ panelClass }: { panelClass: string }) {
       <Dialog open={toDelete !== null} onOpenChange={(o) => !o && setToDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar código</DialogTitle>
+            <DialogTitle>Eliminar motivo</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             ¿Eliminar <span className="font-medium text-foreground">{toDelete?.label}</span> (

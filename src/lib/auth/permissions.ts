@@ -33,7 +33,7 @@ export const SECTION_LABEL: Record<PanelSection, string> = {
   disponibilidad: "Disponibilidad",
   stock: "Stock",
   movimientos: "Movimientos",
-  codigos: "Códigos de acción",
+  codigos: "Motivos de movimiento",
   precios: "Precios por sucursal",
   comandera: "Comandera",
   caja: "Recaudación",

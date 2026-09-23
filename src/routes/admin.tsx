@@ -32,6 +32,8 @@ import {
   CircleDollarSign,
   CreditCard,
   ChevronDown,
+  ArrowLeft,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -55,6 +57,7 @@ import { PortadaSection } from "@/components/admin/PortadaSection";
 import { OperadoresSection } from "@/components/admin/OperadoresSection";
 import { CajaSection } from "@/components/admin/CajaSection";
 import { PagosSection } from "@/components/admin/PagosSection";
+import { AuditoriaSection } from "@/components/admin/AuditoriaSection";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -79,15 +82,17 @@ type SectionId =
   | "caja"
   | "pagos"
   | "totems"
-  | "operadores";
+  | "operadores"
+  | "auditoria";
 
-type NavGroupId = "empresa" | "menu" | "sucursales" | "caja";
+type NavGroupId = "empresa" | "menu" | "sucursales" | "stock" | "caja";
 
 /** Encabezados del nav, en el orden en que se muestran. */
 const NAV_GROUPS: { id: NavGroupId; label: string }[] = [
   { id: "empresa", label: "Empresa" },
   { id: "menu", label: "Menú" },
   { id: "sucursales", label: "Sucursales" },
+  { id: "stock", label: "Stock" },
   { id: "caja", label: "Caja" },
 ];
 
@@ -102,8 +107,13 @@ interface SectionDef {
   ownerOnly?: boolean;
   /** Sección delegable: el encargado la ve si el dueño le dio permiso. */
   permission?: PanelSection;
-  /** No se muestra en el nav, pero se puede abrir por otro camino (ej: Portada desde Tótems). */
-  hidden?: boolean;
+  /**
+   * Sección que se abre desde otra (ej: Portada desde Tótems). No aparece en
+   * el nav y lleva un botón para volver a la de origen. Si quien entra no puede
+   * ver la de origen, se muestra en el nav como cualquier otra: si no, no
+   * tendría forma de llegar.
+   */
+  parent?: SectionId;
 }
 
 const SECTIONS: SectionDef[] = [
@@ -131,7 +141,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Pantalla de inicio de tu tótem",
     group: "empresa",
     permission: "portada",
-    hidden: true,
+    parent: "totems",
   },
   {
     id: "categorias",
@@ -178,7 +188,7 @@ const SECTIONS: SectionDef[] = [
     label: "Stock",
     icon: Warehouse,
     desc: "Stock de ingredientes por sucursal",
-    group: "sucursales",
+    group: "stock",
     permission: "stock",
   },
   {
@@ -189,27 +199,31 @@ const SECTIONS: SectionDef[] = [
     group: "sucursales",
     permission: "precios",
   },
+  // Movimientos y sus motivos van con Stock y no con Caja: el libro es sobre
+  // todo de mercadería (compras, roturas, vencidos). También anota retiros y
+  // gastos de caja, y lo dice en la descripción, pero lo que se cobra en el
+  // día está en Recaudación.
   {
     id: "movimientos",
     permission: "movimientos",
     label: "Movimientos",
     icon: ScrollText,
-    desc: "Historial de movimientos de la empresa",
-    group: "caja",
+    desc: "Entradas y salidas de mercadería y de caja, con quién las cargó y por qué",
+    group: "stock",
   },
   {
     id: "codigos",
-    label: "Códigos de acción",
+    label: "Motivos",
     icon: Tags,
-    desc: "Motivos de ingresos y egresos",
-    group: "caja",
+    desc: "Los motivos que se eligen al cargar un movimiento: compra, rotura, retiro de caja…",
+    group: "stock",
     permission: "codigos",
   },
   {
     id: "caja",
     label: "Recaudación",
     icon: CircleDollarSign,
-    desc: "Lo cobrado en la jornada",
+    desc: "Lo cobrado por jornada o por rango de fechas",
     group: "caja",
     permission: "caja",
   },
@@ -218,7 +232,7 @@ const SECTIONS: SectionDef[] = [
     label: "Cobros",
     icon: CreditCard,
     desc: "Cómo cobra tu tótem",
-    group: "empresa",
+    group: "caja",
     ownerOnly: true,
   },
   {
@@ -226,6 +240,15 @@ const SECTIONS: SectionDef[] = [
     label: "Operadores",
     icon: Users,
     desc: "Encargados y las sucursales que manejan",
+    group: "empresa",
+    ownerOnly: true,
+  },
+  {
+    // Es el registro de lo que hicieron los demás: no se delega.
+    id: "auditoria",
+    label: "Auditoría",
+    icon: History,
+    desc: "Cambios de permisos, precios, cobros y accesos: quién, qué y cuándo",
     group: "empresa",
     ownerOnly: true,
   },
@@ -365,13 +388,19 @@ function AdminPage() {
     if (!s.permission || isOwner) return true;
     return canViewSection(permissions, s.permission);
   });
+  // Una sección que se abre desde otra va al nav sólo si la de origen no se ve.
+  const enNav = (s: SectionDef) => !s.parent || !visibleSections.some((v) => v.id === s.parent);
   const puedeVerComandera = isOwner || canViewSection(permissions, "comandera");
   // La comandera vive dentro del grupo Empresa (debajo de Tótems). Un encargado
   // con permiso de Comandera pero sin ninguna sección de Empresa dejaría ese
   // grupo vacío, así que en ese caso el enlace cae suelto más abajo.
-  const empresaVisible = visibleSections.some((s) => !s.hidden && s.group === "empresa");
+  const empresaVisible = visibleSections.some((s) => enNav(s) && s.group === "empresa");
   const current = SECTIONS.find((s) => s.id === section)!;
-  const firstVisible = visibleSections.find((s) => !s.hidden)?.id;
+  const firstVisible = visibleSections.find(enNav)?.id;
+  const volverA =
+    current.parent && visibleSections.some((v) => v.id === current.parent)
+      ? SECTIONS.find((s) => s.id === current.parent)
+      : undefined;
   const sectionAllowed = visibleSections.some((s) => s.id === section);
 
   // Si la sección abierta no está permitida, cae en la primera que sí lo esté.
@@ -490,7 +519,7 @@ function AdminPage() {
             el deslizamiento siga en el contenido de abajo. */}
         <nav className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
           {NAV_GROUPS.map((g) => {
-            const items = visibleSections.filter((s) => !s.hidden && s.group === g.id);
+            const items = visibleSections.filter((s) => enNav(s) && s.group === g.id);
             if (items.length === 0) return null;
             const collapsed = collapsedGroups[g.id];
             return (
@@ -514,12 +543,14 @@ function AdminPage() {
                           if (window.innerWidth < 1024) setSidebarOpen(false);
                         }}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                          section === s.id
+                          section === s.id || current.parent === s.id
                             ? "bg-primary/15 text-foreground"
                             : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         }`}
                       >
-                        <s.icon className={`h-5 w-5 ${section === s.id ? "text-primary" : ""}`} />
+                        <s.icon
+                          className={`h-5 w-5 ${section === s.id || current.parent === s.id ? "text-primary" : ""}`}
+                        />
                         {s.label}
                       </button>
                       {/*
@@ -602,6 +633,18 @@ function AdminPage() {
               <PanelLeft className="h-5 w-5" />
             </button>
           )}
+          {volverA && (
+            <button
+              type="button"
+              onClick={() => setSection(volverA.id)}
+              aria-label={`Volver a ${volverA.label}`}
+              title={`Volver a ${volverA.label}`}
+              className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-muted-foreground transition hover:border-primary hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">{volverA.label}</span>
+            </button>
+          )}
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{current.label}</h1>
             <p className="text-sm text-muted-foreground">{current.desc}</p>
@@ -675,6 +718,8 @@ function SectionContent({
       );
     case "operadores":
       return <OperadoresSection panelClass={panelClass} />;
+    case "auditoria":
+      return <AuditoriaSection panelClass={panelClass} />;
   }
 }
 

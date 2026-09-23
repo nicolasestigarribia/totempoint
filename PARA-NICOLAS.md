@@ -34,6 +34,16 @@ con la plata ya cobrada: si estaba pagado queda en `reembolso_pendiente`, porque
 mano. Un pedido cancelado **no vuelve atrás** — si el cliente se arrepiente se toma uno nuevo. Eso
 es a propósito: si se pudiera revivir, el cierre de caja de un día cambiaría después de cerrado.
 
+**Un pago de Mercado Pago no se marca a mano.** La cocina le pregunta a Mercado Pago por los pedidos
+de Mercado Pago que siguen pendientes, y al tocar "Esperando pago" también. Si Mercado Pago no lo
+tiene, el pedido pasa a **efectivo** (el cliente pagó en la caja): el total de Mercado Pago del
+cierre tiene que coincidir con la cuenta, y el de efectivo con el cajón. Un cobro que confirmó
+Mercado Pago no se puede desmarcar; si hay que devolverlo, se cancela.
+
+**Los cambios críticos se auditan.** Permisos, precios, cobros, cancelaciones, sucursales y tótems
+dejan una fila en `audit_log` con `registrarAuditoria`. Si agregás una mutación de ese tipo, sumale
+su entrada. Nunca guardes ahí un secreto (el token de Mercado Pago, una contraseña).
+
 **El cierre de caja cuenta solo lo que alguien marcó como cobrado.** No lo que se pidió. Esa es la
 cifra que se compara contra la caja física.
 
@@ -126,9 +136,13 @@ sale el local, y tanto `getTotemMenu` como `createTotemOrder` aplican los overri
 El pedido también, y no sólo el menú: el carrito vive en la tablet y sobrevive a que alguien apague
 un producto desde el panel.
 
-**Los combos no tienen disponibilidad por local.** No existe una tabla `location_combos`, así que un
-combo se vende en todas las sucursales, incluso si adentro lleva un producto que ese local apagó.
-Hasta que se decida qué hacer, la salida provisoria es apagar el combo para toda la empresa.
+**Los combos ya tienen disponibilidad por sucursal.** La sección Disponibilidad tiene su tabla y su
+interruptor, que escribe en `location_combos`. Además —y esto no se guarda en ninguna tabla— un
+combo se cae solo en la sucursal que tenga apagado alguno de los productos que lleva adentro: sin
+el componente no hay con qué armarlo. Si lo guardáramos habría que acordarse de apagar a mano cada
+combo cada vez que se apaga un producto, y el día que alguien se olvide el cliente compra algo que
+el mostrador no puede entregar. La columna "Motivo" de esa tabla dice cuál es el producto que
+falta, para que un combo oculto nunca sea un misterio.
 
 ### Del PDF, sin empezar
 
@@ -164,6 +178,13 @@ agregar un agente local que hable ESC/POS, sin rehacer el contenido del ticket.
 implica que la pantalla de cocina quede siempre abierta en la máquina que tiene la impresora.
 
 ### Decisión pendiente del dueño del producto
+
+**¿Quién mueve los estados de los pedidos en la cocina?** Para que "Recibido → En preparación →
+Entregado" sirva, alguien en la cocina real del negocio tiene que tener la comandera abierta y
+tocarla. Si nadie lo va a hacer, los estados no aportan y conviene simplificar (ver el punto de
+abajo sobre los dos estados). Hay que preguntárselo al cliente antes de tocar nada. La comandera
+ya no tiene "Mi cuenta" ni "Salir": quien entra desde el panel vuelve con el botón "Panel", y el
+usuario de cocina no tiene otra pantalla.
 
 El PDF (punto 9) pide **dos estados**: Pendiente y Entregado. El sistema hoy tiene `recibido`,
 `preparacion`, `entregado` y `cancelado`. Está funcionando y en uso, así que no se tocó. Hay que
