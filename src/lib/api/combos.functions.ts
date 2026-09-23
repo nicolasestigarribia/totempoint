@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { combos, comboProducts, products } from "@/db/schema";
 import { requireView, requireEdit, requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
 
 export interface ComboProductRow {
   productId: number;
@@ -235,7 +236,7 @@ export const updateCombo = createServerFn({ method: "POST" })
 
     // Verifica ownership del combo.
     const [existing] = await db
-      .select({ id: combos.id })
+      .select({ id: combos.id, name: combos.name, price: combos.price })
       .from(combos)
       .where(and(eq(combos.id, data.id), eq(combos.companyId, user.companyId)))
       .limit(1);
@@ -254,6 +255,19 @@ export const updateCombo = createServerFn({ method: "POST" })
         sort: data.sort ?? 0,
       })
       .where(and(eq(combos.id, data.id), eq(combos.companyId, user.companyId)));
+
+    // El precio base es el que paga el cliente en toda sucursal sin precio
+    // propio: cambiarlo es de lo primero que alguien quiere poder rastrear.
+    if (Number(existing.price) !== Number(data.price)) {
+      await registrarAuditoria(user, {
+        category: "precios",
+        action: "precio.base",
+        summary:
+          `Cambió el precio base del combo ${data.name.trim()}: ` +
+          `${pesosAuditoria(existing.price)} → ${pesosAuditoria(data.price)}`,
+        details: { comboId: data.id, antes: existing.price, despues: String(data.price) },
+      });
+    }
 
     // Reemplazo total de productos.
     await db.delete(comboProducts).where(eq(comboProducts.comboId, data.id));

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { locations, totems } from "@/db/schema";
 import { requireCompany, requireOwner } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { registrarAuditoria } from "@/lib/audit/registrar";
 import { accessibleLocationIds, companyIdOf } from "@/lib/auth/scope";
 import { slugify } from "@/lib/slug";
 
@@ -87,6 +88,13 @@ export const createLocation = createServerFn({ method: "POST" })
     // Primer tótem del local, para que su URL /t/{empresa}/{local}/1 funcione ya.
     await db.insert(totems).values({ locationId: id, number: 1, active: true });
 
+    await registrarAuditoria(user, {
+      category: "sucursales",
+      action: "sucursal.alta",
+      summary: `Creó la sucursal ${values.name}`,
+      details: { locationId: id },
+    });
+
     return {
       id,
       name: values.name,
@@ -113,7 +121,7 @@ export const updateLocation = createServerFn({ method: "POST" })
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
 
     const [existing] = await db
-      .select({ id: locations.id })
+      .select({ id: locations.id, name: locations.name, active: locations.active })
       .from(locations)
       .where(and(eq(locations.id, data.id), eq(locations.companyId, user.companyId)))
       .limit(1);
@@ -129,6 +137,15 @@ export const updateLocation = createServerFn({ method: "POST" })
       })
       .where(and(eq(locations.id, data.id), eq(locations.companyId, user.companyId)));
 
+    if (existing.active !== data.active) {
+      await registrarAuditoria(user, {
+        category: "sucursales",
+        action: data.active ? "sucursal.activar" : "sucursal.desactivar",
+        summary: `${data.active ? "Activó" : "Desactivó"} la sucursal ${data.name.trim()}`,
+        details: { locationId: data.id },
+      });
+    }
+
     return { ok: true };
   });
 
@@ -138,10 +155,24 @@ export const setLocationActive = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
+    const [existing] = await db
+      .select({ name: locations.name, active: locations.active })
+      .from(locations)
+      .where(and(eq(locations.id, data.id), eq(locations.companyId, user.companyId)))
+      .limit(1);
+    if (!existing) throw new Error("Local no encontrado");
     await db
       .update(locations)
       .set({ active: data.active })
       .where(and(eq(locations.id, data.id), eq(locations.companyId, user.companyId)));
+    if (existing.active !== data.active) {
+      await registrarAuditoria(user, {
+        category: "sucursales",
+        action: data.active ? "sucursal.activar" : "sucursal.desactivar",
+        summary: `${data.active ? "Activó" : "Desactivó"} la sucursal ${existing.name}`,
+        details: { locationId: data.id },
+      });
+    }
     return { ok: true };
   });
 
@@ -153,7 +184,7 @@ export const deleteLocation = createServerFn({ method: "POST" })
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
 
     const [existing] = await db
-      .select({ id: locations.id })
+      .select({ id: locations.id, name: locations.name })
       .from(locations)
       .where(and(eq(locations.id, data.id), eq(locations.companyId, user.companyId)))
       .limit(1);
@@ -162,6 +193,13 @@ export const deleteLocation = createServerFn({ method: "POST" })
     await db
       .delete(locations)
       .where(and(eq(locations.id, data.id), eq(locations.companyId, user.companyId)));
+
+    await registrarAuditoria(user, {
+      category: "sucursales",
+      action: "sucursal.baja",
+      summary: `Eliminó la sucursal ${existing.name}`,
+      details: { locationId: data.id },
+    });
 
     return { ok: true };
   });

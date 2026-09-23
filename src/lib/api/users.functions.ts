@@ -17,6 +17,8 @@ import type { SessionUser, PanelSection, PermissionLevel } from "@/lib/auth/sess
 import { destroyUserSessions } from "@/lib/auth/session";
 import { companyIdOf } from "@/lib/auth/scope";
 import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
+import { SECTION_LABEL } from "@/lib/auth/permissions";
+import { registrarAuditoria } from "@/lib/audit/registrar";
 
 /**
  * Operadores de una empresa: el owner da de alta encargados y les asigna los
@@ -129,6 +131,58 @@ async function replaceAssignedLocations(userId: number, companyId: number, wante
   if (unique.length > 0) {
     await db.insert(userLocations).values(unique.map((locationId) => ({ userId, locationId })));
   }
+}
+
+const ROL_LABEL: Record<string, string> = {
+  encargado: "encargado",
+  kitchen: "cocina",
+  owner: "dueño",
+};
+
+/** Lo que define qué puede hacer un operador, para comparar antes y después. */
+async function accesoDe(userId: number) {
+  const [u] = await db
+    .select({ email: users.email, username: users.username })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const roles = await db
+    .select({ role: userRoles.role })
+    .from(userRoles)
+    .where(eq(userRoles.userId, userId));
+  const locs = await db
+    .select({ id: userLocations.locationId })
+    .from(userLocations)
+    .where(eq(userLocations.userId, userId));
+  const perms = await db
+    .select({ section: userPermissions.section, level: userPermissions.level })
+    .from(userPermissions)
+    .where(eq(userPermissions.userId, userId));
+  return {
+    email: u?.email ?? "",
+    username: u?.username ?? null,
+    roles: roles.map((r) => r.role).sort(),
+    locationIds: locs.map((l) => l.id).sort((a, b) => a - b),
+    permissions: Object.fromEntries(perms.map((p) => [p.section, p.level])) as Partial<
+      Record<PanelSection, PermissionLevel>
+    >,
+  };
+}
+
+async function nombresDeSucursales(ids: number[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({ name: locations.name })
+    .from(locations)
+    .where(inArray(locations.id, ids));
+  return rows.map((r) => r.name);
+}
+
+function describirPermisos(p: Partial<Record<PanelSection, PermissionLevel>>): string {
+  const partes = PANEL_SECTIONS.filter((s) => p[s]).map(
+    (s) => `${SECTION_LABEL[s]} (${p[s] === "editar" ? "editar" : "ver"})`,
+  );
+  return partes.length ? partes.join(", ") : "ninguno";
 }
 
 export const listOperators = createServerFn({ method: "GET" })
@@ -245,6 +299,18 @@ export const createOperator = createServerFn({ method: "POST" })
     await replaceAssignedLocations(userId, companyId, data.locationIds);
     await replacePermissions(userId, data.permissions);
 
+    const despues = await accesoDe(userId);
+    const sucursales = await nombresDeSucursales(despues.locationIds);
+    await registrarAuditoria(user, {
+      category: "permisos",
+      action: "operador.alta",
+      summary:
+        `Dio de alta a ${email} como ${ROL_LABEL[data.role] ?? data.role}` +
+        (sucursales.length ? ` en ${sucursales.join(", ")}` : "") +
+        `. Permisos: ${describirPermisos(despues.permissions)}`,
+      details: { despues: { ...despues, sucursales } },
+    });
+
     return { id: userId };
   });
 
@@ -265,6 +331,7 @@ export const updateOperator = createServerFn({ method: "POST" })
     const user = context.user as SessionUser;
     const companyId = companyIdOf(user);
     await loadTargetUser(data.userId, companyId, user);
+    const antes = await accesoDe(data.userId);
 
     const email = data.email.toLowerCase();
     const username = data.username.toLowerCase();
@@ -299,6 +366,42 @@ export const updateOperator = createServerFn({ method: "POST" })
     await replaceAssignedLocations(data.userId, companyId, data.locationIds);
     await replacePermissions(data.userId, data.permissions);
 
+    // Se registra qué cambió y no el formulario entero: el dueño guarda el
+    // mismo formulario para corregir un mail que para darle Precios a alguien,
+    // y lo que importa encontrar después es lo segundo.
+    const despues = await accesoDe(data.userId);
+    const cambios: string[] = [];
+    if (antes.email !== despues.email) cambios.push(`mail ${antes.email} → ${despues.email}`);
+    if (antes.username !== despues.username) {
+      cambios.push(`usuario ${antes.username ?? "—"} → ${despues.username ?? "—"}`);
+    }
+    if (antes.roles.join() !== despues.roles.join()) {
+      const r = (l: string[]) => l.map((x) => ROL_LABEL[x] ?? x).join(", ") || "—";
+      cambios.push(`rol ${r(antes.roles)} → ${r(despues.roles)}`);
+    }
+    if (antes.locationIds.join() !== despues.locationIds.join()) {
+      const [a, d] = await Promise.all([
+        nombresDeSucursales(antes.locationIds),
+        nombresDeSucursales(despues.locationIds),
+      ]);
+      cambios.push(`sucursales ${a.join(", ") || "ninguna"} → ${d.join(", ") || "ninguna"}`);
+    }
+    const permisosAntes = describirPermisos(antes.permissions);
+    const permisosDespues = describirPermisos(despues.permissions);
+    if (permisosAntes !== permisosDespues) {
+      cambios.push(`permisos ${permisosAntes} → ${permisosDespues}`);
+    }
+    if (data.password) cambios.push("le cambió la contraseña y cerró sus sesiones");
+
+    if (cambios.length > 0) {
+      await registrarAuditoria(user, {
+        category: "permisos",
+        action: data.password && cambios.length === 1 ? "operador.clave" : "operador.cambio",
+        summary: `Modificó a ${despues.email}: ${cambios.join("; ")}`,
+        details: { antes, despues, cambioClave: Boolean(data.password) },
+      });
+    }
+
     return { ok: true };
   });
 
@@ -314,5 +417,14 @@ export const setOperatorActive = createServerFn({ method: "POST" })
     await db.update(users).set({ active: data.active }).where(eq(users.id, data.userId));
     // Desactivar tiene que surtir efecto ya, no en el próximo login.
     if (!data.active) await destroyUserSessions(data.userId);
+
+    const { email } = await accesoDe(data.userId);
+    await registrarAuditoria(user, {
+      category: "permisos",
+      action: data.active ? "operador.activar" : "operador.desactivar",
+      summary: data.active
+        ? `Reactivó el acceso de ${email}`
+        : `Desactivó a ${email} y cerró sus sesiones`,
+    });
     return { ok: true };
   });

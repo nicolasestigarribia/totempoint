@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { products, productIngredients, categories, ingredients } from "@/db/schema";
 import { requireView, requireEdit, requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
 
 export interface ProductIngredientRow {
   ingredientId: number;
@@ -287,7 +288,7 @@ export const updateProduct = createServerFn({ method: "POST" })
 
     // Verifica ownership del producto.
     const [existing] = await db
-      .select({ id: products.id })
+      .select({ id: products.id, name: products.name, price: products.price })
       .from(products)
       .where(and(eq(products.id, data.id), eq(products.companyId, user.companyId)))
       .limit(1);
@@ -311,6 +312,19 @@ export const updateProduct = createServerFn({ method: "POST" })
         unitsPerBulk: String(data.unitsPerBulk ?? 1),
       })
       .where(and(eq(products.id, data.id), eq(products.companyId, user.companyId)));
+
+    // El precio base es el que paga el cliente en toda sucursal sin precio
+    // propio: cambiarlo es de lo primero que alguien quiere poder rastrear.
+    if (Number(existing.price) !== Number(data.price)) {
+      await registrarAuditoria(user, {
+        category: "precios",
+        action: "precio.base",
+        summary:
+          `Cambió el precio base del producto ${data.name.trim()}: ` +
+          `${pesosAuditoria(existing.price)} → ${pesosAuditoria(data.price)}`,
+        details: { productoId: data.id, antes: existing.price, despues: String(data.price) },
+      });
+    }
 
     // Reemplazo total de ingredientes.
     await db

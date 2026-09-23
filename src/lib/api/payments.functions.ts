@@ -7,6 +7,7 @@ import { requireOwner } from "@/lib/auth/middleware";
 import { companyIdOf } from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { pareceClavePublica, verificarCredencial } from "@/lib/payments/mercadopago";
+import { registrarAuditoria } from "@/lib/audit/registrar";
 
 /**
  * Credenciales de cobro de la empresa.
@@ -120,6 +121,25 @@ export const updatePaymentSettings = createServerFn({ method: "POST" })
       });
     }
 
+    // Nunca el token en la auditoría: sólo que cambió. Es la llave de la
+    // cuenta de la empresa y la auditoría la puede leer más gente.
+    const cambios: string[] = [];
+    if (token && token !== existente?.mpAccessToken) {
+      cambios.push(`cargó una credencial nueva${esDePrueba ? " (de prueba)" : ""}`);
+    }
+    const estabaPrendido = existente?.mpEnabled ?? false;
+    if (data.mpEnabled !== estabaPrendido) {
+      cambios.push(data.mpEnabled ? "activó el cobro" : "desactivó el cobro");
+    }
+    if (cambios.length > 0) {
+      await registrarAuditoria(context.user as SessionUser, {
+        category: "cobros",
+        action: "mp.config",
+        summary: `Mercado Pago: ${cambios.join(" y ")}`,
+        details: { antes: { activo: estabaPrendido }, despues: { activo: data.mpEnabled } },
+      });
+    }
+
     return { ok: true };
   });
 
@@ -132,5 +152,10 @@ export const clearPaymentSettings = createServerFn({ method: "POST" })
       .update(paymentSettings)
       .set({ mpAccessToken: null, mpEnabled: false, mpTestAccount: false })
       .where(eq(paymentSettings.companyId, companyId));
+    await registrarAuditoria(context.user as SessionUser, {
+      category: "cobros",
+      action: "mp.borrar",
+      summary: "Mercado Pago: borró la credencial y apagó el cobro",
+    });
     return { ok: true };
   });

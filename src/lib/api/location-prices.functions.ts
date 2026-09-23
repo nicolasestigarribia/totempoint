@@ -2,10 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { products, combos, categories, locationPrices, priceChanges, users } from "@/db/schema";
+import {
+  products,
+  combos,
+  categories,
+  locationPrices,
+  priceChanges,
+  users,
+  locations,
+} from "@/db/schema";
 import { requireView, requireEdit } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { assertLocationAccess, companyIdOf } from "@/lib/auth/scope";
+import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
 
 type ItemType = "product" | "combo";
 
@@ -128,7 +137,7 @@ async function applyPrice(
   itemType: ItemType,
   itemId: number,
   newPrice: number | null,
-) {
+): Promise<{ antes: string; despues: string } | null> {
   const base = await basePriceOf(itemType, itemId, companyId);
 
   const [current] = await db
@@ -165,8 +174,9 @@ async function applyPrice(
         newPrice: base,
         userId: user.id,
       });
+      return { antes: oldEffective, despues: base };
     }
-    return;
+    return null;
   }
 
   const priceStr = money(newPrice);
@@ -185,7 +195,28 @@ async function applyPrice(
       newPrice: priceStr,
       userId: user.id,
     });
+    return { antes: oldEffective, despues: priceStr };
   }
+  return null;
+}
+
+async function nombreDeSucursal(locationId: number): Promise<string> {
+  const [l] = await db
+    .select({ name: locations.name })
+    .from(locations)
+    .where(eq(locations.id, locationId))
+    .limit(1);
+  return l?.name ?? `sucursal ${locationId}`;
+}
+
+async function nombresDeItems(itemType: ItemType, ids: number[]): Promise<Map<number, string>> {
+  if (ids.length === 0) return new Map();
+  const table = itemType === "product" ? products : combos;
+  const rows = await db
+    .select({ id: table.id, name: table.name })
+    .from(table)
+    .where(inArray(table.id, ids));
+  return new Map(rows.map((r) => [r.id, r.name]));
 }
 
 export const setLocationPrice = createServerFn({ method: "POST" })
@@ -202,7 +233,30 @@ export const setLocationPrice = createServerFn({ method: "POST" })
     const user = context.user as SessionUser;
     const companyId = companyIdOf(user);
     await assertLocationAccess(user, data.locationId);
-    await applyPrice(user, companyId, data.locationId, data.itemType, data.itemId, data.price);
+    const cambio = await applyPrice(
+      user,
+      companyId,
+      data.locationId,
+      data.itemType,
+      data.itemId,
+      data.price,
+    );
+    if (cambio) {
+      const [sucursal, nombres] = await Promise.all([
+        nombreDeSucursal(data.locationId),
+        nombresDeItems(data.itemType, [data.itemId]),
+      ]);
+      const que = data.itemType === "product" ? "producto" : "combo";
+      await registrarAuditoria(user, {
+        category: "precios",
+        action: "precio.sucursal",
+        summary:
+          `Cambió el precio del ${que} ${nombres.get(data.itemId) ?? data.itemId} en ${sucursal}: ` +
+          `${pesosAuditoria(cambio.antes)} → ${pesosAuditoria(cambio.despues)}` +
+          (data.price === null ? " (volvió al precio base)" : ""),
+        details: { ...data, ...cambio },
+      });
+    }
     return { ok: true };
   });
 
@@ -249,11 +303,57 @@ export const bulkAdjustPrices = createServerFn({ method: "POST" })
       );
     const overrideById = new Map(overrides.map((o) => [o.itemId, o.price]));
 
+    const cambios: { itemId: number; antes: string; despues: string }[] = [];
     for (const itemId of data.itemIds) {
       const effective = Number(overrideById.get(itemId) ?? baseById.get(itemId));
       const next =
         data.mode === "unit" ? data.value : Math.max(0, effective * (1 + data.value / 100));
-      await applyPrice(user, companyId, data.locationId, data.itemType, itemId, next);
+      const cambio = await applyPrice(
+        user,
+        companyId,
+        data.locationId,
+        data.itemType,
+        itemId,
+        next,
+      );
+      if (cambio) cambios.push({ itemId, ...cambio });
+    }
+
+    // Un ajuste masivo es una sola decisión: va como una entrada, con el
+    // detalle de cada ítem adentro, y no como cuarenta líneas sueltas.
+    if (cambios.length > 0) {
+      const [sucursal, nombres] = await Promise.all([
+        nombreDeSucursal(data.locationId),
+        nombresDeItems(
+          data.itemType,
+          cambios.map((c) => c.itemId),
+        ),
+      ]);
+      const que = data.itemType === "product" ? "productos" : "combos";
+      const como =
+        data.mode === "percent"
+          ? `${data.value > 0 ? "+" : ""}${data.value}%`
+          : `precio fijo ${pesosAuditoria(data.value)}`;
+      const lista = cambios
+        .slice(0, 5)
+        .map(
+          (c) =>
+            `${nombres.get(c.itemId) ?? c.itemId} ${pesosAuditoria(c.antes)} → ${pesosAuditoria(c.despues)}`,
+        )
+        .join(", ");
+      await registrarAuditoria(user, {
+        category: "precios",
+        action: "precio.masivo",
+        summary:
+          `Ajuste masivo (${como}) de ${cambios.length} ${que} en ${sucursal}: ${lista}` +
+          (cambios.length > 5 ? ` y ${cambios.length - 5} más` : ""),
+        details: {
+          locationId: data.locationId,
+          mode: data.mode,
+          value: data.value,
+          cambios: cambios.map((c) => ({ ...c, nombre: nombres.get(c.itemId) ?? null })),
+        },
+      });
     }
     return { ok: true, count: data.itemIds.length };
   });

@@ -609,3 +609,35 @@ export const orderItems = mysqlTable(
   (t) => [index("order_items_order_idx").on(t.orderId)],
 );
 
+// Auditoría de cambios críticos del panel: permisos, precios, cobros, accesos.
+//
+// Es append-only: nada la edita ni la borra. Guarda el mail de quien hizo el
+// cambio además de su id porque un operador se puede dar de baja, y el
+// registro tiene que seguir diciendo quién fue.
+export const auditLog = mysqlTable(
+  "audit_log",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Empresa afectada. Null solo para acciones de plataforma sin empresa. */
+    companyId: int("company_id"),
+    userId: int("user_id").notNull(),
+    userEmail: varchar("user_email", { length: 255 }).notNull(),
+    /** El superadmin haciendo algo dentro de la empresa, no alguien de ella. */
+    asSuperadmin: boolean("as_superadmin").notNull().default(false),
+    category: mysqlEnum("category", [
+      "permisos",
+      "precios",
+      "cobros",
+      "pedidos",
+      "sucursales",
+      "empresa",
+    ]).notNull(),
+    action: varchar("action", { length: 60 }).notNull(),
+    /** Frase legible, ya armada: es lo que se muestra en la lista. */
+    summary: varchar("summary", { length: 500 }).notNull(),
+    /** Antes y después, para quien quiera ver el detalle. JSON serializado. */
+    details: text("details"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("audit_log_company_date_idx").on(t.companyId, t.createdAt)],
+);

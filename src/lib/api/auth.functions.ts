@@ -15,6 +15,7 @@ import {
   currentSessionToken,
 } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/auth/session";
+import { registrarAuditoria } from "@/lib/audit/registrar";
 import type { PanelSection, PermissionLevel } from "@/lib/auth/session";
 
 export interface AuthUser {
@@ -150,6 +151,16 @@ export const changeMyPassword = createServerFn({ method: "POST" })
       .where(eq(users.id, session.id));
 
     await destroyUserSessions(session.id, currentSessionToken());
+
+    // La del superadmin no es de ninguna empresa: no va a la auditoría de la
+    // que esté mirando en ese momento.
+    if (!session.roles.includes("superadmin") && session.companyId) {
+      await registrarAuditoria(session, {
+        category: "permisos",
+        action: "cuenta.clave",
+        summary: "Cambió su propia contraseña y cerró sus otras sesiones",
+      });
+    }
 
     return { ok: true };
   });

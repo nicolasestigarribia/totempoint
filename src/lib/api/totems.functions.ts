@@ -2,9 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { totems } from "@/db/schema";
+import { totems, locations } from "@/db/schema";
 import { requireCompany, requireOwner } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
+import { registrarAuditoria } from "@/lib/audit/registrar";
 import { assertLocationAccess } from "@/lib/auth/scope";
 
 export interface TotemRow {
@@ -12,6 +13,15 @@ export interface TotemRow {
   number: number;
   label: string | null;
   active: boolean;
+}
+
+async function nombreDeSucursal(locationId: number): Promise<string> {
+  const [l] = await db
+    .select({ name: locations.name })
+    .from(locations)
+    .where(eq(locations.id, locationId))
+    .limit(1);
+  return l?.name ?? "la sucursal";
 }
 
 export const listTotems = createServerFn({ method: "GET" })
@@ -49,6 +59,13 @@ export const createTotem = createServerFn({ method: "POST" })
       .values({ locationId: data.locationId, number, label, active: true })
       .$returningId();
 
+    await registrarAuditoria(user, {
+      category: "sucursales",
+      action: "totem.alta",
+      summary: `Agregó el tótem ${number} en ${await nombreDeSucursal(data.locationId)}`,
+      details: { totemId: id, locationId: data.locationId },
+    });
+
     return { id, number, label, active: true };
   });
 
@@ -74,7 +91,7 @@ export const deleteTotem = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const user = context.user as SessionUser;
     const [t] = await db
-      .select({ locationId: totems.locationId })
+      .select({ locationId: totems.locationId, number: totems.number })
       .from(totems)
       .where(eq(totems.id, data.id))
       .limit(1);
@@ -89,5 +106,11 @@ export const deleteTotem = createServerFn({ method: "POST" })
     if (n <= 1) throw new Error("La sucursal tiene que tener al menos un tótem");
 
     await db.delete(totems).where(eq(totems.id, data.id));
+    await registrarAuditoria(user, {
+      category: "sucursales",
+      action: "totem.baja",
+      summary: `Eliminó el tótem ${t.number} de ${await nombreDeSucursal(t.locationId)}`,
+      details: { totemId: data.id, locationId: t.locationId },
+    });
     return { ok: true };
   });

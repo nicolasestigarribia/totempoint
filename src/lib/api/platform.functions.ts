@@ -8,7 +8,9 @@ import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
 import { setActingCompany, clearActingCompany, destroyUserSessions } from "@/lib/auth/session";
+import type { SessionUser } from "@/lib/auth/session";
 import { slugify, isReservedSlug } from "@/lib/slug";
+import { registrarAuditoria } from "@/lib/audit/registrar";
 
 const usernameSchema = z
   .string()
@@ -162,9 +164,16 @@ export const updateBusinessAdmin = createServerFn({ method: "POST" })
       password: passwordSchema.optional().nullable(),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const email = data.email.toLowerCase();
     const username = data.username.toLowerCase();
+
+    const [antes] = await db
+      .select({ email: users.email, username: users.username, companyId: users.companyId })
+      .from(users)
+      .where(eq(users.id, data.userId))
+      .limit(1);
+    if (!antes) throw new Error("No encontramos ese usuario");
 
     const [dup] = await db
       .select({ id: users.id })
@@ -184,6 +193,21 @@ export const updateBusinessAdmin = createServerFn({ method: "POST" })
     await db.update(users).set(set).where(eq(users.id, data.userId));
     // Si le cambiamos la clave al dueño, su sesión abierta deja de valer.
     if (data.password) await destroyUserSessions(data.userId);
+
+    const cambios: string[] = [];
+    if (antes.email !== email) cambios.push(`mail ${antes.email} → ${email}`);
+    if ((antes.username ?? "") !== username) {
+      cambios.push(`usuario ${antes.username ?? "—"} → ${username}`);
+    }
+    if (data.password) cambios.push("le cambió la contraseña y cerró sus sesiones");
+    if (cambios.length > 0) {
+      await registrarAuditoria(context.user as SessionUser, {
+        companyId: antes.companyId,
+        category: "permisos",
+        action: "dueno.credenciales",
+        summary: `Cambió las credenciales del dueño ${email}: ${cambios.join("; ")}`,
+      });
+    }
     return { ok: true };
   });
 
@@ -205,7 +229,7 @@ export const assignBusinessOwner = createServerFn({ method: "POST" })
       password: passwordSchema,
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const [company] = await db
       .select({ id: companies.id })
       .from(companies)
@@ -254,6 +278,13 @@ export const assignBusinessOwner = createServerFn({ method: "POST" })
       await db.insert(userLocations).values({ userId, locationId: primerNegocio.id });
     }
 
+    await registrarAuditoria(context.user as SessionUser, {
+      companyId: data.companyId,
+      category: "permisos",
+      action: "dueno.alta",
+      summary: `Le asignó a la empresa un dueño nuevo: ${email}`,
+    });
+
     return { ok: true };
   });
 
@@ -281,7 +312,7 @@ export const updateBusinessSlug = createServerFn({ method: "POST" })
         .regex(/[a-z0-9]$/, "No puede terminar en guion"),
     }),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     if (isReservedSlug(data.slug)) {
       throw new Error("Esa dirección está reservada por el sistema");
     }
@@ -292,15 +323,36 @@ export const updateBusinessSlug = createServerFn({ method: "POST" })
       .limit(1);
     if (ocupado) throw new Error("Esa dirección ya la usa otra empresa");
 
+    const [antes] = await db
+      .select({ slug: companies.slug })
+      .from(companies)
+      .where(eq(companies.id, data.companyId))
+      .limit(1);
     await db.update(companies).set({ slug: data.slug }).where(eq(companies.id, data.companyId));
+    if (antes && antes.slug !== data.slug) {
+      await registrarAuditoria(context.user as SessionUser, {
+        companyId: data.companyId,
+        category: "empresa",
+        action: "empresa.slug",
+        summary: `Cambió la dirección de los tótems: /t/${antes.slug} → /t/${data.slug}. Los QR impresos con la anterior dejan de funcionar`,
+      });
+    }
     return { ok: true };
   });
 
 export const setBusinessActive = createServerFn({ method: "POST" })
   .middleware([requireSuperadmin])
   .inputValidator(z.object({ id: z.number().int(), active: z.boolean() }))
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     await db.update(companies).set({ active: data.active }).where(eq(companies.id, data.id));
+    await registrarAuditoria(context.user as SessionUser, {
+      companyId: data.id,
+      category: "empresa",
+      action: data.active ? "empresa.activar" : "empresa.suspender",
+      summary: data.active
+        ? "Reactivó la empresa"
+        : "Suspendió la empresa y cerró las sesiones de su gente",
+    });
 
     // Dar de baja una empresa tiene que sacar a su gente del panel ahora, no
     // cuando venza la sesión: la sesión solo mira si el usuario está activo, no
