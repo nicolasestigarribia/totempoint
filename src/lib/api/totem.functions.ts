@@ -17,6 +17,9 @@ import {
   locationCombos,
   orders,
   orderItems,
+  orderItemRemovals,
+  productIngredients,
+  ingredients,
   paymentSettings,
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
@@ -26,6 +29,12 @@ import {
   type ItemPreferencia,
 } from "@/lib/payments/mercadopago";
 import { acreditarPedido } from "@/lib/payments/acreditar";
+import {
+  calcularConsumo,
+  registrarVenta,
+  asegurarCodigosDeVenta,
+  type LineaVendida,
+} from "@/lib/stock/venta";
 
 /**
  * El access token de la empresa, o null si no tiene el cobro andando.
@@ -264,6 +273,12 @@ export interface TotemCategory {
   productCount: number;
 }
 
+/** Un ingrediente que el cliente puede sacar de un producto. */
+export interface TotemRemovable {
+  id: number;
+  name: string;
+}
+
 export interface TotemProduct {
   id: number;
   categoryId: number;
@@ -271,6 +286,12 @@ export interface TotemProduct {
   description: string | null;
   price: string;
   photoUrl: string | null;
+  /**
+   * Qué se le puede sacar a este producto. Vacío significa que viene como
+   * viene: o el dueño no lo habilitó para personalizar, o no marcó ningún
+   * ingrediente como quitable. Sacar algo nunca cambia el precio.
+   */
+  removables: TotemRemovable[];
 }
 
 export interface TotemComboItem {
@@ -436,6 +457,7 @@ export const getTotemMenu = createServerFn({ method: "GET" })
           description: products.description,
           price: products.price,
           photoUrl: products.photoUrl,
+          customizable: products.customizable,
           available: locationProducts.available,
         })
         .from(products)
@@ -465,6 +487,30 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       "product",
       prods.map((p) => p.id),
     );
+
+    // Lo que se puede sacar, sólo de los productos habilitados para eso. Un
+    // ingrediente marcado como quitable en un producto que no es configurable
+    // no llega a la pantalla: mandan las dos condiciones, no una.
+    const configurables = prods.filter((p) => p.customizable).map((p) => p.id);
+    const quitables = configurables.length
+      ? await db
+          .select({
+            productId: productIngredients.productId,
+            id: ingredients.id,
+            name: ingredients.name,
+          })
+          .from(productIngredients)
+          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+          .where(
+            and(
+              eq(productIngredients.removable, true),
+              eq(ingredients.active, true),
+              inArray(productIngredients.productId, configurables),
+            ),
+          )
+          .orderBy(asc(ingredients.name))
+      : [];
+
     const visibleProducts: TotemProduct[] = prods.map((p) => ({
       id: p.id,
       name: p.name,
@@ -472,6 +518,9 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       photoUrl: p.photoUrl,
       price: prodOverrides.get(p.id) ?? p.price,
       categoryId: p.categoryId ?? UNCATEGORIZED,
+      removables: p.customizable
+        ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
+        : [],
     }));
 
     const totemCategories: TotemCategory[] = cats.map((c) => ({
@@ -577,6 +626,9 @@ export const createTotemOrder = createServerFn({ method: "POST" })
             kind: z.enum(["producto", "combo"]),
             id: z.number().int(),
             quantity: z.number().int().min(1).max(50),
+            // Los ingredientes que el cliente sacó de esta línea. Se valida
+            // abajo contra la receta: el cliente no elige qué se puede sacar.
+            removedIngredientIds: z.array(z.number().int()).max(30).optional(),
           }),
         )
         .min(1),
@@ -588,8 +640,14 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       const company = resuelto.company;
       const location = { id: resuelto.locationId };
 
-      const productIds = data.items.filter((i) => i.kind === "producto").map((i) => i.id);
-      const comboIds = data.items.filter((i) => i.kind === "combo").map((i) => i.id);
+      // Únicos: desde que un producto se puede personalizar, el mismo id
+      // aparece en varias líneas —una con cambios y otra sin— y la base
+      // devuelve una sola fila por producto. Comparar contra la lista con
+      // repetidos rechazaba el pedido entero por "no disponible".
+      const productIds = [
+        ...new Set(data.items.filter((i) => i.kind === "producto").map((i) => i.id)),
+      ];
+      const comboIds = [...new Set(data.items.filter((i) => i.kind === "combo").map((i) => i.id))];
 
       const productRows = productIds.length
         ? await db
@@ -598,6 +656,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
               name: products.name,
               price: products.price,
               categoryId: products.categoryId,
+              customizable: products.customizable,
             })
             .from(products)
             .where(
@@ -637,6 +696,53 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         throw new Error("Algo de tu pedido ya no está disponible");
       }
 
+      // Lo que el cliente sacó se valida contra la receta, no se cree. El
+      // tótem podría mandar cualquier id: sólo se aceptan ingredientes que ese
+      // producto lleva y que el dueño marcó como quitables, y sólo si el
+      // producto está habilitado para personalizar.
+      // Por índice de línea y no por producto: el mismo producto puede estar
+      // dos veces con cambios distintos —uno sin tomate y otro como viene— y
+      // guardarlo por id le pegaría los mismos cambios a las dos.
+      const sacadosPorLinea = new Map<number, { id: number; name: string }[]>();
+      const lineasConSacados = data.items
+        .map((item, indice) => ({ item, indice }))
+        .filter(
+          ({ item }) => item.kind === "producto" && (item.removedIngredientIds?.length ?? 0) > 0,
+        );
+      if (lineasConSacados.length > 0) {
+        const quitables = await db
+          .select({
+            productId: productIngredients.productId,
+            ingredientId: productIngredients.ingredientId,
+            name: ingredients.name,
+          })
+          .from(productIngredients)
+          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+          .where(
+            and(
+              eq(productIngredients.removable, true),
+              inArray(
+                productIngredients.productId,
+                lineasConSacados.map((l) => l.item.id),
+              ),
+            ),
+          );
+
+        for (const { item, indice } of lineasConSacados) {
+          const producto = productRows.find((p) => p.id === item.id)!;
+          if (!producto.customizable) {
+            throw new Error(`${producto.name} no se puede personalizar`);
+          }
+          const permitidos = quitables.filter((q) => q.productId === item.id);
+          const elegidos = [...new Set(item.removedIngredientIds ?? [])].map((id) => {
+            const ok = permitidos.find((p) => p.ingredientId === id);
+            if (!ok) throw new Error(`Ese ingrediente no se puede sacar de ${producto.name}`);
+            return { id, name: ok.name };
+          });
+          sacadosPorLinea.set(indice, elegidos);
+        }
+      }
+
       // Precio efectivo del local: override por local si existe, si no el base.
       const [prodOverrides, comboOverrides] = await Promise.all([
         priceOverrides(location.id, "product", productIds),
@@ -669,6 +775,24 @@ export const createTotemOrder = createServerFn({ method: "POST" })
 
       const jornada = diaDeHoy();
 
+      // El consumo de stock se resuelve ANTES de abrir la transacción: son
+      // lecturas, y si algo falla acá el pedido tiene que tomarse igual. Perder
+      // una venta porque no pudimos calcular el inventario sería el peor de los
+      // dos errores, el mismo criterio que con Mercado Pago más abajo.
+      let consumo: Awaited<ReturnType<typeof calcularConsumo>> = [];
+      try {
+        await asegurarCodigosDeVenta(company.id);
+        const lineas: LineaVendida[] = data.items.map((i, indice) => ({
+          kind: i.kind,
+          refId: i.id,
+          quantity: i.quantity,
+          removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
+        }));
+        consumo = await calcularConsumo(company.id, lineas);
+      } catch (error) {
+        console.error("No se pudo calcular el stock de la venta:", error);
+      }
+
       const creado = await db.transaction(async (tx) => {
         // La numeración arranca en 1 cada mañana y por local: el cliente ve un
         // número corto y el local no arrastra los miles del mes pasado. El id
@@ -699,7 +823,39 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           })
           .$returningId();
 
-        await tx.insert(orderItems).values(priced.map((p) => ({ orderId, ...p })));
+        // Con ids: hacen falta para colgarles lo que el cliente sacó.
+        for (const [indice, linea] of priced.entries()) {
+          const [{ id: orderItemId }] = await tx
+            .insert(orderItems)
+            .values({ orderId, ...linea })
+            .$returningId();
+
+          const sacados = sacadosPorLinea.get(indice) ?? [];
+          if (sacados.length > 0) {
+            await tx.insert(orderItemRemovals).values(
+              sacados.map((x) => ({
+                orderItemId,
+                ingredientId: x.id,
+                // El nombre queda congelado, como el del producto: la comanda
+                // de un pedido viejo tiene que seguir diciendo lo mismo.
+                ingredientName: x.name,
+              })),
+            );
+          }
+        }
+
+        // El descuento va en la misma transacción que el pedido: no puede
+        // quedar un pedido sin su consumo ni un consumo sin su pedido.
+        await registrarVenta(
+          tx,
+          {
+            companyId: company.id,
+            locationId: location.id,
+            orderId,
+            orderNumber,
+          },
+          consumo,
+        );
 
         return { orderId, orderNumber };
       });

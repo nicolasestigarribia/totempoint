@@ -12,6 +12,8 @@ export interface ProductIngredientRow {
   name: string;
   unit: string | null;
   quantity: string | null;
+  /** Si el cliente puede pedir que se lo saquen desde el tótem. */
+  removable: boolean;
 }
 
 export interface ProductRow {
@@ -25,6 +27,8 @@ export interface ProductRow {
   active: boolean;
   sort: number;
   stockable: boolean;
+  /** Si el tótem ofrece sacarle ingredientes. Lo decide el dueño por producto. */
+  customizable: boolean;
   unit: string | null;
   unitsPerBulk: string;
   ingredients: ProductIngredientRow[];
@@ -33,6 +37,7 @@ export interface ProductRow {
 const ingredientInput = z.object({
   ingredientId: z.number().int(),
   quantity: z.number().nullable().optional(),
+  removable: z.boolean().optional(),
 });
 
 // Valida que la categoría (si viene) pertenezca a la empresa del user.
@@ -53,13 +58,13 @@ async function assertCategoryOwned(
 // Valida que cada ingredientId sea global (companyId null) o de la empresa del user.
 // Devuelve la lista deduplicada de ingredientes válidos con su cantidad.
 async function validateIngredients(
-  list: { ingredientId: number; quantity?: number | null }[] | undefined,
+  list: { ingredientId: number; quantity?: number | null; removable?: boolean }[] | undefined,
   companyId: number,
-): Promise<{ ingredientId: number; quantity: string | null }[]> {
+): Promise<{ ingredientId: number; quantity: string | null; removable: boolean }[]> {
   if (!list || list.length === 0) return [];
 
-  const dedup = new Map<number, number | null | undefined>();
-  for (const it of list) dedup.set(it.ingredientId, it.quantity);
+  const dedup = new Map<number, { quantity?: number | null; removable?: boolean }>();
+  for (const it of list) dedup.set(it.ingredientId, it);
   const ids = [...dedup.keys()];
 
   const found = await db
@@ -68,9 +73,7 @@ async function validateIngredients(
     .where(inArray(ingredients.id, ids));
 
   const allowed = new Set(
-    found
-      .filter((r) => r.companyId === null || r.companyId === companyId)
-      .map((r) => r.id),
+    found.filter((r) => r.companyId === null || r.companyId === companyId).map((r) => r.id),
   );
 
   for (const id of ids) {
@@ -80,19 +83,18 @@ async function validateIngredients(
   }
 
   return ids.map((id) => {
-    const q = dedup.get(id);
+    const it = dedup.get(id);
+    const q = it?.quantity;
     return {
       ingredientId: id,
       quantity: q === null || q === undefined ? null : String(q),
+      removable: it?.removable ?? false,
     };
   });
 }
 
 // Carga el detalle completo (con ingredientes) de un producto por id.
-async function loadProductRow(
-  productId: number,
-  companyId: number,
-): Promise<ProductRow> {
+async function loadProductRow(productId: number, companyId: number): Promise<ProductRow> {
   const [row] = await db
     .select({
       id: products.id,
@@ -105,6 +107,7 @@ async function loadProductRow(
       active: products.active,
       sort: products.sort,
       stockable: products.stockable,
+      customizable: products.customizable,
       unit: products.unit,
       unitsPerBulk: products.unitsPerBulk,
     })
@@ -119,6 +122,7 @@ async function loadProductRow(
     .select({
       ingredientId: productIngredients.ingredientId,
       quantity: productIngredients.quantity,
+      removable: productIngredients.removable,
       name: ingredients.name,
       unit: ingredients.unit,
     })
@@ -134,6 +138,7 @@ async function loadProductRow(
       name: i.name,
       unit: i.unit,
       quantity: i.quantity,
+      removable: i.removable,
     })),
   };
 }
@@ -156,6 +161,7 @@ export const listProducts = createServerFn({ method: "GET" })
         active: products.active,
         sort: products.sort,
         stockable: products.stockable,
+        customizable: products.customizable,
         unit: products.unit,
         unitsPerBulk: products.unitsPerBulk,
       })
@@ -171,6 +177,7 @@ export const listProducts = createServerFn({ method: "GET" })
         productId: productIngredients.productId,
         ingredientId: productIngredients.ingredientId,
         quantity: productIngredients.quantity,
+        removable: productIngredients.removable,
         name: ingredients.name,
         unit: ingredients.unit,
       })
@@ -192,6 +199,7 @@ export const listProducts = createServerFn({ method: "GET" })
         name: i.name,
         unit: i.unit,
         quantity: i.quantity,
+        removable: i.removable,
       });
       byProduct.set(i.productId, arr);
     }
@@ -213,6 +221,7 @@ export const createProduct = createServerFn({ method: "POST" })
       photoUrl: z.string().max(500).optional(),
       sort: z.number().int().optional(),
       stockable: z.boolean().optional(),
+      customizable: z.boolean().optional(),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().optional(),
       ingredients: z.array(ingredientInput).optional(),
@@ -246,6 +255,9 @@ export const createProduct = createServerFn({ method: "POST" })
         active: true,
         sort,
         stockable,
+        // Un producto de reventa no tiene receta, así que no hay nada que
+        // sacarle: el interruptor no puede quedar encendido en ese caso.
+        customizable: stockable ? false : (data.customizable ?? false),
         unit,
         unitsPerBulk,
       })
@@ -257,6 +269,7 @@ export const createProduct = createServerFn({ method: "POST" })
           productId: id,
           ingredientId: i.ingredientId,
           quantity: i.quantity,
+          removable: i.removable,
         })),
       );
     }
@@ -277,6 +290,7 @@ export const updateProduct = createServerFn({ method: "POST" })
       active: z.boolean(),
       sort: z.number().int().optional(),
       stockable: z.boolean().optional(),
+      customizable: z.boolean().optional(),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().optional(),
       ingredients: z.array(ingredientInput).optional(),
@@ -308,6 +322,7 @@ export const updateProduct = createServerFn({ method: "POST" })
         active: data.active,
         sort: data.sort ?? 0,
         stockable: data.stockable ?? false,
+        customizable: data.stockable ? false : (data.customizable ?? false),
         unit: data.unit?.trim() ? data.unit.trim() : null,
         unitsPerBulk: String(data.unitsPerBulk ?? 1),
       })
@@ -327,9 +342,7 @@ export const updateProduct = createServerFn({ method: "POST" })
     }
 
     // Reemplazo total de ingredientes.
-    await db
-      .delete(productIngredients)
-      .where(eq(productIngredients.productId, data.id));
+    await db.delete(productIngredients).where(eq(productIngredients.productId, data.id));
 
     if (ingList.length > 0) {
       await db.insert(productIngredients).values(
@@ -337,6 +350,7 @@ export const updateProduct = createServerFn({ method: "POST" })
           productId: data.id,
           ingredientId: i.ingredientId,
           quantity: i.quantity,
+          removable: i.removable,
         })),
       );
     }
@@ -372,9 +386,7 @@ export const deleteProduct = createServerFn({ method: "POST" })
       .limit(1);
     if (!existing) throw new Error("Producto no encontrado");
 
-    await db
-      .delete(productIngredients)
-      .where(eq(productIngredients.productId, data.id));
+    await db.delete(productIngredients).where(eq(productIngredients.productId, data.id));
 
     await db
       .delete(products)

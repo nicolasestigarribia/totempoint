@@ -374,11 +374,22 @@ function Kitchen() {
 
                           <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
                             {o.items.map((i, idx) => (
-                              <li key={idx} className="flex justify-between">
-                                <span className="truncate">
-                                  <span className="font-bold text-gold">{i.quantity}×</span>{" "}
-                                  {i.productName}
+                              <li key={idx}>
+                                <span className="flex justify-between">
+                                  <span className="truncate">
+                                    <span className="font-bold text-gold">{i.quantity}×</span>{" "}
+                                    {i.productName}
+                                  </span>
                                 </span>
+                                {/* Lo que hay que sacar va debajo del producto
+                                    y resaltado: equivocarse acá significa
+                                    rehacer el plato, así que no puede parecer
+                                    un detalle del renglón. */}
+                                {i.removed.length > 0 && (
+                                  <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-amber-400">
+                                    {i.removed.map((r) => `sin ${r}`).join(" · ")}
+                                  </span>
+                                )}
                               </li>
                             ))}
                           </ul>

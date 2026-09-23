@@ -4,7 +4,7 @@ import { getTotemMenu } from "@/lib/api/totem.functions";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { TotemCartBar } from "@/components/totem/TotemCartBar";
-import { useTotemCart, useCartForSlug, formatPrice } from "@/lib/totem-cart";
+import { useTotemCart, useCartForSlug, formatPrice, itemKey } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -109,7 +109,7 @@ function CombosPage() {
                       >
                         <button
                           type="button"
-                          onClick={() => removeOne("combo", c.id)}
+                          onClick={() => removeOne(itemKey("combo", c.id))}
                           aria-label={inCart === 1 ? `Quitar ${c.name}` : "Quitar una unidad"}
                           className="flex h-12 w-12 items-center justify-center rounded-xl text-white transition hover:bg-black/20 active:scale-95"
                         >

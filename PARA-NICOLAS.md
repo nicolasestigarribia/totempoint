@@ -149,8 +149,16 @@ falta, para que un combo oculto nunca sea un misterio.
 **Productos propios de un local** (punto 5). Hoy el catálogo es de la empresa; una sucursal no puede
 tener algo exclusivo ni elegir qué hereda.
 
-**Personalización por producto** (punto 7). Sacar ingredientes, tipo "sin cebolla". Es configurable
-**producto por producto**, no una regla general: un sánguche de miga es fijo, una hamburguesa no.
+**Personalización por producto** (punto 7). Hecho. El dueño enciende "el cliente puede sacarle
+ingredientes" en cada producto y marca cuáles se pueden sacar; el tótem ofrece sólo eso y el
+servidor lo revalida contra la receta. No cambia el precio. Lo que se sacó queda congelado por
+línea en `order_item_removals` y la comanda lo imprime debajo del producto.
+
+**La venta descuenta stock.** Antes no: el código `VENTA` estaba marcado como automático y no lo
+usaba nadie, así que `vp_local` era siempre cero. Ahora `src/lib/stock/venta.ts` descuenta **al
+tomar el pedido**, y cancelar devuelve exactamente lo que ese pedido había sacado (revierte sus
+propios movimientos, no recalcula la receta, que pudo cambiar). Una línea de receta sin cantidad no
+descuenta nada: inventar un número ahí ensucia el inventario sin que nadie se entere.
 
 ### Tickets impresos — lo nuevo
 

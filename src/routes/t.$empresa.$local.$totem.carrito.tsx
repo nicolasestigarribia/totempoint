@@ -3,7 +3,7 @@ import { Minus, Plus, Trash2, ShoppingCart, ImageOff } from "lucide-react";
 import { getTotemMenu } from "@/lib/api/totem.functions";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
-import { useTotemCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/totem-cart";
+import { useTotemCart, useCartForSlug, cartTotal, formatPrice, itemKey } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -65,67 +65,81 @@ function CarritoPage() {
         ) : (
           <>
             <ul className="space-y-4">
-              {items.map((i) => (
-                <li
-                  key={`${i.kind}-${i.refId}`}
-                  className="flex flex-wrap items-center gap-4 rounded-3xl border border-border/60 bg-card/40 p-4"
-                >
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
-                    {i.photoUrl ? (
-                      <img src={i.photoUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <ImageOff className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
+              {items.map((i) => {
+                // La clave distingue las variantes: "sin cebolla" es otra
+                // línea, y los botones tienen que tocar la suya.
+                const clave = itemKey(i.kind, i.refId, i.removed);
+                return (
+                  <li
+                    key={clave}
+                    className="flex flex-wrap items-center gap-4 rounded-3xl border border-border/60 bg-card/40 p-4"
+                  >
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
+                      {i.photoUrl ? (
+                        <img src={i.photoUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <ImageOff className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="min-w-[160px] flex-1">
-                    <h2 className="font-display text-2xl leading-tight">{i.name}</h2>
-                    <p className="text-muted-foreground">{formatPrice(i.price)} c/u</p>
-                  </div>
+                    <div className="min-w-[160px] flex-1">
+                      <h2 className="font-display text-2xl leading-tight">{i.name}</h2>
+                      {i.removed.length > 0 && (
+                        // Lo que se sacó va acá y no en el nombre: el cliente
+                        // tiene que poder revisarlo antes de confirmar, que es
+                        // la última pantalla donde puede arreglarlo.
+                        <p className="mt-0.5 text-sm font-medium text-amber-400">
+                          {i.removed.map((r) => `sin ${r.name}`).join(", ")}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground">{formatPrice(i.price)} c/u</p>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Quitar uno"
-                      onClick={() => removeOne(i.kind, i.refId)}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
-                    >
-                      <Minus className="h-5 w-5" />
-                    </button>
-                    <span className="w-10 text-center font-display text-2xl">{i.quantity}</span>
-                    <button
-                      type="button"
-                      aria-label="Agregar uno"
-                      onClick={() =>
-                        add(cartKey, {
-                          kind: i.kind,
-                          refId: i.refId,
-                          name: i.name,
-                          price: i.price,
-                          photoUrl: i.photoUrl,
-                        })
-                      }
-                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Quitar del pedido"
-                      onClick={() => removeAll(i.kind, i.refId)}
-                      className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label="Quitar uno"
+                        onClick={() => removeOne(clave)}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
+                      >
+                        <Minus className="h-5 w-5" />
+                      </button>
+                      <span className="w-10 text-center font-display text-2xl">{i.quantity}</span>
+                      <button
+                        type="button"
+                        aria-label="Agregar uno"
+                        onClick={() =>
+                          add(cartKey, {
+                            kind: i.kind,
+                            refId: i.refId,
+                            name: i.name,
+                            price: i.price,
+                            photoUrl: i.photoUrl,
+                            removed: i.removed,
+                          })
+                        }
+                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Quitar del pedido"
+                        onClick={() => removeAll(clave)}
+                        className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
 
-                  <div className="ml-auto w-28 shrink-0 text-right font-display text-2xl">
-                    {formatPrice(Number(i.price) * i.quantity)}
-                  </div>
-                </li>
-              ))}
+                    <div className="ml-auto w-28 shrink-0 text-right font-display text-2xl">
+                      {formatPrice(Number(i.price) * i.quantity)}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
 
             <Link
