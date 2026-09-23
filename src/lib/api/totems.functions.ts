@@ -13,6 +13,8 @@ export interface TotemRow {
   number: number;
   label: string | null;
   active: boolean;
+  printerMac: string | null;
+  printerName: string | null;
 }
 
 async function nombreDeSucursal(locationId: number): Promise<string> {
@@ -31,7 +33,14 @@ export const listTotems = createServerFn({ method: "GET" })
     const user = context.user as SessionUser;
     await assertLocationAccess(user, data.locationId);
     return db
-      .select({ id: totems.id, number: totems.number, label: totems.label, active: totems.active })
+      .select({
+        id: totems.id,
+        number: totems.number,
+        label: totems.label,
+        active: totems.active,
+        printerMac: totems.printerMac,
+        printerName: totems.printerName,
+      })
       .from(totems)
       .where(eq(totems.locationId, data.locationId))
       .orderBy(asc(totems.number));
@@ -66,7 +75,7 @@ export const createTotem = createServerFn({ method: "POST" })
       details: { totemId: id, locationId: data.locationId },
     });
 
-    return { id, number, label, active: true };
+    return { id, number, label, active: true, printerMac: null, printerName: null };
   });
 
 export const setTotemActive = createServerFn({ method: "POST" })
@@ -82,6 +91,41 @@ export const setTotemActive = createServerFn({ method: "POST" })
     if (!t) throw new Error("Tótem no encontrado");
     await assertLocationAccess(user, t.locationId);
     await db.update(totems).set({ active: data.active }).where(eq(totems.id, data.id));
+    return { ok: true };
+  });
+
+export const setTotemPrinter = createServerFn({ method: "POST" })
+  .middleware([requireOwner])
+  .inputValidator(
+    z.object({
+      id: z.number().int(),
+      mac: z.string().trim().max(20).nullable(),
+      name: z.string().trim().max(80).nullable(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    const user = context.user as SessionUser;
+    const [t] = await db
+      .select({ locationId: totems.locationId, number: totems.number })
+      .from(totems)
+      .where(eq(totems.id, data.id))
+      .limit(1);
+    if (!t) throw new Error("Tótem no encontrado");
+    await assertLocationAccess(user, t.locationId);
+
+    await db
+      .update(totems)
+      .set({ printerMac: data.mac, printerName: data.name })
+      .where(eq(totems.id, data.id));
+
+    await registrarAuditoria(user, {
+      category: "sucursales",
+      action: "totem.impresora",
+      summary: data.mac
+        ? `Asignó la impresora ${data.name ?? data.mac} al tótem ${t.number} de ${await nombreDeSucursal(t.locationId)}`
+        : `Quitó la impresora del tótem ${t.number} de ${await nombreDeSucursal(t.locationId)}`,
+      details: { totemId: data.id, mac: data.mac },
+    });
     return { ok: true };
   });
 

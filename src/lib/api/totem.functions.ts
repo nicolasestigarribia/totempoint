@@ -966,6 +966,9 @@ export interface TotemTicket {
   total: string;
   comments: string | null;
   items: { name: string; quantity: number; unitPrice: string }[];
+  /** Impresora asignada a este tótem en el panel; la MAC no es secreta. */
+  printerMac: string | null;
+  printerName: string | null;
 }
 
 /**
@@ -1008,6 +1011,12 @@ export const getTotemTicket = createServerFn({ method: "GET" })
       .from(orderItems)
       .where(eq(orderItems.orderId, data.orderId));
 
+    const [totem] = await db
+      .select({ printerMac: totems.printerMac, printerName: totems.printerName })
+      .from(totems)
+      .where(eq(totems.id, resuelto.totemId))
+      .limit(1);
+
     return {
       companyName: row.companyName,
       orderNumber: row.orderNumber,
@@ -1018,6 +1027,8 @@ export const getTotemTicket = createServerFn({ method: "GET" })
       total: row.total,
       comments: row.comments,
       items,
+      printerMac: totem?.printerMac ?? null,
+      printerName: totem?.printerName ?? null,
     };
   });
 
