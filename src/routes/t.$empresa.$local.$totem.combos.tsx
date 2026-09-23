@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
-import { getTotemMenu } from "@/lib/api/totem.functions";
+import { getMenuCached } from "@/lib/totem-menu-cache";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { TotemCartBar } from "@/components/totem/TotemCartBar";
@@ -11,10 +11,7 @@ import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { gridColsFor, lastSpanFor } from "@/components/totem/grid";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/combos")({
-  loader: ({ params }) =>
-    getTotemMenu({
-      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
-    }),
+  loader: ({ params }) => getMenuCached(params.empresa, params.local, Number(params.totem)),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Combos — ${loaderData.name}` : "Combos" }],
   }),

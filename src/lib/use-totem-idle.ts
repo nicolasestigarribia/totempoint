@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTotemCart } from "@/lib/totem-cart";
+import { olvidarMenu } from "@/lib/totem-menu-cache";
 import type { TotemNav } from "@/lib/totem-nav";
 
 const IDLE_MS = 90_000;
@@ -22,6 +23,9 @@ export function useTotemIdleReset(nav: TotemNav) {
       clearTimeout(timer);
       timer = setTimeout(() => {
         useTotemCart.getState().clear();
+        // Y el menú que se había cacheado: acá empieza otro cliente, y tiene
+        // que ver los precios y la disponibilidad de ahora.
+        olvidarMenu();
         navigate({
           to: "/t/$empresa/$local/$totem",
           params: { empresa, local, totem },

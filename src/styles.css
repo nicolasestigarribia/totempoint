@@ -312,3 +312,11 @@
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Contenedor que scrollea con el dedo pero sin barra visible (carruseles). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
