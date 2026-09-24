@@ -915,6 +915,9 @@ export interface TotemOrderSummary {
   customerName: string;
   status: "recibido" | "preparacion" | "entregado" | "cancelado";
   total: string;
+  /** Para poder decirle si le falta pagar, y dónde. */
+  paymentMethod: "efectivo" | "mercadopago";
+  paymentStatus: "pendiente" | "pagado" | "reembolso_pendiente";
   companyName: string;
   slug: string;
   logoUrl: string | null;
@@ -935,6 +938,8 @@ export const getTotemOrder = createServerFn({ method: "GET" })
         customerName: orders.customerName,
         status: orders.status,
         total: orders.total,
+        paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
         companyName: companies.name,
         slug: companies.slug,
         logoUrl: companies.logoUrl,
@@ -959,6 +964,8 @@ export const getTotemOrder = createServerFn({ method: "GET" })
       customerName: row.customerName,
       status: row.status,
       total: row.total,
+      paymentMethod: row.paymentMethod,
+      paymentStatus: row.paymentStatus,
       companyName: row.companyName,
       slug: row.slug,
       logoUrl: row.logoUrl,

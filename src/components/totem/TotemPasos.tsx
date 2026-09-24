@@ -23,6 +23,11 @@ const PASOS: { id: PasoTotem; label: string }[] = [
  * En pantallas angostas solo se lee el paso actual, porque tres etiquetas no
  * entran sin apretujarse; los otros dos quedan como rayitas, que igual
  * comunican cuánto falta.
+ *
+ * El tamaño no es un detalle: esto se mira de pie y a un metro de la pantalla,
+ * donde un texto de 12px es una mancha gris. Si no se lee, la barra ocupa
+ * lugar sin contestar la única pregunta que responde —cuánto falta—, y
+ * entonces conviene sacarla antes que dejarla decorativa.
  */
 export function TotemPasos({ actual, accent }: { actual: PasoTotem; accent?: string }) {
   const indiceActual = PASOS.findIndex((p) => p.id === actual);
@@ -38,20 +43,20 @@ export function TotemPasos({ actual, accent }: { actual: PasoTotem; accent?: str
         return (
           <li key={paso.id} className="flex flex-col gap-1.5">
             <span
-              className={`flex items-center gap-1.5 whitespace-nowrap text-xs font-bold uppercase tracking-wide transition ${
-                activo ? "" : hecho ? "text-muted-foreground" : "text-muted-foreground/50"
+              className={`flex items-center gap-1.5 whitespace-nowrap text-sm font-bold uppercase tracking-wide transition ${
+                activo ? "" : hecho ? "text-muted-foreground" : "text-muted-foreground/40"
               } ${activo ? "" : "hidden sm:flex"}`}
               style={activo ? { color } : undefined}
               aria-current={activo ? "step" : undefined}
             >
-              {hecho && <Check className="h-3.5 w-3.5" aria-hidden />}
+              {hecho && <Check className="h-4 w-4" aria-hidden />}
               {paso.label}
             </span>
 
             <span
               aria-hidden
-              className={`h-1 rounded-full transition-all duration-300 ${
-                activo ? "w-14 sm:w-full" : "w-6 sm:w-full"
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                activo ? "w-16 sm:w-full" : "w-6 sm:w-full"
               } ${alcanzado ? "" : "bg-border"}`}
               style={alcanzado ? { background: color, opacity: activo ? 1 : 0.45 } : undefined}
             />

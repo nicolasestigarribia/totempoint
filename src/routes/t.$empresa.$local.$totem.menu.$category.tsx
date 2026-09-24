@@ -69,22 +69,32 @@ function MenuCategoryPage() {
     });
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <TotemTopBar
-        nav={nav}
-        name={menu.name}
-        logoUrl={menu.logoUrl}
-        accent={accent}
-        back="categorias"
-        paso="elegir"
-      />
+    // `svh` y no `dvh`: en Chrome de Android, `dvh` cambia de valor cada vez
+    // que el navegador muestra u oculta su barra de direcciones, y el alto del
+    // contenedor se recalcula en medio del scroll. Se siente como que la
+    // pantalla salta o se traba. `svh` es el alto con la barra a la vista —el
+    // más chico— y no se mueve nunca. Las pantallas que ocupan exactamente un
+    // viewport (portada, pago, listo) siguen con `dvh`, que ahí es lo correcto.
+    <div className="flex min-h-svh flex-col bg-background">
+      {/* La barra y el carrusel viajan juntos, pegados arriba.
+          El carrusel existe para saltar de una categoría a otra sin volver
+          atrás, y si vive sólo en el tope de la página hay que subir hasta
+          arriba del todo cada vez que se quiere usar — y volver arriba en un
+          menú largo, con el dedo, no siempre sale a la primera. Pegado, está
+          siempre a un toque. */}
+      <div className="sticky top-0 z-30 bg-background">
+        <TotemTopBar
+          nav={nav}
+          name={menu.name}
+          logoUrl={menu.logoUrl}
+          accent={accent}
+          back="categorias"
+          paso="elegir"
+          sticky={false}
+        />
 
-      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
-        {/* Carrusel de categorías: saltar de una a otra sin volver atrás.
-            Mini-tarjetas con foto; en la tablet se desplaza con el dedo, sin
-            barra visible. */}
         {(menu.categories.length > 1 || menu.combos.length > 0) && (
-          <div className="group/carr relative mb-6">
+          <div className="group/carr relative border-b border-border px-6 py-3 md:px-12">
             <div
               ref={carruselRef}
               onWheel={(e) => {
@@ -164,14 +174,21 @@ function MenuCategoryPage() {
             </button>
           </div>
         )}
+      </div>
 
-        <div className="mb-6">
+      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
+        {/* El carrusel de arriba ya muestra en qué categoría está, resaltada,
+            así que un título de 60px repitiéndolo sólo empuja los productos
+            fuera de la pantalla. Queda en una línea, con la bajada al lado: en
+            un tótem, cada renglón de más es un producto menos a la vista y un
+            scroll más para el que está haciendo la fila. */}
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="font-display text-2xl md:text-3xl">{category.name}</h1>
           {category.tagline && (
-            <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: accent }}>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
               {category.tagline}
-            </div>
+            </span>
           )}
-          <h1 className="mt-1 font-display text-4xl md:text-6xl">{category.name}</h1>
         </div>
 
         <div className={`grid gap-5 ${gridColsFor(items.length)}`}>

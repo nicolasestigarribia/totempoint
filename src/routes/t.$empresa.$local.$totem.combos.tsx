@@ -38,7 +38,7 @@ function CombosPage() {
   useTotemIdleReset(nav);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="flex min-h-svh flex-col bg-background">
       <TotemTopBar
         nav={nav}
         name={menu.name}

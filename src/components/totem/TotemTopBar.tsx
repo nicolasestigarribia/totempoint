@@ -6,12 +6,36 @@ import type { TotemNav } from "@/lib/totem-nav";
 /**
  * Barra de arriba del tótem: marca y vuelta atrás, nada más.
  *
+ * El botón de volver dice su destino ("Menú", "Inicio") porque en un tótem se
+ * mira de pie y de lejos: un ícono suelto no alcanza para que alguien entienda
+ * que ahí se sale de donde está.
+ *
+ * **El fondo va opaco, sin `backdrop-blur`.** Esta barra está pegada arriba, y
+ * en Chrome de Android un `backdrop-filter` sobre un elemento pegajoso deja de
+ * repintarse mientras se hace scroll: la barra se traba, se arrastra o queda
+ * en blanco al volver a subir. Lo mismo vale para la barra del carrito y las
+ * de total del carrito y el checkout, que tenían el mismo defecto. Sobre un
+ * fondo oscuro sólido el desenfoque casi no se notaba, y lo que costaba era
+ * justamente lo único que no se puede romper en un tótem: el scroll.
+ *
  * El carrito se fue a `TotemCartBar`, abajo y con el total a la vista. Tener
  * dos accesos al pedido competía: arriba decía "Ver pedido" sin el monto, que
  * es justo el dato que el cliente quiere.
  *
  * Sólo navega dentro del pedido: nunca sale al panel ni al login.
  */
+/**
+ * A dónde vuelve cada pantalla, y cómo se llama ese lugar.
+ *
+ * El nombre es el que muestran los pasos de arriba —"Tu pedido", no
+ * "carrito"—, para que el cliente reconozca a dónde va sin traducir nada.
+ */
+const DESTINO = {
+  home: { to: "/t/$empresa/$local/$totem", label: "Inicio" },
+  categorias: { to: "/t/$empresa/$local/$totem/categorias", label: "Menú" },
+  carrito: { to: "/t/$empresa/$local/$totem/carrito", label: "Tu pedido" },
+} as const;
+
 export function TotemTopBar({
   nav,
   name,
@@ -19,12 +43,19 @@ export function TotemTopBar({
   accent,
   back = "home",
   paso,
+  sticky = true,
 }: {
   nav: TotemNav;
   name: string;
   logoUrl: string | null;
   accent?: string;
-  back?: "home" | "categorias";
+  back?: "home" | "categorias" | "carrito";
+  /**
+   * Si se pega arriba por su cuenta. La pantalla del menú la pone en false y
+   * envuelve la barra junto con el carrusel de categorías en un mismo bloque
+   * pegajoso, para que los dos viajen juntos.
+   */
+  sticky?: boolean;
   /** En qué paso del pedido está. Sin esto no se muestran los pasos. */
   paso?: PasoTotem;
 }) {
@@ -32,29 +63,32 @@ export function TotemTopBar({
     <header
       // Pegada arriba: en un celular la lista de productos es larga y el carrito
       // tiene que estar siempre a mano, no diez pantallazos más arriba.
-      className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-background/95 px-6 py-4 backdrop-blur md:px-12"
+      //
+      // Tres columnas y no una fila: con `flex` la marca quedaba corrida a la
+      // izquierda, pegada al botón de volver, y los tres bloques se leían como
+      // una pila de cosas sueltas. Las laterales miden lo mismo (1fr), así que
+      // la marca cae en el centro exacto de la pantalla aunque el botón de la
+      // izquierda cambie de ancho según diga "Inicio", "Menú" o "Tu pedido".
+      className={`${sticky ? "sticky top-0 z-30" : ""} grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-border bg-background px-6 py-3 md:px-12`}
     >
-      {back === "categorias" ? (
-        <Link
-          to="/t/$empresa/$local/$totem/categorias"
-          params={nav}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border transition hover:border-primary"
-          aria-label="Volver"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-      ) : (
-        <Link
-          to="/t/$empresa/$local/$totem"
-          params={nav}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border transition hover:border-primary"
-          aria-label="Volver"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-      )}
+      {/* Dice a dónde vuelve, no sólo que vuelve. Una flecha sola en un
+          cuadradito gris, a un metro de la pantalla y de pie, no se lee como
+          un botón: se lee como un adorno, y el cliente que se equivocó de
+          categoría se queda ahí sin saber cómo salir. */}
+      <Link
+        to={DESTINO[back].to}
+        params={nav}
+        // `justify-self-start` y no `w-full`: en el grid, la columna mide un
+        // tercio de la pantalla y el botón se estiraba hasta ocuparla entera.
+        className="group flex h-14 w-fit shrink-0 items-center justify-self-start gap-2.5 rounded-2xl border-2 border-border bg-card/60 pl-3 pr-5 transition hover:border-primary active:scale-[0.97]"
+      >
+        <ArrowLeft className="h-5 w-5 transition group-hover:-translate-x-0.5" />
+        <span className="font-display text-base uppercase tracking-wide">
+          {DESTINO[back].label}
+        </span>
+      </Link>
 
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center justify-center gap-3">
         <div
           className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl"
           style={{ background: accent ?? "var(--primary)" }}
@@ -65,14 +99,12 @@ export function TotemTopBar({
             <Store className="h-5 w-5 text-white" />
           )}
         </div>
-        <span className="font-display text-xl tracking-wide">{name}</span>
+        {/* En pantallas angostas queda sólo el logo: el nombre del negocio no
+            vale apretar el botón de volver ni los pasos. */}
+        <span className="hidden truncate font-display text-xl tracking-wide sm:block">{name}</span>
       </div>
 
-      {paso && (
-        <div className="ml-auto">
-          <TotemPasos actual={paso} accent={accent} />
-        </div>
-      )}
+      <div className="justify-self-end">{paso && <TotemPasos actual={paso} accent={accent} />}</div>
     </header>
   );
 }
