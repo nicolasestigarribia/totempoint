@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { getTotemHome } from "@/lib/api/totem.functions";
+import { getMenuCached } from "@/lib/totem-menu-cache";
 import { useTotemTheme, FONDOS_HEX } from "@/components/totem/useTotemTheme";
 import { useTotemDevice } from "@/lib/use-totem-device";
 import { useTotemFullscreen } from "@/lib/use-totem-fullscreen";
@@ -45,5 +47,11 @@ function TotemHomePage() {
   useTotemTheme(data.accentColor, data.theme, data.fontTheme, data.corners);
   useTotemDevice();
   useTotemFullscreen();
+  // Precarga el menú mientras el cliente mira la portada: el catálogo no se pide
+  // hasta tocar "Comenzar", y ese primer viaje a la base es el que se siente
+  // lento. Al calentar el cache acá, la pantalla de categorías abre al instante.
+  useEffect(() => {
+    void getMenuCached(nav.empresa, nav.local, Number(nav.totem));
+  }, [nav.empresa, nav.local, nav.totem]);
   return <TotemHome data={data} nav={nav} />;
 }
