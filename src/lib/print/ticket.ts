@@ -13,6 +13,8 @@
  * no necesita tildes, y así imprime igual en cualquier modelo.
  */
 
+import { formatearNumeroPedido } from "@/lib/order-number";
+
 export interface TicketItem {
   name: string;
   quantity: number;
@@ -23,6 +25,8 @@ export interface TicketItem {
 export interface TicketData {
   companyName: string;
   orderNumber: number;
+  /** Jornada del pedido (`YYYY-MM-DD`), para el número visible `MMDD-NN`. */
+  businessDate: string;
   customerName: string;
   createdAt: Date;
   deliveryMethod: "local" | "mostrador";
@@ -114,7 +118,7 @@ export function buildTicket(data: TicketData): Uint8Array {
   // Número de pedido, lo más visible del ticket.
   cmd(BOLD_ON);
   cmd(SIZE_DOUBLE);
-  texto(`Pedido #${data.orderNumber}`);
+  texto(`Pedido ${formatearNumeroPedido(data.businessDate, data.orderNumber)}`);
   nl();
   cmd(SIZE_NORMAL);
   cmd(BOLD_OFF);

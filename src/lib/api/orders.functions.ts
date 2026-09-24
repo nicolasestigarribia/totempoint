@@ -29,6 +29,7 @@ export interface KitchenOrderItem {
 export interface KitchenOrder {
   id: number;
   orderNumber: number;
+  businessDate: string;
   customerName: string;
   deliveryMethod: "local" | "mostrador";
   comments: string | null;
@@ -152,6 +153,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
     return rows.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
+      businessDate: o.businessDate,
       customerName: o.customerName,
       deliveryMethod: o.deliveryMethod,
       comments: o.comments,

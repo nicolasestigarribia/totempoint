@@ -911,6 +911,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
 
 export interface TotemOrderSummary {
   orderNumber: number;
+  businessDate: string;
   customerName: string;
   status: "recibido" | "preparacion" | "entregado" | "cancelado";
   total: string;
@@ -930,6 +931,7 @@ export const getTotemOrder = createServerFn({ method: "GET" })
     const [row] = await db
       .select({
         orderNumber: orders.orderNumber,
+        businessDate: orders.businessDate,
         customerName: orders.customerName,
         status: orders.status,
         total: orders.total,
@@ -953,6 +955,7 @@ export const getTotemOrder = createServerFn({ method: "GET" })
 
     return {
       orderNumber: row.orderNumber,
+      businessDate: row.businessDate,
       customerName: row.customerName,
       status: row.status,
       total: row.total,
@@ -969,6 +972,7 @@ export const getTotemOrder = createServerFn({ method: "GET" })
 export interface TotemTicket {
   companyName: string;
   orderNumber: number;
+  businessDate: string;
   customerName: string;
   createdAt: string;
   deliveryMethod: "local" | "mostrador";
@@ -996,6 +1000,7 @@ export const getTotemTicket = createServerFn({ method: "GET" })
     const [row] = await db
       .select({
         orderNumber: orders.orderNumber,
+        businessDate: orders.businessDate,
         customerName: orders.customerName,
         createdAt: orders.createdAt,
         deliveryMethod: orders.deliveryMethod,
@@ -1030,6 +1035,7 @@ export const getTotemTicket = createServerFn({ method: "GET" })
     return {
       companyName: row.companyName,
       orderNumber: row.orderNumber,
+      businessDate: row.businessDate,
       customerName: row.customerName,
       createdAt: row.createdAt.toISOString(),
       deliveryMethod: row.deliveryMethod,

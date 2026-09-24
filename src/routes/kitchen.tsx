@@ -29,6 +29,7 @@ import {
   type PaymentMethod,
 } from "@/lib/api/orders.functions";
 import { formatPrice } from "@/lib/totem-cart";
+import { formatearNumeroPedido } from "@/lib/order-number";
 import { mensajeDeError } from "@/lib/error-message";
 import {
   Dialog,
@@ -209,7 +210,9 @@ function Kitchen() {
       if (!pagado && order.paymentMethod === "mercadopago") {
         const { pagado: confirmado } = await doVerify({ data: { orderId: order.id } });
         if (confirmado) {
-          toast.success(`Mercado Pago confirmó el pago del pedido #${order.orderNumber}`);
+          toast.success(
+            `Mercado Pago confirmó el pago del pedido ${formatearNumeroPedido(order.businessDate, order.orderNumber)}`,
+          );
           await load();
         } else {
           setAEfectivo(order);
@@ -233,7 +236,7 @@ function Kitchen() {
       toast.success(
         r.via === "mercadopago"
           ? "Justo entró el pago por Mercado Pago"
-          : `Pedido #${aEfectivo.orderNumber} cobrado en efectivo`,
+          : `Pedido ${formatearNumeroPedido(aEfectivo.businessDate, aEfectivo.orderNumber)} cobrado en efectivo`,
       );
       setAEfectivo(null);
       await load();
@@ -343,7 +346,7 @@ function Kitchen() {
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <div className="font-display text-3xl text-gold">
-                                #{o.orderNumber}
+                                {formatearNumeroPedido(o.businessDate, o.orderNumber)}
                               </div>
                               <div className="text-sm font-bold">{o.customerName}</div>
                               <div className="text-xs text-muted-foreground">
@@ -363,7 +366,7 @@ function Kitchen() {
                               <button
                                 type="button"
                                 onClick={() => setACancelar(o)}
-                                aria-label={`Cancelar el pedido #${o.orderNumber}`}
+                                aria-label={`Cancelar el pedido ${formatearNumeroPedido(o.businessDate, o.orderNumber)}`}
                                 title="Cancelar pedido"
                                 className="shrink-0 rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
                               >
@@ -497,7 +500,8 @@ function Kitchen() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Mercado Pago no registra el pago del #{aEfectivo?.orderNumber}
+              Mercado Pago no registra el pago del{" "}
+              {aEfectivo && formatearNumeroPedido(aEfectivo.businessDate, aEfectivo.orderNumber)}
             </DialogTitle>
             <DialogDescription>
               El cliente eligió pagar con Mercado Pago, pero el pago no aparece en la cuenta. Si lo
@@ -534,7 +538,10 @@ function Kitchen() {
       <Dialog open={aCancelar !== null} onOpenChange={(o) => !o && setACancelar(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancelar el pedido #{aCancelar?.orderNumber}</DialogTitle>
+            <DialogTitle>
+              Cancelar el pedido{" "}
+              {aCancelar && formatearNumeroPedido(aCancelar.businessDate, aCancelar.orderNumber)}
+            </DialogTitle>
             <DialogDescription>
               {aCancelar?.paymentStatus === "pagado"
                 ? "Este pedido ya está cobrado. Al cancelarlo queda marcado como pendiente de reembolso y la plata se devuelve a mano, por caja o por Mercado Pago."

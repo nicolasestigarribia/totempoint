@@ -7,6 +7,7 @@ import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { TotemError } from "@/components/totem/TotemError";
 import { formatPrice } from "@/lib/totem-cart";
 import { buildTicket, type TicketData } from "@/lib/print/ticket";
+import { formatearNumeroPedido } from "@/lib/order-number";
 import { getPaired } from "@/lib/print/printer-store";
 import {
   reconectarGuardada,
@@ -27,7 +28,13 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")
       },
     }),
   head: ({ loaderData }) => ({
-    meta: [{ title: loaderData ? `Pedido #${loaderData.orderNumber}` : "Pedido enviado" }],
+    meta: [
+      {
+        title: loaderData
+          ? `Pedido ${formatearNumeroPedido(loaderData.businessDate, loaderData.orderNumber)}`
+          : "Pedido enviado",
+      },
+    ],
   }),
   errorComponent: ({ error }) => <TotemError message={error.message} />,
   component: ListoPage,
@@ -47,6 +54,7 @@ function aTicketData(t: TotemTicket): TicketData {
   return {
     companyName: t.companyName,
     orderNumber: t.orderNumber,
+    businessDate: t.businessDate,
     customerName: t.customerName,
     createdAt: new Date(t.createdAt),
     deliveryMethod: t.deliveryMethod,
@@ -168,7 +176,7 @@ function ListoPage() {
           // Entra un toque después del tilde, para que se lean en orden.
           style={{ color: accent, animationDelay: "160ms" }}
         >
-          #{order.orderNumber}
+          {formatearNumeroPedido(order.businessDate, order.orderNumber)}
         </div>
         <div className="mt-3 text-lg text-muted-foreground">Total: {formatPrice(order.total)}</div>
       </div>

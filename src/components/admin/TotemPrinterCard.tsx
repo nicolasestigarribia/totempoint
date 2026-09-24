@@ -20,11 +20,13 @@ import {
 import { getPaired, savePaired, clearPaired } from "@/lib/print/printer-store";
 
 function ticketDemo(empresa: string): TicketData {
+  const hoy = new Date();
   return {
     companyName: empresa,
     orderNumber: 123,
+    businessDate: `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`,
     customerName: "Prueba",
-    createdAt: new Date(),
+    createdAt: hoy,
     deliveryMethod: "mostrador",
     paymentMethod: "efectivo",
     items: [

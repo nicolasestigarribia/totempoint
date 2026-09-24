@@ -7,6 +7,7 @@ import { getTotemOrder, getTotemPaymentStatus } from "@/lib/api/totem.functions"
 import { TotemError } from "@/components/totem/TotemError";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
+import { formatearNumeroPedido } from "@/lib/order-number";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/pagar/$orderId")({
   loader: ({ params }) =>
@@ -100,7 +101,7 @@ function PagarPage() {
         ) : (
           <>
             <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: accent }}>
-              Pedido #{order.orderNumber}
+              Pedido {formatearNumeroPedido(order.businessDate, order.orderNumber)}
             </div>
             <h1 className="mt-2 font-display text-4xl md:text-5xl">Escaneá para pagar</h1>
             <p className="mt-3 text-lg text-muted-foreground">
