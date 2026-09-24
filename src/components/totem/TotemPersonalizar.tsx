@@ -22,6 +22,7 @@ export function TotemPersonalizar({
   accent,
   iniciales,
   ctaLabel = "Agregar al pedido",
+  compacto = false,
   onCancel,
   onConfirm,
 }: {
@@ -31,6 +32,11 @@ export function TotemPersonalizar({
   iniciales?: number[];
   /** Texto del botón principal: "Agregar al pedido" al sumar, "Guardar cambios" al editar. */
   ctaLabel?: string;
+  /**
+   * Modal chico y centrado en vez de pantalla completa. Se usa al editar desde
+   * el carrito: ahí ya no hace falta la pantalla entera del flujo de agregar.
+   */
+  compacto?: boolean;
   onCancel: () => void;
   onConfirm: (sacados: TotemRemovable[]) => void;
 }) {
@@ -52,13 +58,8 @@ export function TotemPersonalizar({
 
   const confirmar = () => onConfirm(producto.removables.filter((r) => sacados.includes(r.id)));
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Personalizar ${producto.name}`}
-    >
+  const contenido = (
+    <>
       <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5 md:px-12">
         <div className="min-w-0">
           <h2 className="font-display text-3xl leading-tight md:text-4xl">{producto.name}</h2>
@@ -141,6 +142,36 @@ export function TotemPersonalizar({
           </button>
         </div>
       </div>
+    </>
+  );
+
+  if (compacto) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Personalizar ${producto.name}`}
+        onClick={onCancel}
+      >
+        <div
+          className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-card"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contenido}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Personalizar ${producto.name}`}
+    >
+      {contenido}
     </div>
   );
 }

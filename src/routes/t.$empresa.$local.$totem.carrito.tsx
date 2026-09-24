@@ -240,6 +240,7 @@ function CarritoPage() {
           accent={accent}
           iniciales={editando.iniciales}
           ctaLabel="Guardar cambios"
+          compacto
           onCancel={() => setEditando(null)}
           onConfirm={(sacados) => {
             setLineRemovals(cartKey, editando.clave, sacados);
