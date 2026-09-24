@@ -83,14 +83,20 @@ function MenuCategoryPage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    // `svh` y no `dvh`: en Chrome de Android, `dvh` cambia de valor cada vez
+    // que el navegador muestra u oculta su barra de direcciones, y el alto del
+    // contenedor se recalcula en medio del scroll. Se siente como que la
+    // pantalla salta o se traba. `svh` es el alto con la barra a la vista —el
+    // más chico— y no se mueve nunca. Las pantallas que ocupan exactamente un
+    // viewport (portada, pago, listo) siguen con `dvh`, que ahí es lo correcto.
+    <div className="flex min-h-svh flex-col bg-background">
       {/* La barra y el carrusel viajan juntos, pegados arriba.
           El carrusel existe para saltar de una categoría a otra sin volver
           atrás, y si vive sólo en el tope de la página hay que subir hasta
           arriba del todo cada vez que se quiere usar — y volver arriba en un
           menú largo, con el dedo, no siempre sale a la primera. Pegado, está
           siempre a un toque. */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur">
+      <div className="sticky top-0 z-30 bg-background">
         <TotemTopBar
           nav={nav}
           name={menu.name}

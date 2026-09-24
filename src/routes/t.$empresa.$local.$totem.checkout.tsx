@@ -130,7 +130,7 @@ function CheckoutPage() {
   ];
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="flex min-h-svh flex-col bg-background">
       <TotemTopBar
         nav={nav}
         name={menu.name}
@@ -238,7 +238,7 @@ function CheckoutPage() {
           {/* Total y envío pegados abajo, como en el carrito: el formulario es
               largo y el botón quedaba al final de todo. El cliente tiene que
               ver cuánto va a pagar mientras completa, no después de buscar. */}
-          <div className="sticky bottom-0 -mx-6 border-t border-border bg-background/95 px-6 py-4 backdrop-blur md:-mx-12 md:px-12">
+          <div className="sticky bottom-0 -mx-6 border-t border-border bg-background px-6 py-4 md:-mx-12 md:px-12">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-display text-2xl uppercase tracking-wide">Total</span>
               <span className="font-display text-4xl" style={{ color: accent }}>

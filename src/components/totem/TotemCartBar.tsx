@@ -39,7 +39,7 @@ export function TotemCartBar({ nav, accent }: { nav: TotemNav; accent?: string }
   if (count === 0) return null;
 
   return (
-    <div className="sticky bottom-0 z-30 border-t border-border bg-background/95 px-6 py-4 backdrop-blur md:px-12">
+    <div className="sticky bottom-0 z-30 border-t border-border bg-background px-6 py-4 md:px-12">
       <Link
         to="/t/$empresa/$local/$totem/carrito"
         params={nav}

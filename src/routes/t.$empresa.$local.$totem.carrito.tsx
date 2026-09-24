@@ -36,7 +36,7 @@ function CarritoPage() {
   const total = cartTotal(items);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="flex min-h-svh flex-col bg-background">
       <TotemTopBar
         nav={nav}
         name={menu.name}
@@ -161,7 +161,7 @@ function CarritoPage() {
           quedaba al final de la lista y había que ir a buscarlo. Lo último
           que hay que hacer en esta pantalla no puede estar fuera de la vista. */}
       {items.length > 0 && (
-        <div className="sticky bottom-0 z-30 border-t border-border bg-background/95 px-6 py-4 backdrop-blur md:px-12">
+        <div className="sticky bottom-0 z-30 border-t border-border bg-background px-6 py-4 md:px-12">
           <div className="mx-auto w-full max-w-[900px]">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-display text-2xl uppercase tracking-wide">Total</span>

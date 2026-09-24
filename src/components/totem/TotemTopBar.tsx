@@ -10,6 +10,14 @@ import type { TotemNav } from "@/lib/totem-nav";
  * mira de pie y de lejos: un ícono suelto no alcanza para que alguien entienda
  * que ahí se sale de donde está.
  *
+ * **El fondo va opaco, sin `backdrop-blur`.** Esta barra está pegada arriba, y
+ * en Chrome de Android un `backdrop-filter` sobre un elemento pegajoso deja de
+ * repintarse mientras se hace scroll: la barra se traba, se arrastra o queda
+ * en blanco al volver a subir. Lo mismo vale para la barra del carrito y las
+ * de total del carrito y el checkout, que tenían el mismo defecto. Sobre un
+ * fondo oscuro sólido el desenfoque casi no se notaba, y lo que costaba era
+ * justamente lo único que no se puede romper en un tótem: el scroll.
+ *
  * El carrito se fue a `TotemCartBar`, abajo y con el total a la vista. Tener
  * dos accesos al pedido competía: arriba decía "Ver pedido" sin el monto, que
  * es justo el dato que el cliente quiere.
@@ -61,7 +69,7 @@ export function TotemTopBar({
       // una pila de cosas sueltas. Las laterales miden lo mismo (1fr), así que
       // la marca cae en el centro exacto de la pantalla aunque el botón de la
       // izquierda cambie de ancho según diga "Inicio", "Menú" o "Tu pedido".
-      className={`${sticky ? "sticky top-0 z-30" : ""} grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-border bg-background/95 px-6 py-3 backdrop-blur md:px-12`}
+      className={`${sticky ? "sticky top-0 z-30" : ""} grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-border bg-background px-6 py-3 md:px-12`}
     >
       {/* Dice a dónde vuelve, no sólo que vuelve. Una flecha sola en un
           cuadradito gris, a un metro de la pantalla y de pie, no se lee como
