@@ -58,14 +58,11 @@ function CarritoPage() {
     iniciales: number[];
   } | null>(null);
 
-  // PRUEBA: efecto de eliminación a elegir (1, 2 o 3). Sacar el selector una vez
-  // definido cuál queda.
-  const [efecto, setEfecto] = useState<1 | 2 | 3>(1);
-  // Líneas animando su salida: clave → efecto con el que se van. La línea se
-  // saca del carrito recién cuando termina la animación.
-  const [saliendo, setSaliendo] = useState<Record<string, number>>({});
+  // Líneas animando su salida: la línea se saca del carrito recién cuando
+  // termina la animación (deslizar y desvanecer, ver `.salida-1` en styles.css).
+  const [saliendo, setSaliendo] = useState<Record<string, boolean>>({});
 
-  const eliminar = (clave: string) => setSaliendo((s) => ({ ...s, [clave]: efecto }));
+  const eliminar = (clave: string) => setSaliendo((s) => ({ ...s, [clave]: true }));
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -80,25 +77,6 @@ function CarritoPage() {
 
       <main className="mx-auto w-full max-w-[900px] flex-1 px-6 py-6 md:px-12">
         <h1 className="mb-6 font-display text-4xl md:text-5xl">Tu pedido</h1>
-
-        {/* PRUEBA: elegir efecto de eliminación. Sacar cuando se defina. */}
-        {items.length > 0 && (
-          <div className="mb-6 flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Efecto al eliminar:</span>
-            {([1, 2, 3] as const).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setEfecto(n)}
-                className={`h-9 rounded-lg border px-3 text-sm font-bold transition ${
-                  efecto === n ? "border-primary text-primary" : "border-border text-muted-foreground"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        )}
 
         {items.length === 0 ? (
           <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border p-16 text-center">
@@ -131,7 +109,7 @@ function CarritoPage() {
                       setSaliendo(({ [clave]: _, ...resto }) => resto);
                     }}
                     className={`flex flex-wrap items-center gap-4 rounded-3xl border border-border/60 bg-card/40 p-4 ${
-                      saliendo[clave] ? `salida-${saliendo[clave]}` : ""
+                      saliendo[clave] ? "salida-1" : ""
                     }`}
                   >
                     <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-muted">
