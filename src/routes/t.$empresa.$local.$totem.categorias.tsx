@@ -35,9 +35,11 @@ function CategoriasPage() {
       />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 py-6 md:px-12">
-        <div className="mb-6 text-center">
-          <h1 className="font-display text-4xl md:text-6xl">Elegí una categoría</h1>
-          <p className="mt-1 text-muted-foreground">Tocá una tarjeta para ver los productos</p>
+        {/* Un título de 60px y una instrucción que nadie necesita —el cliente
+            ya sabe que se toca— empujaban una fila entera de categorías fuera
+            de la pantalla. Lo que importa acá son las fotos. */}
+        <div className="mb-5 text-center">
+          <h1 className="font-display text-3xl md:text-4xl">Elegí una categoría</h1>
         </div>
 
         {menu.categories.length === 0 && menu.combos.length === 0 ? (

@@ -179,13 +179,18 @@ function MenuCategoryPage() {
           </div>
         )}
 
-        <div className="mb-6">
+        {/* El carrusel de arriba ya muestra en qué categoría está, resaltada,
+            así que un título de 60px repitiéndolo sólo empuja los productos
+            fuera de la pantalla. Queda en una línea, con la bajada al lado: en
+            un tótem, cada renglón de más es un producto menos a la vista y un
+            scroll más para el que está haciendo la fila. */}
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="font-display text-2xl md:text-3xl">{category.name}</h1>
           {category.tagline && (
-            <div className="text-xs font-bold uppercase tracking-[0.3em]" style={{ color: accent }}>
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
               {category.tagline}
-            </div>
+            </span>
           )}
-          <h1 className="mt-1 font-display text-4xl md:text-6xl">{category.name}</h1>
         </div>
 
         <div className={`grid gap-5 ${gridColsFor(items.length)}`}>

@@ -150,28 +150,51 @@ function ListoPage() {
     navigate({ to: "/t/$empresa/$local/$totem", params: nav, replace: true });
   }, [restan, navigate, nav]);
 
+  // Efectivo se cobra en el mostrador, así que mientras no esté marcado como
+  // cobrado el cliente tiene que saber que le falta ese paso.
+  const faltaPagar = order.paymentStatus === "pendiente";
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
       <CheckCircle2 className="impacto h-24 w-24" style={{ color: accent }} />
 
-      <h1 className="mt-6 font-display text-5xl md:text-6xl">¡Pedido enviado!</h1>
-      <p className="mt-3 text-xl text-muted-foreground">
-        Gracias {order.customerName}, te avisamos cuando esté listo.
-      </p>
+      {/* El número manda. Es lo único que el cliente se lleva de acá: es lo
+          que van a cantar en el mostrador y lo que él va a mostrar. Antes el
+          "¡Pedido enviado!" era más grande que el número, que es al revés de
+          lo que la persona necesita. */}
+      <h1 className="mt-4 font-display text-3xl md:text-4xl">¡Pedido enviado!</h1>
 
-      <div className="mt-10 rounded-3xl border border-border bg-card/40 px-14 py-8">
+      <div className="mt-6 rounded-3xl border border-border bg-card/40 px-16 py-8">
         <div className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
           Tu número de pedido
         </div>
         <div
-          className="impacto mt-2 font-display text-7xl"
+          className="impacto mt-1 font-display text-8xl leading-none md:text-9xl"
           // Entra un toque después del tilde, para que se lean en orden.
           style={{ color: accent, animationDelay: "160ms" }}
         >
           #{order.orderNumber}
         </div>
-        <div className="mt-3 text-lg text-muted-foreground">Total: {formatPrice(order.total)}</div>
       </div>
+
+      {/* Y lo segundo que necesita: si ya está o si todavía tiene que pagar.
+          Que se vaya sin saberlo es una discusión en la caja. */}
+      {faltaPagar ? (
+        <div
+          className="mt-6 rounded-2xl border-2 px-8 py-4 text-xl font-bold"
+          style={{ borderColor: accent, color: accent }}
+        >
+          Pasá por el mostrador a pagar {formatPrice(order.total)}
+        </div>
+      ) : (
+        <p className="mt-6 text-xl text-muted-foreground">
+          Pagaste {formatPrice(order.total)}. Te llamamos por tu número.
+        </p>
+      )}
+
+      <p className="mt-4 text-lg text-muted-foreground">
+        Gracias {order.customerName}, ya lo estamos preparando.
+      </p>
 
       {hayImpresora && (
         <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">

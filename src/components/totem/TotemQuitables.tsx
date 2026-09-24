@@ -35,29 +35,36 @@ export function TotemQuitables({
       <p className="text-xs uppercase tracking-wider text-muted-foreground">¿Le sacamos algo?</p>
       {/* Una sola fila que se desliza con el dedo, no varias que se apilan:
           un producto con cinco ingredientes hacía su tarjeta mucho más alta
-          que las de al lado y la grilla quedaba despareja. */}
-      <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
-        {quitables.map((q) => {
-          const fuera = sacados.includes(q.id);
-          return (
-            <button
-              key={q.id}
-              type="button"
-              onClick={() => onAlternar(q.id)}
-              aria-pressed={fuera}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition active:scale-95 ${
-                fuera
-                  ? "border-transparent font-medium text-white"
-                  : "border-border text-muted-foreground hover:border-primary"
-              }`}
-              style={fuera ? { background: color } : undefined}
-            >
-              {/* El estado va escrito, no dibujado: a medio metro y de pie, un
+          que las de al lado y la grilla quedaba despareja.
+
+          El degradado de la derecha es el que avisa que hay más: un chip
+          cortado al ras del borde se lee como un error de diseño, no como
+          algo que se puede deslizar. */}
+      <div className="relative">
+        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
+          {quitables.map((q) => {
+            const fuera = sacados.includes(q.id);
+            return (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => onAlternar(q.id)}
+                aria-pressed={fuera}
+                className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition active:scale-95 ${
+                  fuera
+                    ? "border-transparent font-medium text-white"
+                    : "border-border text-muted-foreground hover:border-primary"
+                }`}
+                style={fuera ? { background: color } : undefined}
+              >
+                {/* El estado va escrito, no dibujado: a medio metro y de pie, un
                   tilde apagado no se distingue de uno encendido. */}
-              {fuera ? `sin ${q.name}` : q.name}
-            </button>
-          );
-        })}
+                {fuera ? `sin ${q.name}` : q.name}
+              </button>
+            );
+          })}
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card to-transparent" />
       </div>
     </div>
   );
