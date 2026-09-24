@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { type TotemProduct } from "@/lib/api/totem.functions";
 import { getMenuCached } from "@/lib/totem-menu-cache";
-import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { TotemCartBar } from "@/components/totem/TotemCartBar";
@@ -48,8 +47,6 @@ function MenuCategoryPage() {
   const removeOne = useTotemCart((s) => s.removeOne);
   const cart = useCartForSlug(cartKey);
   useTotemIdleReset(nav);
-  // El producto cuya pantalla de "¿le sacamos algo?" está abierta.
-  const [personalizando, setPersonalizando] = useState<TotemProduct | null>(null);
 
   // Carrusel de categorías: en la tablet se desplaza con el dedo; en la PC, con
   // las flechas o la rueda del mouse (que acá mueve en horizontal).
@@ -57,24 +54,19 @@ function MenuCategoryPage() {
   const scrollCarrusel = (dir: number) =>
     carruselRef.current?.scrollBy({ left: dir * 320, behavior: "smooth" });
 
-  // Un producto configurable puede estar varias veces en el pedido con cambios
-  // distintos, así que el contador de la tarjeta suma todas sus variantes y el
-  // − / + de la tarjeta sólo maneja la versión sin cambios. Las otras se
-  // editan desde el carrito, que es donde se ven una por una.
-  const agregar = (p: TotemProduct, sacados: { id: number; name: string }[] = []) =>
+  // Desde el menú siempre se agrega el producto tal cual: sacar ingredientes se
+  // hace después, con el botón de editar del carrito. El − / + de la tarjeta
+  // maneja la versión sin cambios; las personalizadas se ven una por una en el
+  // carrito.
+  const agregar = (p: TotemProduct) =>
     add(cartKey, {
       kind: "producto",
       refId: p.id,
       name: p.name,
       price: p.price,
       photoUrl: p.photoUrl,
-      removed: sacados,
+      removed: [],
     });
-
-  const alTocarAgregar = (p: TotemProduct) => {
-    if (p.removables.length > 0) setPersonalizando(p);
-    else agregar(p);
-  };
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -191,7 +183,6 @@ function MenuCategoryPage() {
             // El − / + de la tarjeta maneja la versión sin cambios; las
             // personalizadas se editan en el carrito, donde se ven separadas.
             const claveSinCambios = itemKey("producto", p.id);
-            const configurable = p.removables.length > 0;
             return (
               <article
                 key={p.id}
@@ -226,7 +217,7 @@ function MenuCategoryPage() {
                     <span className="font-display text-3xl" style={{ color: accent }}>
                       {formatPrice(p.price)}
                     </span>
-                    {inCart > 0 && !configurable ? (
+                    {inCart > 0 ? (
                       // Con unidades en el pedido el botón se abre en − cantidad +:
                       // equivocarse tocando no puede obligar a ir hasta el carrito.
                       <div
@@ -260,18 +251,12 @@ function MenuCategoryPage() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => alTocarAgregar(p)}
+                        onClick={() => agregar(p)}
                         className="flex h-14 items-center gap-2 rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
                         style={{ background: accent ?? "var(--primary)" }}
                       >
                         <Plus className="h-5 w-5" />
-                        {/* Un producto configurable no suma de a uno callado:
-                            el botón anuncia que va a preguntar antes. */}
-                        {configurable
-                          ? inCart > 0
-                            ? `Agregar otro · ${inCart}`
-                            : "Elegir"
-                          : "Agregar"}
+                        Agregar
                       </button>
                     )}
                   </div>
@@ -283,18 +268,6 @@ function MenuCategoryPage() {
       </main>
 
       <TotemCartBar nav={nav} accent={accent} />
-
-      {personalizando && (
-        <TotemPersonalizar
-          producto={personalizando}
-          accent={accent}
-          onCancel={() => setPersonalizando(null)}
-          onConfirm={(sacados) => {
-            agregar(personalizando, sacados);
-            setPersonalizando(null);
-          }}
-        />
-      )}
     </div>
   );
 }

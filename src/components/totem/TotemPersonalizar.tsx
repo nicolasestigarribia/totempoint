@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Check, Plus } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import type { TotemProduct, TotemRemovable } from "@/lib/api/totem.functions";
 import { formatPrice } from "@/lib/totem-cart";
 
@@ -129,16 +129,6 @@ export function TotemPersonalizar({
               )}
               {formatPrice(producto.price)}
             </span>
-          </button>
-          {/* Atajo para el cliente que abrió la pantalla sin querer, o que se
-              arrepintió: agrega el producto tal cual, ignorando lo tildado. */}
-          <button
-            type="button"
-            onClick={() => onConfirm([])}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-border text-base font-medium transition hover:border-primary active:scale-[0.99]"
-          >
-            <Check className="h-5 w-5" />
-            Dejarlo como viene
           </button>
         </div>
       </div>
