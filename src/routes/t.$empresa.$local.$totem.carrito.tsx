@@ -153,7 +153,7 @@ function CarritoPage() {
                         type="button"
                         aria-label="Quitar del pedido"
                         onClick={() => removeAll(clave)}
-                        className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
+                        className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl bg-destructive text-white transition hover:scale-[1.05] active:scale-95"
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>
