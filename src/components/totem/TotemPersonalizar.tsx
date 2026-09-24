@@ -155,7 +155,7 @@ export function TotemPersonalizar({
         onClick={onCancel}
       >
         <div
-          className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-card"
+          className="flex h-[92vh] max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-card"
           onClick={(e) => e.stopPropagation()}
         >
           {contenido}
