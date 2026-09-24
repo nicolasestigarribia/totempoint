@@ -205,7 +205,7 @@ function Kitchen() {
   // La cocina queda abierta todo el día: refrescamos solos para que entren los
   // pedidos nuevos sin que nadie toque la pantalla.
   useEffect(() => {
-    const id = setInterval(load, 15000);
+    const id = setInterval(load, 10000);
     return () => clearInterval(id);
   }, [load]);
 
