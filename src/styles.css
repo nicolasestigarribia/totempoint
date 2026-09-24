@@ -282,6 +282,43 @@
     animation: totem-vaiven 3.4s ease-in-out infinite;
   }
 
+  /* Tres efectos de salida para una línea del carrito al eliminarla. La línea
+     se saca del pedido cuando termina la animación (onAnimationEnd). */
+  /* 1: se desliza a la derecha y se desvanece. */
+  @keyframes totem-salida-1 {
+    to {
+      opacity: 0;
+      transform: translateX(60px);
+    }
+  }
+  .salida-1 {
+    animation: totem-salida-1 0.35s ease-in forwards;
+  }
+  /* 2: se encoge en el lugar. */
+  @keyframes totem-salida-2 {
+    to {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+  }
+  .salida-2 {
+    animation: totem-salida-2 0.35s ease-in forwards;
+  }
+  /* 3: pega un salto y se esfuma con desenfoque. */
+  @keyframes totem-salida-3 {
+    30% {
+      transform: scale(1.06);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.3) rotate(-6deg);
+      filter: blur(4px);
+    }
+  }
+  .salida-3 {
+    animation: totem-salida-3 0.45s ease-in forwards;
+  }
+
   /* A quien le molesta el movimiento no se le mueve nada. */
   @media (prefers-reduced-motion: reduce) {
     .aparece,
