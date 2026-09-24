@@ -170,7 +170,10 @@ function CarritoPage() {
                             })
                           }
                           className="ml-4 flex h-11 w-11 items-center justify-center rounded-xl text-white transition hover:scale-[1.05] active:scale-95"
-                          style={{ background: accent ?? "var(--primary)" }}
+                          // Mismo L y chroma que el rojo del tacho (destructive
+                          // oklch(0.6 0.24 27)), solo cambia el tono: así pesan
+                          // igual en pantalla y no gana uno sobre el otro.
+                          style={{ background: "oklch(0.6 0.24 60)" }}
                         >
                           <Pencil className="h-5 w-5" />
                         </button>
