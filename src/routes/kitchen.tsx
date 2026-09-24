@@ -111,6 +111,28 @@ function timeAgo(iso: string) {
   return `${h}h ${m % 60}m`;
 }
 
+// Cuánto le queda al pedido antes de salir solo de la comanda, con el mismo
+// criterio que lo oculta: null si su estado no tiene límite. El entregado cuenta
+// desde que se entregó; el recibido, desde que se creó.
+function restanteMs(
+  o: KitchenOrder,
+  ahora: number,
+  desdeEntregado: Map<number, number>,
+): number | null {
+  const limite = OCULTAR_MS[o.status];
+  if (limite == null) return null;
+  const desde =
+    o.status === "entregado"
+      ? (desdeEntregado.get(o.id) ?? new Date(o.createdAt).getTime())
+      : new Date(o.createdAt).getTime();
+  return Math.max(0, limite - (ahora - desde));
+}
+
+function cuentaRegresiva(ms: number): string {
+  const s = Math.ceil(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 function Kitchen() {
   const navigate = useNavigate();
   const doMe = useServerFn(me);
@@ -212,7 +234,7 @@ function Kitchen() {
   // Avanza el reloj para que los pedidos vencidos salgan de la vista aunque no
   // entre ninguno nuevo.
   useEffect(() => {
-    const id = setInterval(() => setAhora(Date.now()), 5000);
+    const id = setInterval(() => setAhora(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -435,22 +457,35 @@ function Kitchen() {
                                 <span className="text-gold">{timeAgo(o.createdAt)}</span>
                               </div>
                             </div>
-                            {/* Acá iba un cartelito con el estado, que decía lo
-                                mismo que la columna donde está la tarjeta. El
-                                borde de color ya lo indica, así que el lugar
-                                queda para cancelar: una acción destructiva que
-                                no merece un botón de ancho completo. */}
-                            {o.status !== "cancelado" && puedeOperar && (
-                              <button
-                                type="button"
-                                onClick={() => setACancelar(o)}
-                                aria-label={`Cancelar el pedido ${formatearNumeroPedido(o.businessDate, o.orderNumber)}`}
-                                title="Cancelar pedido"
-                                className="shrink-0 rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
-                              >
-                                <Ban className="h-4 w-4" />
-                              </button>
-                            )}
+                            {/* Esquina: el tiempo que le queda al pedido antes
+                                de salir solo de la comanda, y el cancelar. El
+                                cartelito de estado no va: el borde de color y la
+                                columna ya lo dicen. */}
+                            <div className="flex shrink-0 items-center gap-2">
+                              {(() => {
+                                const restante = restanteMs(o, ahora, entregadoDesdeRef.current);
+                                return restante == null ? null : (
+                                  <span
+                                    className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-bold tabular-nums text-muted-foreground"
+                                    title="Tiempo hasta que salga de la comanda"
+                                  >
+                                    <Clock className="h-3 w-3" />
+                                    {cuentaRegresiva(restante)}
+                                  </span>
+                                );
+                              })()}
+                              {o.status !== "cancelado" && puedeOperar && (
+                                <button
+                                  type="button"
+                                  onClick={() => setACancelar(o)}
+                                  aria-label={`Cancelar el pedido ${formatearNumeroPedido(o.businessDate, o.orderNumber)}`}
+                                  title="Cancelar pedido"
+                                  className="rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Ban className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
