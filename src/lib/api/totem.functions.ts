@@ -797,12 +797,22 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         // La numeración arranca en 1 cada mañana y por local: el cliente ve un
         // número corto y el local no arrastra los miles del mes pasado. El id
         // interno sigue siendo el autoincremental, que nunca se repite.
-        const [{ last }] = await tx
-          .select({ last: sql<number | null>`MAX(${orders.orderNumber})` })
-          .from(orders)
-          .where(and(eq(orders.locationId, location.id), eq(orders.businessDate, jornada)));
-
-        const orderNumber = (last ?? 0) + 1;
+        //
+        // Se asigna con un contador atómico y no con MAX(order_number)+1: aquel
+        // es una lectura no bloqueante, así que dos pedidos simultáneos del
+        // mismo local leerían el mismo máximo y el segundo chocaría contra la
+        // unique key. El upsert incrementa last_number y toma un lock de fila
+        // que serializa solo los pedidos de este local y jornada; locales
+        // distintos son filas distintas y no compiten. LAST_INSERT_ID devuelve
+        // el número recién asignado en el mismo viaje. Va ANTES del insert del
+        // pedido, que pisa LAST_INSERT_ID con su propio id autoincremental.
+        await tx.execute(sql`
+          INSERT INTO order_sequences (location_id, business_date, last_number)
+          VALUES (${location.id}, ${jornada}, LAST_INSERT_ID(1))
+          ON DUPLICATE KEY UPDATE last_number = LAST_INSERT_ID(last_number + 1)
+        `);
+        const [filasSeq] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS n`);
+        const orderNumber = Number((filasSeq as unknown as { n: number | string }[])[0].n);
 
         const [{ id: orderId }] = await tx
           .insert(orders)

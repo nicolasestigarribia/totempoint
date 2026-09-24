@@ -615,8 +615,29 @@ export const orders = mysqlTable(
     index("orders_location_idx").on(t.locationId),
     index("orders_totem_idx").on(t.totemId),
     // El número se repite todos los días, así que la unicidad es por jornada.
+    // Sigue siendo la red de seguridad: el número se asigna con order_sequences,
+    // pero esta unique key garantiza que dos pedidos nunca compartan número.
     unique("orders_location_date_number_uq").on(t.locationId, t.businessDate, t.orderNumber),
   ],
+);
+
+// Contador de numeración por local y jornada.
+//
+// El número visible del pedido no se puede sacar con MAX(order_number)+1: es una
+// lectura no bloqueante, así que dos pedidos simultáneos del mismo local leen el
+// mismo máximo y chocan contra la unique key. Con miles de locales pegándole a
+// la base a la vez eso sería un pedido perdido cada tanto. Esta fila se
+// incrementa de forma atómica (INSERT ... ON DUPLICATE KEY UPDATE con
+// LAST_INSERT_ID), y el lock de fila serializa solo los pedidos del mismo local
+// y día: locales distintos son filas distintas y no compiten entre sí.
+export const orderSequences = mysqlTable(
+  "order_sequences",
+  {
+    locationId: int("location_id").notNull(),
+    businessDate: date("business_date", { mode: "string" }).notNull(),
+    lastNumber: int("last_number").notNull(),
+  },
+  (t) => [unique("order_sequences_location_date_uq").on(t.locationId, t.businessDate)],
 );
 
 // Ítems del pedido (snapshot de nombre y precio)
