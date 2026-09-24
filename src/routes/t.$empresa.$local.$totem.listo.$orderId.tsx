@@ -48,7 +48,7 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")
  * eso además se muestra la cuenta regresiva: que vuelva solo no puede ser una
  * sorpresa mientras alguien está mirando.
  */
-const SEGUNDOS = 25;
+const SEGUNDOS = 15;
 
 function aTicketData(t: TotemTicket): TicketData {
   return {
