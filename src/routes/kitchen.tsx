@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Clock,
@@ -15,6 +15,7 @@ import {
   Banknote,
   Smartphone,
   BadgeCheck,
+  Eraser,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
@@ -86,6 +87,16 @@ const flow: Record<OrderStatus, "recibido" | "preparacion" | "entregado" | null>
 
 const columns: OrderStatus[] = ["recibido", "preparacion", "entregado", "cancelado"];
 
+// Cuánto se queda un pedido a la vista antes de desaparecer solo de la
+// comandera, para que no se acumulen los ya resueltos. Es solo visual: el
+// pedido sigue en la base y vuelve si se recarga la pantalla. "preparacion" y
+// "cancelado" no tienen límite: uno está en curso y el otro se deja como
+// registro del día.
+const OCULTAR_MS: Partial<Record<OrderStatus, number>> = {
+  recibido: 3 * 60_000,
+  entregado: 60_000,
+};
+
 const pagoMeta: Record<PaymentMethod, { label: string; icon: typeof Clock }> = {
   efectivo: { label: "Efectivo", icon: Banknote },
   mercadopago: { label: "Mercado Pago", icon: Smartphone },
@@ -128,10 +139,35 @@ function Kitchen() {
   // pasarlo a efectivo se pregunta, porque cambia cómo cuenta en el cierre.
   const [aEfectivo, setAEfectivo] = useState<KitchenOrder | null>(null);
   const [cobrando, setCobrando] = useState<number | null>(null);
+  // Reloj que avanza solo para reevaluar qué pedidos ya cumplieron su tiempo y
+  // sacarlos de la vista sin esperar a que entre uno nuevo.
+  const [ahora, setAhora] = useState(() => Date.now());
+  // Cuándo se vio cada pedido entregado: su minuto corre desde que se entregó,
+  // y eso no está en la base. Los recibidos se miden por antigüedad (createdAt).
+  const entregadoDesdeRef = useRef<Map<number, number>>(new Map());
+  // Pedidos que el botón "Limpiar" sacó de la vista a mano. Es solo en memoria:
+  // se pierde al recargar, así que la limpieza nunca borra nada de la base.
+  const limpiadosRef = useRef<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     try {
-      setOrders(await fetchOrders());
+      const nuevos = await fetchOrders();
+      const vivos = new Set(nuevos.map((o) => o.id));
+      const desde = entregadoDesdeRef.current;
+      // Olvidar los pedidos que ya no vienen del servidor, para que los mapas no
+      // crezcan sin fin en una pantalla que queda abierta todo el día.
+      for (const id of [...desde.keys()]) if (!vivos.has(id)) desde.delete(id);
+      for (const id of [...limpiadosRef.current]) {
+        if (!vivos.has(id)) limpiadosRef.current.delete(id);
+      }
+      for (const o of nuevos) {
+        if (o.status === "entregado") {
+          if (!desde.has(o.id)) desde.set(o.id, Date.now());
+        } else {
+          desde.delete(o.id);
+        }
+      }
+      setOrders(nuevos);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudieron cargar los pedidos");
     }
@@ -173,6 +209,28 @@ function Kitchen() {
     return () => clearInterval(id);
   }, [load]);
 
+  // Avanza el reloj para que los pedidos vencidos salgan de la vista aunque no
+  // entre ninguno nuevo.
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Los que siguen a la vista: se van cayendo los que cumplieron su tiempo y los
+  // que se limpiaron a mano. Depende de `ahora` para reevaluarse con el reloj.
+  const visibles = useMemo(() => {
+    return orders.filter((o) => {
+      if (limpiadosRef.current.has(o.id)) return false;
+      const limite = OCULTAR_MS[o.status];
+      if (limite == null) return true;
+      const desde =
+        o.status === "entregado"
+          ? (entregadoDesdeRef.current.get(o.id) ?? new Date(o.createdAt).getTime())
+          : new Date(o.createdAt).getTime();
+      return ahora - desde < limite;
+    });
+  }, [orders, ahora]);
+
   const grouped = useMemo(() => {
     const g: Record<OrderStatus, KitchenOrder[]> = {
       recibido: [],
@@ -180,9 +238,14 @@ function Kitchen() {
       entregado: [],
       cancelado: [],
     };
-    for (const o of orders) g[o.status].push(o);
+    for (const o of visibles) g[o.status].push(o);
     return g;
-  }, [orders]);
+  }, [visibles]);
+
+  const limpiar = () => {
+    for (const o of orders) limpiadosRef.current.add(o.id);
+    setAhora(Date.now());
+  };
 
   // Cancelar no pasa por acá: tiene su propia función porque además decide qué
   // hacer con la plata ya cobrada.
@@ -191,6 +254,11 @@ function Kitchen() {
     status: "recibido" | "preparacion" | "entregado",
   ) => {
     const previous = order.status;
+    // El minuto del entregado arranca ahora, no en el próximo refresco: si no,
+    // un pedido viejo recién entregado se mediría contra su createdAt y saldría
+    // de la vista al instante en vez de darle su minuto.
+    if (status === "entregado") entregadoDesdeRef.current.set(order.id, Date.now());
+    else entregadoDesdeRef.current.delete(order.id);
     setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status } : o)));
     try {
       await updateStatus({ data: { orderId: order.id, status } });
@@ -296,7 +364,7 @@ function Kitchen() {
             )}
             <h1 className="font-display text-3xl md:text-4xl">Cocina</h1>
             <p className="text-sm text-muted-foreground">
-              {orders.length} {orders.length === 1 ? "pedido" : "pedidos"}
+              {visibles.length} {visibles.length === 1 ? "pedido" : "pedidos"}
             </p>
           </div>
 
@@ -309,10 +377,20 @@ function Kitchen() {
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Actualizar
             </button>
+            <button
+              type="button"
+              onClick={limpiar}
+              disabled={visibles.length === 0}
+              className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40"
+              title="Sacar todos los pedidos de la vista (se recuperan al recargar)"
+            >
+              <Eraser className="h-4 w-4" />
+              Limpiar
+            </button>
           </div>
         </div>
 
-        {orders.length === 0 ? (
+        {visibles.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-card/40 p-16 text-center">
             <h2 className="font-display text-3xl">Sin pedidos todavía</h2>
             <p className="mt-2 text-muted-foreground">
