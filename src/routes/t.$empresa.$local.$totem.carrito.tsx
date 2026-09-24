@@ -169,7 +169,8 @@ function CarritoPage() {
                               iniciales: i.removed.map((r) => r.id),
                             })
                           }
-                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
+                          className="ml-4 flex h-11 w-11 items-center justify-center rounded-xl text-white transition hover:scale-[1.05] active:scale-95"
+                          style={{ background: accent ?? "var(--primary)" }}
                         >
                           <Pencil className="h-5 w-5" />
                         </button>
