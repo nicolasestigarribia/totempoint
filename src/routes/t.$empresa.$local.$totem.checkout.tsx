@@ -3,7 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Store, UtensilsCrossed, Banknote, Smartphone } from "lucide-react";
 import { toast } from "sonner";
-import { getTotemMenu, createTotemOrder } from "@/lib/api/totem.functions";
+import { createTotemOrder } from "@/lib/api/totem.functions";
+import { getMenuCached } from "@/lib/totem-menu-cache";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemCart, useCartForSlug, cartTotal, formatPrice } from "@/lib/totem-cart";
@@ -12,10 +13,7 @@ import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/checkout")({
-  loader: ({ params }) =>
-    getTotemMenu({
-      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
-    }),
+  loader: ({ params }) => getMenuCached(params.empresa, params.local, Number(params.totem)),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Confirmar — ${loaderData.name}` : "Confirmar" }],
   }),

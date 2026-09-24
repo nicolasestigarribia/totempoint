@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Trash2, ShoppingCart, ImageOff } from "lucide-react";
-import { getTotemMenu } from "@/lib/api/totem.functions";
+import { getMenuCached } from "@/lib/totem-menu-cache";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { useTotemCart, useCartForSlug, cartTotal, formatPrice, itemKey } from "@/lib/totem-cart";
@@ -9,10 +9,7 @@ import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/carrito")({
-  loader: ({ params }) =>
-    getTotemMenu({
-      data: { empresa: params.empresa, local: params.local, totem: Number(params.totem) },
-    }),
+  loader: ({ params }) => getMenuCached(params.empresa, params.local, Number(params.totem)),
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Tu pedido — ${loaderData.name}` : "Tu pedido" }],
   }),
