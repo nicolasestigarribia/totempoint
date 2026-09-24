@@ -99,6 +99,21 @@
   #root {
     height: 100%;
   }
+  /* Nada de "tirar para recargar".
+   *
+   * En Android, cuando el scroll llega al tope y el dedo sigue arrastrando,
+   * Chrome se queda con el gesto y recarga la página. En el tótem eso pasa
+   * todo el tiempo —el cliente baja por la lista, vuelve a subir y se le
+   * reinicia la pantalla en la mitad del pedido— y lo mismo en el panel, donde
+   * puede tirar abajo un formulario a medio llenar. Acá nunca hace falta
+   * recargar a mano: la comandera tiene su botón y el resto se actualiza solo.
+   *
+   * `none` además saca el rebote elástico del final del scroll, que en una
+   * pantalla fija se ve como si la app se despegara. */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -316,6 +331,12 @@
 /* Contenedor que scrollea con el dedo pero sin barra visible (carruseles). */
 .no-scrollbar {
   scrollbar-width: none;
+  /* Sólo el eje horizontal: al llegar al final del carrusel el gesto lateral
+     se queda acá en vez de mover la página. El vertical tiene que seguir
+     pasando de largo, porque el dedo que sube por el menú muchas veces
+     arranca justo encima del carrusel, y si se lo queda él la página no
+     scrollea y parece trabada. */
+  overscroll-behavior-x: contain;
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;

@@ -35,12 +35,19 @@ export function TotemTopBar({
   accent,
   back = "home",
   paso,
+  sticky = true,
 }: {
   nav: TotemNav;
   name: string;
   logoUrl: string | null;
   accent?: string;
   back?: "home" | "categorias" | "carrito";
+  /**
+   * Si se pega arriba por su cuenta. La pantalla del menú la pone en false y
+   * envuelve la barra junto con el carrusel de categorías en un mismo bloque
+   * pegajoso, para que los dos viajen juntos.
+   */
+  sticky?: boolean;
   /** En qué paso del pedido está. Sin esto no se muestran los pasos. */
   paso?: PasoTotem;
 }) {
@@ -54,7 +61,7 @@ export function TotemTopBar({
       // una pila de cosas sueltas. Las laterales miden lo mismo (1fr), así que
       // la marca cae en el centro exacto de la pantalla aunque el botón de la
       // izquierda cambie de ancho según diga "Inicio", "Menú" o "Tu pedido".
-      className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-border bg-background/95 px-6 py-3 backdrop-blur md:px-12"
+      className={`${sticky ? "sticky top-0 z-30" : ""} grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-border bg-background/95 px-6 py-3 backdrop-blur md:px-12`}
     >
       {/* Dice a dónde vuelve, no sólo que vuelve. Una flecha sola en un
           cuadradito gris, a un metro de la pantalla y de pie, no se lee como
