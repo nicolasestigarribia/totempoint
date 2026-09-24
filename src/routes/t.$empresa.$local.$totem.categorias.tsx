@@ -69,14 +69,14 @@ function CategoriasPage() {
                 ) : (
                   <div className="absolute inset-0 bg-muted" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
+                {/* La foto la elige el negocio y puede ser clarísima, así que
+                    el degradado tapa de verdad la mitad de abajo: es donde va
+                    el texto y tiene que leerse siempre. */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/20" />
 
                 <div className="relative z-10 flex items-end justify-between gap-4 p-6">
                   <div className="min-w-0">
-                    <div
-                      className="line-clamp-2 text-[11px] font-bold uppercase leading-tight tracking-[0.12em]"
-                      style={{ color: accent }}
-                    >
+                    <div className="line-clamp-2 text-xs font-bold uppercase leading-tight tracking-[0.12em] text-white/75 [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">
                       Más barato que por separado
                     </div>
                     <h2 className="mt-1.5 font-display text-4xl text-white">Combos</h2>
@@ -116,15 +116,16 @@ function CategoriasPage() {
                 ) : (
                   <div className="absolute inset-0 bg-muted" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/20" />
 
                 <div className="relative z-10 flex items-end justify-between gap-4 p-6">
                   <div className="min-w-0">
                     {c.tagline && (
-                      <div
-                        className="line-clamp-2 text-[11px] font-bold uppercase leading-tight tracking-[0.12em]"
-                        style={{ color: accent }}
-                      >
+                      // En blanco y no en el color de la marca: el dueño elige
+                      // la foto y el color, y un naranja quemado sobre una foto
+                      // clara no se lee. El acento queda donde importa —el
+                      // botón— y acá gana el contraste.
+                      <div className="line-clamp-2 text-xs font-bold uppercase leading-tight tracking-[0.12em] text-white/75 [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">
                         {c.tagline}
                       </div>
                     )}

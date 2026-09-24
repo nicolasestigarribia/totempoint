@@ -128,7 +128,10 @@ function CarritoPage() {
                         type="button"
                         aria-label="Quitar del pedido"
                         onClick={() => removeAll(clave)}
-                        className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
+                        // Bien separado del − : son dos cosas muy distintas
+                        // —sacar una unidad y borrar la línea entera— y a dedo,
+                        // pegados, es fácil borrar todo queriendo sacar uno.
+                        className="ml-5 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>

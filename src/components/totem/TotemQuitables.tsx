@@ -33,7 +33,10 @@ export function TotemQuitables({
       {/* Sin este renglón los chips parecen la lista de ingredientes y nadie
           los toca. Dice qué pasa si los tocás, en tres palabras. */}
       <p className="text-xs uppercase tracking-wider text-muted-foreground">¿Le sacamos algo?</p>
-      <div className="flex flex-wrap gap-2">
+      {/* Una sola fila que se desliza con el dedo, no varias que se apilan:
+          un producto con cinco ingredientes hacía su tarjeta mucho más alta
+          que las de al lado y la grilla quedaba despareja. */}
+      <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
         {quitables.map((q) => {
           const fuera = sacados.includes(q.id);
           return (
@@ -42,7 +45,7 @@ export function TotemQuitables({
               type="button"
               onClick={() => onAlternar(q.id)}
               aria-pressed={fuera}
-              className={`rounded-full border px-3 py-1.5 text-sm transition active:scale-95 ${
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition active:scale-95 ${
                 fuera
                   ? "border-transparent font-medium text-white"
                   : "border-border text-muted-foreground hover:border-primary"

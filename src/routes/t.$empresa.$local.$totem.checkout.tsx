@@ -136,7 +136,7 @@ function CheckoutPage() {
         name={menu.name}
         logoUrl={menu.logoUrl}
         accent={accent}
-        back="categorias"
+        back="carrito"
         paso="pagar"
       />
 
