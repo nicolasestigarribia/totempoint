@@ -7,7 +7,13 @@ import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { TotemError } from "@/components/totem/TotemError";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import { TotemCartBar } from "@/components/totem/TotemCartBar";
-import { useTotemCart, useCartForSlug, formatPrice, itemKey } from "@/lib/totem-cart";
+import {
+  useTotemCart,
+  useCartForSlug,
+  useRepriceCart,
+  formatPrice,
+  itemKey,
+} from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -35,6 +41,7 @@ function MenuCategoryPage() {
   const { menu, category, items } = Route.useLoaderData();
   const nav = Route.useParams();
   const cartKey = totemCartKey(nav);
+  useRepriceCart(cartKey, menu.products, menu.combos);
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const accent = menu.accentColor || undefined;
   const add = useTotemCart((s) => s.add);

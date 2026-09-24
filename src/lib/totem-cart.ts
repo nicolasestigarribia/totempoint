@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -58,7 +59,25 @@ interface CartState {
   /** Se sacan por clave, no por id: hay que decir cuál de las variantes. */
   removeOne: (clave: string) => void;
   removeAll: (clave: string) => void;
+  /**
+   * Reajusta precio, nombre y foto de las líneas contra el menú vigente. El
+   * carrito guarda esos datos al agregar (vive en la tablet y sobrevive a un
+   * cambio en el panel), así que sin esto una línea mostraría el precio viejo
+   * hasta que el cliente la vuelva a agregar. El cobro no depende de esto —
+   * `createTotemOrder` recalcula server-side—, pero el total a la vista tiene
+   * que coincidir con lo que se va a cobrar.
+   */
+  reprice: (slug: string, vigentes: ItemVigente[]) => void;
   clear: () => void;
+}
+
+/** Precio y datos actuales de un ítem del menú, para reajustar el carrito. */
+export interface ItemVigente {
+  kind: TotemCartKind;
+  refId: number;
+  price: string;
+  name: string;
+  photoUrl: string | null;
 }
 
 export const useTotemCart = create<CartState>()(
@@ -97,6 +116,23 @@ export const useTotemCart = create<CartState>()(
         set((s) => ({
           items: s.items.filter((i) => itemKey(i.kind, i.refId, i.removed) !== clave),
         })),
+      reprice: (slug, vigentes) =>
+        set((s) => {
+          if (s.slug !== slug) return s;
+          const porClave = new Map(vigentes.map((v) => [`${v.kind}-${v.refId}`, v]));
+          let cambio = false;
+          const items = s.items.map((i) => {
+            const v = porClave.get(`${i.kind}-${i.refId}`);
+            // Sin coincidencia: el producto ya no está en el menú. Se deja como
+            // está; el checkout revalida disponibilidad y precio igual.
+            if (!v) return i;
+            if (i.price === v.price && i.name === v.name && i.photoUrl === v.photoUrl) return i;
+            cambio = true;
+            return { ...i, price: v.price, name: v.name, photoUrl: v.photoUrl };
+          });
+          // Misma referencia si nada cambió: no dispara re-render de más.
+          return cambio ? { items } : s;
+        }),
       clear: () => set({ items: [] }),
     }),
     {
@@ -141,4 +177,43 @@ export function useCartForSlug(slug: string) {
   const storeSlug = useTotemCart((s) => s.slug);
   const items = useTotemCart((s) => s.items);
   return storeSlug === slug ? items : [];
+}
+
+/** Arma la lista de precios vigentes a partir del menú. */
+export function vigentesDeMenu(
+  products: { id: number; name: string; price: string; photoUrl: string | null }[],
+  combos: { id: number; name: string; price: string; photoUrl: string | null }[],
+): ItemVigente[] {
+  return [
+    ...products.map((p) => ({
+      kind: "producto" as const,
+      refId: p.id,
+      price: p.price,
+      name: p.name,
+      photoUrl: p.photoUrl,
+    })),
+    ...combos.map((c) => ({
+      kind: "combo" as const,
+      refId: c.id,
+      price: c.price,
+      name: c.name,
+      photoUrl: c.photoUrl,
+    })),
+  ];
+}
+
+/**
+ * Reajusta el carrito contra el menú recién cargado. Se llama en cada pantalla
+ * que ya tiene el menú fresco (browsing, carrito, checkout), así el total a la
+ * vista sigue al precio del panel sin esperar a recargar la tablet.
+ */
+export function useRepriceCart(
+  slug: string,
+  products: { id: number; name: string; price: string; photoUrl: string | null }[],
+  combos: { id: number; name: string; price: string; photoUrl: string | null }[],
+) {
+  const reprice = useTotemCart((s) => s.reprice);
+  useEffect(() => {
+    reprice(slug, vigentesDeMenu(products, combos));
+  }, [slug, products, combos, reprice]);
 }
