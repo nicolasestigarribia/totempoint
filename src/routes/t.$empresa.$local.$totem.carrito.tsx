@@ -149,34 +149,38 @@ function CarritoPage() {
                       >
                         <Plus className="h-5 w-5" />
                       </button>
-                      <button
-                        type="button"
-                        aria-label="Quitar del pedido"
-                        onClick={() => removeAll(clave)}
-                        className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-destructive transition hover:border-destructive"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                      {editable && (
+                      {/* Editar y eliminar juntos y apartados de los −/+: son
+                          acciones sobre la línea entera, no sobre la cantidad. */}
+                      <div className="ml-4 flex items-center gap-2">
+                        {editable && (
+                          <button
+                            type="button"
+                            aria-label={`Personalizar ${i.name}`}
+                            title="Personalizar ingredientes"
+                            onClick={() =>
+                              setEditando({
+                                clave,
+                                producto: prod!,
+                                iniciales: i.removed.map((r) => r.id),
+                              })
+                            }
+                            className="flex h-11 w-11 items-center justify-center rounded-xl border transition hover:bg-white/5"
+                            // Naranja con mismo L y chroma que el rojo del tacho
+                            // (destructive oklch(0.6 0.24 27)), solo cambia el tono.
+                            style={{ color: "oklch(0.6 0.24 60)", borderColor: "oklch(0.6 0.24 60)" }}
+                          >
+                            <Pencil className="h-5 w-5" />
+                          </button>
+                        )}
                         <button
                           type="button"
-                          aria-label={`Personalizar ${i.name}`}
-                          title="Personalizar ingredientes"
-                          onClick={() =>
-                            setEditando({
-                              clave,
-                              producto: prod!,
-                              iniciales: i.removed.map((r) => r.id),
-                            })
-                          }
-                          className="ml-4 flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
-                          // Naranja con mismo L y chroma que el rojo del tacho
-                          // (destructive oklch(0.6 0.24 27)), solo cambia el tono.
-                          style={{ color: "oklch(0.6 0.24 60)" }}
+                          aria-label="Quitar del pedido"
+                          onClick={() => removeAll(clave)}
+                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-destructive text-destructive transition hover:bg-destructive/10"
                         >
-                          <Pencil className="h-5 w-5" />
+                          <Trash2 className="h-5 w-5" />
                         </button>
-                      )}
+                      </div>
                     </div>
 
                     <div className="ml-auto w-28 shrink-0 text-right font-display text-2xl">
