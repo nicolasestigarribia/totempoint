@@ -60,6 +60,12 @@ interface CartState {
   removeOne: (clave: string) => void;
   removeAll: (clave: string) => void;
   /**
+   * Cambia lo que una línea lleva sacado desde el carrito. Cambiar los quitados
+   * cambia la clave de la línea, así que mueve toda su cantidad a la variante
+   * nueva y la fusiona si esa combinación ya estaba en el pedido.
+   */
+  setLineRemovals: (slug: string, claveVieja: string, removed: TotemCartRemoval[]) => void;
+  /**
    * Reajusta precio, nombre y foto de las líneas contra el menú vigente. El
    * carrito guarda esos datos al agregar (vive en la tablet y sobrevive a un
    * cambio en el panel), así que sin esto una línea mostraría el precio viejo
@@ -116,6 +122,25 @@ export const useTotemCart = create<CartState>()(
         set((s) => ({
           items: s.items.filter((i) => itemKey(i.kind, i.refId, i.removed) !== clave),
         })),
+      setLineRemovals: (slug, claveVieja, removed) =>
+        set((s) => {
+          if (s.slug !== slug) return s;
+          const linea = s.items.find((i) => itemKey(i.kind, i.refId, i.removed) === claveVieja);
+          if (!linea) return s;
+          const nuevaClave = itemKey(linea.kind, linea.refId, removed);
+          if (nuevaClave === claveVieja) return s;
+          const resto = s.items.filter((i) => itemKey(i.kind, i.refId, i.removed) !== claveVieja);
+          const existente = resto.find((i) => itemKey(i.kind, i.refId, i.removed) === nuevaClave);
+          return {
+            items: existente
+              ? resto.map((i) =>
+                  itemKey(i.kind, i.refId, i.removed) === nuevaClave
+                    ? { ...i, quantity: i.quantity + linea.quantity }
+                    : i,
+                )
+              : [...resto, { ...linea, removed }],
+          };
+        }),
       reprice: (slug, vigentes) =>
         set((s) => {
           if (s.slug !== slug) return s;

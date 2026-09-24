@@ -20,15 +20,21 @@ import { formatPrice } from "@/lib/totem-cart";
 export function TotemPersonalizar({
   producto,
   accent,
+  iniciales,
+  ctaLabel = "Agregar al pedido",
   onCancel,
   onConfirm,
 }: {
   producto: TotemProduct;
   accent?: string;
+  /** Lo ya sacado, para editar una línea del carrito en vez de arrancar limpio. */
+  iniciales?: number[];
+  /** Texto del botón principal: "Agregar al pedido" al sumar, "Guardar cambios" al editar. */
+  ctaLabel?: string;
   onCancel: () => void;
   onConfirm: (sacados: TotemRemovable[]) => void;
 }) {
-  const [sacados, setSacados] = useState<number[]>([]);
+  const [sacados, setSacados] = useState<number[]>(iniciales ?? []);
   const color = accent ?? "var(--primary)";
 
   // Salir con Escape: no hace falta en la tablet, pero el dueño mira el tótem
@@ -112,7 +118,7 @@ export function TotemPersonalizar({
           >
             <span className="flex items-center gap-3">
               <Plus className="h-7 w-7" />
-              Agregar al pedido
+              {ctaLabel}
             </span>
             <span className="flex items-center gap-3">
               {sacados.length > 0 && (

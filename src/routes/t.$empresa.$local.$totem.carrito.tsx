@@ -1,7 +1,10 @@
+import { useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Minus, Plus, Trash2, ShoppingCart, ImageOff } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart, ImageOff, Pencil } from "lucide-react";
+import { type TotemProduct } from "@/lib/api/totem.functions";
 import { getMenuCached } from "@/lib/totem-menu-cache";
 import { TotemError } from "@/components/totem/TotemError";
+import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { TotemTopBar } from "@/components/totem/TotemTopBar";
 import {
   useTotemCart,
@@ -38,7 +41,22 @@ function CarritoPage() {
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);
   const removeAll = useTotemCart((s) => s.removeAll);
+  const setLineRemovals = useTotemCart((s) => s.setLineRemovals);
   const total = cartTotal(items);
+
+  // Los productos configurables, por id, para saber qué línea del carrito se
+  // puede editar y con qué ingredientes. Sólo productos: los combos no se tocan.
+  const productosPorId = useMemo(
+    () => new Map(menu.products.map((p) => [p.id, p])),
+    [menu.products],
+  );
+  // Línea que se está editando: su clave (para reubicarla) y el producto del
+  // menú (que trae los quitables y lo ya sacado).
+  const [editando, setEditando] = useState<{
+    clave: string;
+    producto: TotemProduct;
+    iniciales: number[];
+  } | null>(null);
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -74,6 +92,8 @@ function CarritoPage() {
                 // La clave distingue las variantes: "sin cebolla" es otra
                 // línea, y los botones tienen que tocar la suya.
                 const clave = itemKey(i.kind, i.refId, i.removed);
+                const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
+                const editable = !!prod && prod.removables.length > 0;
                 return (
                   <li
                     key={clave}
@@ -137,6 +157,23 @@ function CarritoPage() {
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>
+                      {editable && (
+                        <button
+                          type="button"
+                          aria-label={`Personalizar ${i.name}`}
+                          title="Personalizar ingredientes"
+                          onClick={() =>
+                            setEditando({
+                              clave,
+                              producto: prod!,
+                              iniciales: i.removed.map((r) => r.id),
+                            })
+                          }
+                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
+                        >
+                          <Pencil className="h-5 w-5" />
+                        </button>
+                      )}
                     </div>
 
                     <div className="ml-auto w-28 shrink-0 text-right font-display text-2xl">
@@ -188,6 +225,20 @@ function CarritoPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {editando && (
+        <TotemPersonalizar
+          producto={editando.producto}
+          accent={accent}
+          iniciales={editando.iniciales}
+          ctaLabel="Guardar cambios"
+          onCancel={() => setEditando(null)}
+          onConfirm={(sacados) => {
+            setLineRemovals(cartKey, editando.clave, sacados);
+            setEditando(null);
+          }}
+        />
       )}
     </div>
   );
