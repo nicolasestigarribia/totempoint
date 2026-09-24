@@ -153,7 +153,7 @@ function CarritoPage() {
                         type="button"
                         aria-label="Quitar del pedido"
                         onClick={() => removeAll(clave)}
-                        className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl bg-destructive text-white transition hover:scale-[1.05] active:scale-95"
+                        className="ml-1 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-destructive transition hover:border-destructive"
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>
@@ -169,11 +169,10 @@ function CarritoPage() {
                               iniciales: i.removed.map((r) => r.id),
                             })
                           }
-                          className="ml-4 flex h-11 w-11 items-center justify-center rounded-xl text-white transition hover:scale-[1.05] active:scale-95"
-                          // Mismo L y chroma que el rojo del tacho (destructive
-                          // oklch(0.6 0.24 27)), solo cambia el tono: así pesan
-                          // igual en pantalla y no gana uno sobre el otro.
-                          style={{ background: "oklch(0.6 0.24 60)" }}
+                          className="ml-4 flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
+                          // Naranja con mismo L y chroma que el rojo del tacho
+                          // (destructive oklch(0.6 0.24 27)), solo cambia el tono.
+                          style={{ color: "oklch(0.6 0.24 60)" }}
                         >
                           <Pencil className="h-5 w-5" />
                         </button>
