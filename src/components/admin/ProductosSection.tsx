@@ -35,6 +35,12 @@ interface DraftIngredient {
   quantity: string;
   /** Si el cliente puede pedir que se lo saquen desde el tótem. */
   removable: boolean;
+  /** Si el cliente puede pedir de más ("+carne"). */
+  extraAllowed: boolean;
+  /** Precio de una unidad extra de este ingrediente en este producto. */
+  extraPrice: string;
+  /** Cuántas unidades extra como mucho. */
+  extraMax: string;
 }
 
 const UNITS = ["Grs", "Kg", "Mg", "Ml", "Lts", "Cc", "Cm", "Mm", "Mts", "Unidad"] as const;
@@ -152,6 +158,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
         unit: i.unit,
         quantity: i.quantity ?? "",
         removable: i.removable,
+        extraAllowed: i.extraAllowed,
+        extraPrice: i.extraPrice ?? "",
+        extraMax: i.extraMax === null ? "" : String(i.extraMax),
       })),
     );
     setIngredientSearch("");
@@ -163,7 +172,16 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     if (!ing) return;
     setDraftIngredients((prev) => [
       ...prev,
-      { ingredientId: ing.id, name: ing.name, unit: ing.unit, quantity: "", removable: false },
+      {
+        ingredientId: ing.id,
+        name: ing.name,
+        unit: ing.unit,
+        quantity: "",
+        removable: false,
+        extraAllowed: false,
+        extraPrice: "",
+        extraMax: "",
+      },
     ]);
   }
 
@@ -180,6 +198,24 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   function setDraftRemovable(id: number, value: boolean) {
     setDraftIngredients((prev) =>
       prev.map((d) => (d.ingredientId === id ? { ...d, removable: value } : d)),
+    );
+  }
+
+  function setDraftExtraAllowed(id: number, value: boolean) {
+    setDraftIngredients((prev) =>
+      prev.map((d) => (d.ingredientId === id ? { ...d, extraAllowed: value } : d)),
+    );
+  }
+
+  function setDraftExtraPrice(id: number, value: string) {
+    setDraftIngredients((prev) =>
+      prev.map((d) => (d.ingredientId === id ? { ...d, extraPrice: value } : d)),
+    );
+  }
+
+  function setDraftExtraMax(id: number, value: string) {
+    setDraftIngredients((prev) =>
+      prev.map((d) => (d.ingredientId === id ? { ...d, extraMax: value } : d)),
     );
   }
 
@@ -201,10 +237,17 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       : draftIngredients.map((d) => {
           const q = d.quantity.trim();
           const parsed = q === "" ? null : Number.parseFloat(q);
+          const ep = d.extraPrice.trim();
+          const epParsed = ep === "" ? null : Number.parseFloat(ep);
+          const em = d.extraMax.trim();
+          const emParsed = em === "" ? null : Number.parseInt(em, 10);
           return {
             ingredientId: d.ingredientId,
             quantity: parsed === null || Number.isNaN(parsed) ? null : parsed,
             removable: d.removable,
+            extraAllowed: d.extraAllowed,
+            extraPrice: epParsed === null || Number.isNaN(epParsed) ? null : epParsed,
+            extraMax: emParsed === null || Number.isNaN(emParsed) ? null : emParsed,
           };
         });
 
@@ -640,46 +683,87 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                         {draftIngredients.map((d) => (
                           <div
                             key={d.ingredientId}
-                            className="flex items-center gap-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2"
+                            className="flex flex-col gap-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2"
                           >
-                            <span className="flex-1 text-sm font-medium">
-                              {d.name}
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 text-sm font-medium">
+                                {d.name}
+                                {d.unit ? (
+                                  <span className="ml-1 text-xs text-muted-foreground">
+                                    ({d.unit})
+                                  </span>
+                                ) : null}
+                              </span>
                               {d.unit ? (
-                                <span className="ml-1 text-xs text-muted-foreground">
-                                  ({d.unit})
-                                </span>
-                              ) : null}
-                            </span>
-                            {d.unit ? (
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={d.quantity}
-                                placeholder="Cant."
-                                className="h-9 w-24"
-                                onChange={(e) => setDraftQuantity(d.ingredientId, e.target.value)}
-                              />
-                            ) : null}
-                            {/* Se elige ingrediente por ingrediente: la carne de
-                            una hamburguesa no se saca, la cebolla sí. Sólo
-                            tiene sentido si el producto está habilitado. */}
-                            {customizable && (
-                              <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-                                <Switch
-                                  checked={d.removable}
-                                  onCheckedChange={(v) => setDraftRemovable(d.ingredientId, v)}
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={d.quantity}
+                                  placeholder="Cant."
+                                  className="h-9 w-24"
+                                  onChange={(e) => setDraftQuantity(d.ingredientId, e.target.value)}
                                 />
-                                se puede sacar
-                              </label>
+                              ) : null}
+                              {/* Se elige ingrediente por ingrediente: la carne de
+                              una hamburguesa no se saca, la cebolla sí. Sólo
+                              tiene sentido si el producto está habilitado. */}
+                              {customizable && (
+                                <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                  <Switch
+                                    checked={d.removable}
+                                    onCheckedChange={(v) => setDraftRemovable(d.ingredientId, v)}
+                                  />
+                                  se puede sacar
+                                </label>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Quitar ingrediente"
+                                onClick={() => removeDraftIngredient(d.ingredientId)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {/* Pedir de más: cuesta y tiene tope, a diferencia de
+                            sacar. Precio y máximo por producto: +carne puede valer
+                            distinto según en qué se pida. */}
+                            {customizable && (
+                              <div className="flex items-center gap-2 pl-1">
+                                <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                  <Switch
+                                    checked={d.extraAllowed}
+                                    onCheckedChange={(v) => setDraftExtraAllowed(d.ingredientId, v)}
+                                  />
+                                  se puede agregar
+                                </label>
+                                {d.extraAllowed && (
+                                  <>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={d.extraPrice}
+                                      placeholder="Precio extra"
+                                      className="h-9 w-28"
+                                      onChange={(e) =>
+                                        setDraftExtraPrice(d.ingredientId, e.target.value)
+                                      }
+                                    />
+                                    <Input
+                                      type="number"
+                                      step="1"
+                                      min="1"
+                                      value={d.extraMax}
+                                      placeholder="Máx."
+                                      className="h-9 w-20"
+                                      onChange={(e) =>
+                                        setDraftExtraMax(d.ingredientId, e.target.value)
+                                      }
+                                    />
+                                  </>
+                                )}
+                              </div>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Quitar ingrediente"
-                              onClick={() => removeDraftIngredient(d.ingredientId)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
                           </div>
                         ))}
                       </div>

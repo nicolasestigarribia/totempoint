@@ -18,6 +18,7 @@ import {
   orders,
   orderItems,
   orderItemRemovals,
+  orderItemExtras,
   productIngredients,
   ingredients,
   paymentSettings,
@@ -279,6 +280,16 @@ export interface TotemRemovable {
   name: string;
 }
 
+/** Un ingrediente que el cliente puede pedir de más, con su precio y su tope. */
+export interface TotemExtra {
+  id: number;
+  name: string;
+  /** Precio de UNA unidad extra de este ingrediente en este producto. */
+  price: string;
+  /** Cuántas unidades extra como mucho. */
+  max: number;
+}
+
 export interface TotemProduct {
   id: number;
   categoryId: number;
@@ -292,6 +303,11 @@ export interface TotemProduct {
    * ingrediente como quitable. Sacar algo nunca cambia el precio.
    */
   removables: TotemRemovable[];
+  /**
+   * Qué se le puede agregar de más. Vacío = nada configurable para sumar. A
+   * diferencia de sacar, el extra cuesta (su `price`) y tiene tope (`max`).
+   */
+  extras: TotemExtra[];
 }
 
 export interface TotemComboItem {
@@ -511,6 +527,30 @@ export const getTotemMenu = createServerFn({ method: "GET" })
           .orderBy(asc(ingredients.name))
       : [];
 
+    // Lo que se puede agregar de más, con su precio y su tope. Mismo gate que
+    // los quitables (el producto tiene que ser configurable), y además el
+    // ingrediente marcado como extra con precio y máximo cargados.
+    const agregables = configurables.length
+      ? await db
+          .select({
+            productId: productIngredients.productId,
+            id: ingredients.id,
+            name: ingredients.name,
+            price: productIngredients.extraPrice,
+            max: productIngredients.extraMax,
+          })
+          .from(productIngredients)
+          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+          .where(
+            and(
+              eq(productIngredients.extraAllowed, true),
+              eq(ingredients.active, true),
+              inArray(productIngredients.productId, configurables),
+            ),
+          )
+          .orderBy(asc(ingredients.name))
+      : [];
+
     const visibleProducts: TotemProduct[] = prods.map((p) => ({
       id: p.id,
       name: p.name,
@@ -520,6 +560,13 @@ export const getTotemMenu = createServerFn({ method: "GET" })
       categoryId: p.categoryId ?? UNCATEGORIZED,
       removables: p.customizable
         ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
+        : [],
+      // Sólo los que tienen precio y tope > 0: un extra sin precio o sin cupo no
+      // se puede ofrecer bien, así que no llega a la pantalla.
+      extras: p.customizable
+        ? agregables
+            .filter((a) => a.productId === p.id && a.price !== null && (a.max ?? 0) > 0)
+            .map((a) => ({ id: a.id, name: a.name, price: a.price!, max: a.max! }))
         : [],
     }));
 
@@ -629,6 +676,12 @@ export const createTotemOrder = createServerFn({ method: "POST" })
             // Los ingredientes que el cliente sacó de esta línea. Se valida
             // abajo contra la receta: el cliente no elige qué se puede sacar.
             removedIngredientIds: z.array(z.number().int()).max(30).optional(),
+            // Los extras que pidió: id del ingrediente y cuántos. El precio y el
+            // tope no viajan: se validan y recalculan abajo contra la receta.
+            extras: z
+              .array(z.object({ id: z.number().int(), quantity: z.number().int().min(1).max(20) }))
+              .max(30)
+              .optional(),
           }),
         )
         .min(1),
@@ -743,6 +796,61 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         }
       }
 
+      // Los extras se validan igual que los sacados: contra la receta, nunca el
+      // precio ni el tope que manda el cliente. Se guarda por índice de línea.
+      const extrasPorLinea = new Map<
+        number,
+        { id: number; name: string; quantity: number; price: string }[]
+      >();
+      const lineasConExtras = data.items
+        .map((item, indice) => ({ item, indice }))
+        .filter(({ item }) => item.kind === "producto" && (item.extras?.length ?? 0) > 0);
+      if (lineasConExtras.length > 0) {
+        const agregables = await db
+          .select({
+            productId: productIngredients.productId,
+            ingredientId: productIngredients.ingredientId,
+            name: ingredients.name,
+            price: productIngredients.extraPrice,
+            max: productIngredients.extraMax,
+          })
+          .from(productIngredients)
+          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+          .where(
+            and(
+              eq(productIngredients.extraAllowed, true),
+              inArray(
+                productIngredients.productId,
+                lineasConExtras.map((l) => l.item.id),
+              ),
+            ),
+          );
+
+        for (const { item, indice } of lineasConExtras) {
+          const producto = productRows.find((p) => p.id === item.id)!;
+          if (!producto.customizable) {
+            throw new Error(`${producto.name} no se puede personalizar`);
+          }
+          const permitidos = agregables.filter((a) => a.productId === item.id);
+          // Un id repetido en el request se colapsa sumando cantidades.
+          const porId = new Map<number, number>();
+          for (const e of item.extras ?? []) {
+            porId.set(e.id, (porId.get(e.id) ?? 0) + e.quantity);
+          }
+          const elegidos = [...porId.entries()].map(([id, quantity]) => {
+            const ok = permitidos.find((p) => p.ingredientId === id);
+            if (!ok || ok.price === null || (ok.max ?? 0) <= 0) {
+              throw new Error(`Ese ingrediente no se puede agregar a ${producto.name}`);
+            }
+            if (quantity > ok.max!) {
+              throw new Error(`Máximo ${ok.max} de ${ok.name} en ${producto.name}`);
+            }
+            return { id, name: ok.name, quantity, price: ok.price };
+          });
+          extrasPorLinea.set(indice, elegidos);
+        }
+      }
+
       // Precio efectivo del local: override por local si existe, si no el base.
       const [prodOverrides, comboOverrides] = await Promise.all([
         priceOverrides(location.id, "product", productIds),
@@ -752,7 +860,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       // El combo se guarda como una línea con su propio precio y sin product_id:
       // order_items ya congela nombre y precio, así que el pedido queda fiel
       // aunque después se cambie el combo.
-      const priced = data.items.map((item) => {
+      const priced = data.items.map((item, indice) => {
         if (item.kind === "combo") {
           const combo = comboRows.find((c) => c.id === item.id)!;
           return {
@@ -763,10 +871,15 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           };
         }
         const product = productRows.find((r) => r.id === item.id)!;
+        const base = Number(prodOverrides.get(product.id) ?? product.price);
+        // El precio unitario de la línea incluye los extras: una unidad de este
+        // producto "con lo que le agregó" cuesta base + suma de los extras.
+        const extras = extrasPorLinea.get(indice) ?? [];
+        const extrasCost = extras.reduce((t, e) => t + Number(e.price) * e.quantity, 0);
         return {
           productId: product.id,
           productName: product.name,
-          unitPrice: prodOverrides.get(product.id) ?? product.price,
+          unitPrice: (base + extrasCost).toFixed(2),
           quantity: item.quantity,
         };
       });
@@ -787,6 +900,10 @@ export const createTotemOrder = createServerFn({ method: "POST" })
           refId: i.id,
           quantity: i.quantity,
           removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
+          extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
+            ingredientId: x.id,
+            quantity: x.quantity,
+          })),
         }));
         consumo = await calcularConsumo(company.id, lineas);
       } catch (error) {
@@ -849,6 +966,21 @@ export const createTotemOrder = createServerFn({ method: "POST" })
                 // El nombre queda congelado, como el del producto: la comanda
                 // de un pedido viejo tiene que seguir diciendo lo mismo.
                 ingredientName: x.name,
+              })),
+            );
+          }
+
+          const extras = extrasPorLinea.get(indice) ?? [];
+          if (extras.length > 0) {
+            await tx.insert(orderItemExtras).values(
+              extras.map((x) => ({
+                orderItemId,
+                ingredientId: x.id,
+                // Nombre y precio congelados: la comanda vieja tiene que seguir
+                // diciendo lo mismo y el cobro ya está hecho a este precio.
+                ingredientName: x.name,
+                quantity: x.quantity,
+                unitPrice: x.price,
               })),
             );
           }
@@ -986,7 +1118,15 @@ export interface TotemTicket {
   paymentMethod: "efectivo" | "mercadopago";
   total: string;
   comments: string | null;
-  items: { name: string; quantity: number; unitPrice: string }[];
+  items: {
+    name: string;
+    quantity: number;
+    unitPrice: string;
+    /** Lo que el cliente sacó ("sin cebolla"), para la cocina. */
+    removed: string[];
+    /** Lo que agregó ("+2 carne"), con cantidad. */
+    extras: { name: string; quantity: number }[];
+  }[];
   /** Impresora asignada a este tótem en el panel; la MAC no es secreta. */
   printerMac: string | null;
   printerName: string | null;
@@ -1024,14 +1164,48 @@ export const getTotemTicket = createServerFn({ method: "GET" })
 
     if (!row) throw new Error("No encontramos ese pedido");
 
-    const items = await db
+    const itemRows = await db
       .select({
+        id: orderItems.id,
         name: orderItems.productName,
         quantity: orderItems.quantity,
         unitPrice: orderItems.unitPrice,
       })
       .from(orderItems)
       .where(eq(orderItems.orderId, data.orderId));
+
+    const itemIds = itemRows.map((i) => i.id);
+    const [removalRows, extraRows] = await Promise.all([
+      itemIds.length
+        ? db
+            .select({
+              orderItemId: orderItemRemovals.orderItemId,
+              name: orderItemRemovals.ingredientName,
+            })
+            .from(orderItemRemovals)
+            .where(inArray(orderItemRemovals.orderItemId, itemIds))
+        : [],
+      itemIds.length
+        ? db
+            .select({
+              orderItemId: orderItemExtras.orderItemId,
+              name: orderItemExtras.ingredientName,
+              quantity: orderItemExtras.quantity,
+            })
+            .from(orderItemExtras)
+            .where(inArray(orderItemExtras.orderItemId, itemIds))
+        : [],
+    ]);
+
+    const items = itemRows.map((it) => ({
+      name: it.name,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      removed: removalRows.filter((r) => r.orderItemId === it.id).map((r) => r.name),
+      extras: extraRows
+        .filter((e) => e.orderItemId === it.id)
+        .map((e) => ({ name: e.name, quantity: e.quantity })),
+    }));
 
     const [totem] = await db
       .select({ printerMac: totems.printerMac, printerName: totems.printerName })

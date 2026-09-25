@@ -11,6 +11,7 @@ import {
   useCartForSlug,
   useRepriceCart,
   cartTotal,
+  precioLinea,
   formatPrice,
   itemKey,
 } from "@/lib/totem-cart";
@@ -41,7 +42,7 @@ function CarritoPage() {
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);
   const removeAll = useTotemCart((s) => s.removeAll);
-  const setLineRemovals = useTotemCart((s) => s.setLineRemovals);
+  const setLineChanges = useTotemCart((s) => s.setLineChanges);
   const total = cartTotal(items);
 
   // Los productos configurables, por id, para saber qué línea del carrito se
@@ -55,7 +56,8 @@ function CarritoPage() {
   const [editando, setEditando] = useState<{
     clave: string;
     producto: TotemProduct;
-    iniciales: number[];
+    inicialesSacados: number[];
+    inicialesExtras: Record<number, number>;
   } | null>(null);
 
   // Líneas animando su salida: la línea se saca del carrito recién cuando
@@ -97,9 +99,9 @@ function CarritoPage() {
               {items.map((i) => {
                 // La clave distingue las variantes: "sin cebolla" es otra
                 // línea, y los botones tienen que tocar la suya.
-                const clave = itemKey(i.kind, i.refId, i.removed);
+                const clave = itemKey(i.kind, i.refId, i.removed, i.extras);
                 const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
-                const editable = !!prod && prod.removables.length > 0;
+                const editable = !!prod && (prod.removables.length > 0 || prod.extras.length > 0);
                 return (
                   <li
                     key={clave}
@@ -132,7 +134,12 @@ function CarritoPage() {
                           {i.removed.map((r) => `sin ${r.name}`).join(", ")}
                         </p>
                       )}
-                      <p className="text-muted-foreground">{formatPrice(i.price)} c/u</p>
+                      {i.extras.length > 0 && (
+                        <p className="mt-0.5 text-sm font-medium text-emerald-400">
+                          {i.extras.map((e) => `+${e.quantity} ${e.name}`).join(", ")}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground">{formatPrice(precioLinea(i))} c/u</p>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -156,6 +163,7 @@ function CarritoPage() {
                             price: i.price,
                             photoUrl: i.photoUrl,
                             removed: i.removed,
+                            extras: i.extras,
                           })
                         }
                         className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
@@ -174,7 +182,10 @@ function CarritoPage() {
                               setEditando({
                                 clave,
                                 producto: prod!,
-                                iniciales: i.removed.map((r) => r.id),
+                                inicialesSacados: i.removed.map((r) => r.id),
+                                inicialesExtras: Object.fromEntries(
+                                  i.extras.map((e) => [e.id, e.quantity]),
+                                ),
                               })
                             }
                             className="flex h-11 w-11 items-center justify-center rounded-xl border text-white transition hover:bg-white/5"
@@ -197,7 +208,7 @@ function CarritoPage() {
                     </div>
 
                     <div className="ml-auto w-28 shrink-0 text-right font-display text-2xl">
-                      {formatPrice(Number(i.price) * i.quantity)}
+                      {formatPrice(precioLinea(i) * i.quantity)}
                     </div>
                   </li>
                 );
@@ -251,12 +262,23 @@ function CarritoPage() {
         <TotemPersonalizar
           producto={editando.producto}
           accent={accent}
-          iniciales={editando.iniciales}
+          inicialesSacados={editando.inicialesSacados}
+          inicialesExtras={editando.inicialesExtras}
           ctaLabel="Guardar cambios"
           compacto
           onCancel={() => setEditando(null)}
-          onConfirm={(sacados) => {
-            setLineRemovals(cartKey, editando.clave, sacados);
+          onConfirm={({ sacados, extras }) => {
+            setLineChanges(
+              cartKey,
+              editando.clave,
+              sacados,
+              extras.map((e) => ({
+                id: e.id,
+                name: e.name,
+                price: e.price,
+                quantity: e.quantity,
+              })),
+            );
             setEditando(null);
           }}
         />

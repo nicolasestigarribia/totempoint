@@ -81,6 +81,7 @@ function CheckoutPage() {
             // El servidor revalida esto contra la receta: manda lo elegido,
             // no lo que se puede elegir.
             removedIngredientIds: i.removed.map((r) => r.id),
+            extras: i.extras.map((e) => ({ id: e.id, quantity: e.quantity })),
           })),
         },
       });

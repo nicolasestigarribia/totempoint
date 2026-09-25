@@ -49,6 +49,11 @@ export interface LineaVendida {
    * producto suelto: adentro de un combo no se personaliza.
    */
   removedIngredientIds?: number[];
+  /**
+   * Los ingredientes que pidió de más y cuántos. Cada unidad extra consume lo
+   * mismo que una porción de receta de ese ingrediente. Sólo producto suelto.
+   */
+  extras?: { ingredientId: number; quantity: number }[];
 }
 
 /** Una fila de consumo ya resuelta: o un ingrediente o un producto, nunca los dos. */
@@ -85,14 +90,24 @@ export async function calcularConsumo(
         .where(inArray(comboProducts.comboId, comboIds))
     : [];
 
-  /** productId -> cantidad total, con los ingredientes que se sacaron. */
-  const pedidos: { productId: number; cantidad: number; sacados: Set<number> }[] = [];
+  /** productId -> cantidad total, con lo que se sacó y lo que se agregó. */
+  const pedidos: {
+    productId: number;
+    cantidad: number;
+    sacados: Set<number>;
+    extras: Map<number, number>;
+  }[] = [];
   for (const linea of lineas) {
     if (linea.kind === "producto") {
+      const extras = new Map<number, number>();
+      for (const e of linea.extras ?? []) {
+        extras.set(e.ingredientId, (extras.get(e.ingredientId) ?? 0) + e.quantity);
+      }
       pedidos.push({
         productId: linea.refId,
         cantidad: linea.quantity,
         sacados: new Set(linea.removedIngredientIds ?? []),
+        extras,
       });
       continue;
     }
@@ -101,6 +116,7 @@ export async function calcularConsumo(
         productId: c.productId,
         cantidad: linea.quantity * c.quantity,
         sacados: new Set(),
+        extras: new Map(),
       });
     }
   }
@@ -132,7 +148,8 @@ export async function calcularConsumo(
       porProducto.set(p.productId, (porProducto.get(p.productId) ?? 0) + p.cantidad);
       continue;
     }
-    for (const r of recetas.filter((r) => r.productId === p.productId)) {
+    const recetaProducto = recetas.filter((r) => r.productId === p.productId);
+    for (const r of recetaProducto) {
       if (p.sacados.has(r.ingredientId)) continue;
       // Receta sin cantidad: sabemos que lleva el ingrediente pero no cuánto,
       // así que no se descuenta nada. Inventar un número acá ensuciaría el
@@ -141,6 +158,15 @@ export async function calcularConsumo(
       if (!porUnidad) continue;
       const total = porUnidad * p.cantidad;
       porIngrediente.set(r.ingredientId, (porIngrediente.get(r.ingredientId) ?? 0) + total);
+    }
+    // Los extras suman por encima de la receta: cada unidad extra consume lo
+    // mismo que una porción de receta de ese ingrediente.
+    for (const [ingredientId, extraQty] of p.extras) {
+      const r = recetaProducto.find((r) => r.ingredientId === ingredientId);
+      const porUnidad = r && r.quantity !== null ? Number(r.quantity) : 0;
+      if (!porUnidad) continue;
+      const total = porUnidad * extraQty * p.cantidad;
+      porIngrediente.set(ingredientId, (porIngrediente.get(ingredientId) ?? 0) + total);
     }
   }
 

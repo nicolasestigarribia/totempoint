@@ -15,6 +15,14 @@ export interface TotemCartRemoval {
   name: string;
 }
 
+/** Un ingrediente que el cliente pidió de más, con su precio y cuántos. */
+export interface TotemCartExtra {
+  id: number;
+  name: string;
+  price: string;
+  quantity: number;
+}
+
 export interface TotemCartItem {
   kind: TotemCartKind;
   /** Id del producto o del combo, según kind. */
@@ -28,50 +36,77 @@ export interface TotemCartItem {
    * no cambia el precio: es la misma hamburguesa, sin la cebolla.
    */
   removed: TotemCartRemoval[];
+  /**
+   * Lo que le agregó de más. Vacío es sin extras. A diferencia de sacar, cada
+   * extra cuesta, así que suma al precio de la línea.
+   */
+  extras: TotemCartExtra[];
 }
 
 /**
  * Clave de una línea.
  *
- * Producto 3 y combo 3 son cosas distintas, y una hamburguesa sin cebolla
- * también es distinta de una hamburguesa: si compartieran clave, pedir las dos
- * daría "cantidad 2" de una sola y la cocina no sabría cuál lleva qué. Los ids
- * van ordenados para que el orden en que el cliente tocó los ingredientes no
- * genere dos líneas iguales.
+ * Producto 3 y combo 3 son cosas distintas, y una hamburguesa sin cebolla —o
+ * con doble carne— también es distinta de una hamburguesa: si compartieran
+ * clave, pedir las dos daría "cantidad 2" de una sola y la cocina no sabría cuál
+ * lleva qué. Los ids van ordenados para que el orden en que el cliente tocó las
+ * cosas no genere dos líneas iguales.
  */
-export const itemKey = (kind: TotemCartKind, refId: number, removed: TotemCartRemoval[] = []) => {
+export const itemKey = (
+  kind: TotemCartKind,
+  refId: number,
+  removed: TotemCartRemoval[] = [],
+  extras: TotemCartExtra[] = [],
+) => {
   const sacados = removed
     .map((r) => r.id)
     .sort((a, b) => a - b)
     .join(".");
-  return sacados ? `${kind}-${refId}-sin${sacados}` : `${kind}-${refId}`;
+  const agregados = extras
+    .map((e) => `${e.id}x${e.quantity}`)
+    .sort()
+    .join(".");
+  let clave = `${kind}-${refId}`;
+  if (sacados) clave += `-sin${sacados}`;
+  if (agregados) clave += `-mas${agregados}`;
+  return clave;
 };
+
+/** Precio unitario de una línea: base + lo que suman sus extras. */
+export const precioLinea = (i: TotemCartItem) =>
+  Number(i.price) + i.extras.reduce((s, e) => s + Number(e.price) * e.quantity, 0);
 
 interface CartState {
   slug: string | null;
   items: TotemCartItem[];
   add: (
     slug: string,
-    item: Omit<TotemCartItem, "quantity" | "removed"> & {
+    item: Omit<TotemCartItem, "quantity" | "removed" | "extras"> & {
       removed?: TotemCartRemoval[];
+      extras?: TotemCartExtra[];
     },
   ) => void;
   /** Se sacan por clave, no por id: hay que decir cuál de las variantes. */
   removeOne: (clave: string) => void;
   removeAll: (clave: string) => void;
   /**
-   * Cambia lo que una línea lleva sacado desde el carrito. Cambiar los quitados
-   * cambia la clave de la línea, así que mueve toda su cantidad a la variante
-   * nueva y la fusiona si esa combinación ya estaba en el pedido.
+   * Cambia lo que una línea lleva sacado y agregado, desde el carrito. Cambiar
+   * eso cambia la clave de la línea, así que mueve toda su cantidad a la
+   * variante nueva y la fusiona si esa combinación ya estaba en el pedido.
    */
-  setLineRemovals: (slug: string, claveVieja: string, removed: TotemCartRemoval[]) => void;
+  setLineChanges: (
+    slug: string,
+    claveVieja: string,
+    removed: TotemCartRemoval[],
+    extras: TotemCartExtra[],
+  ) => void;
   /**
-   * Reajusta precio, nombre y foto de las líneas contra el menú vigente. El
-   * carrito guarda esos datos al agregar (vive en la tablet y sobrevive a un
-   * cambio en el panel), así que sin esto una línea mostraría el precio viejo
-   * hasta que el cliente la vuelva a agregar. El cobro no depende de esto —
-   * `createTotemOrder` recalcula server-side—, pero el total a la vista tiene
-   * que coincidir con lo que se va a cobrar.
+   * Reajusta precio, nombre, foto y precio de los extras de las líneas contra el
+   * menú vigente. El carrito guarda esos datos al agregar (vive en la tablet y
+   * sobrevive a un cambio en el panel), así que sin esto una línea mostraría el
+   * precio viejo hasta que el cliente la vuelva a agregar. El cobro no depende de
+   * esto —`createTotemOrder` recalcula server-side—, pero el total a la vista
+   * tiene que coincidir con lo que se va a cobrar.
    */
   reprice: (slug: string, vigentes: ItemVigente[]) => void;
   clear: () => void;
@@ -84,6 +119,8 @@ export interface ItemVigente {
   price: string;
   name: string;
   photoUrl: string | null;
+  /** Precio vigente de cada extra de este producto, por id de ingrediente. */
+  extras?: { id: number; price: string }[];
 }
 
 export const useTotemCart = create<CartState>()(
@@ -95,24 +132,25 @@ export const useTotemCart = create<CartState>()(
         set((s) => {
           const items = s.slug === slug ? s.items : [];
           const removed = item.removed ?? [];
-          const clave = itemKey(item.kind, item.refId, removed);
-          const found = items.find((i) => itemKey(i.kind, i.refId, i.removed) === clave);
+          const extras = item.extras ?? [];
+          const clave = itemKey(item.kind, item.refId, removed, extras);
+          const found = items.find((i) => itemKey(i.kind, i.refId, i.removed, i.extras) === clave);
           return {
             slug,
             items: found
               ? items.map((i) =>
-                  itemKey(i.kind, i.refId, i.removed) === clave
+                  itemKey(i.kind, i.refId, i.removed, i.extras) === clave
                     ? { ...i, quantity: i.quantity + 1 }
                     : i,
                 )
-              : [...items, { ...item, removed, quantity: 1 }],
+              : [...items, { ...item, removed, extras, quantity: 1 }],
           };
         }),
       removeOne: (clave) =>
         set((s) => ({
           items: s.items
             .map((i) =>
-              itemKey(i.kind, i.refId, i.removed) === clave
+              itemKey(i.kind, i.refId, i.removed, i.extras) === clave
                 ? { ...i, quantity: i.quantity - 1 }
                 : i,
             )
@@ -120,25 +158,31 @@ export const useTotemCart = create<CartState>()(
         })),
       removeAll: (clave) =>
         set((s) => ({
-          items: s.items.filter((i) => itemKey(i.kind, i.refId, i.removed) !== clave),
+          items: s.items.filter((i) => itemKey(i.kind, i.refId, i.removed, i.extras) !== clave),
         })),
-      setLineRemovals: (slug, claveVieja, removed) =>
+      setLineChanges: (slug, claveVieja, removed, extras) =>
         set((s) => {
           if (s.slug !== slug) return s;
-          const linea = s.items.find((i) => itemKey(i.kind, i.refId, i.removed) === claveVieja);
+          const linea = s.items.find(
+            (i) => itemKey(i.kind, i.refId, i.removed, i.extras) === claveVieja,
+          );
           if (!linea) return s;
-          const nuevaClave = itemKey(linea.kind, linea.refId, removed);
+          const nuevaClave = itemKey(linea.kind, linea.refId, removed, extras);
           if (nuevaClave === claveVieja) return s;
-          const resto = s.items.filter((i) => itemKey(i.kind, i.refId, i.removed) !== claveVieja);
-          const existente = resto.find((i) => itemKey(i.kind, i.refId, i.removed) === nuevaClave);
+          const resto = s.items.filter(
+            (i) => itemKey(i.kind, i.refId, i.removed, i.extras) !== claveVieja,
+          );
+          const existente = resto.find(
+            (i) => itemKey(i.kind, i.refId, i.removed, i.extras) === nuevaClave,
+          );
           return {
             items: existente
               ? resto.map((i) =>
-                  itemKey(i.kind, i.refId, i.removed) === nuevaClave
+                  itemKey(i.kind, i.refId, i.removed, i.extras) === nuevaClave
                     ? { ...i, quantity: i.quantity + linea.quantity }
                     : i,
                 )
-              : [...resto, { ...linea, removed }],
+              : [...resto, { ...linea, removed, extras }],
           };
         }),
       reprice: (slug, vigentes) =>
@@ -151,9 +195,21 @@ export const useTotemCart = create<CartState>()(
             // Sin coincidencia: el producto ya no está en el menú. Se deja como
             // está; el checkout revalida disponibilidad y precio igual.
             if (!v) return i;
-            if (i.price === v.price && i.name === v.name && i.photoUrl === v.photoUrl) return i;
+            // Extras: se actualiza el precio de cada uno contra el menú, sin
+            // tocar la cantidad. Los que el menú ya no ofrece conservan su precio
+            // viejo (el checkout los va a rechazar de todos modos).
+            const preciosExtra = new Map((v.extras ?? []).map((e) => [e.id, e.price]));
+            let extrasCambio = false;
+            const extras = i.extras.map((e) => {
+              const nuevo = preciosExtra.get(e.id);
+              if (nuevo === undefined || nuevo === e.price) return e;
+              extrasCambio = true;
+              return { ...e, price: nuevo };
+            });
+            if (i.price === v.price && i.name === v.name && i.photoUrl === v.photoUrl && !extrasCambio)
+              return i;
             cambio = true;
-            return { ...i, price: v.price, name: v.name, photoUrl: v.photoUrl };
+            return { ...i, price: v.price, name: v.name, photoUrl: v.photoUrl, extras };
           });
           // Misma referencia si nada cambió: no dispara re-render de más.
           return cambio ? { items } : s;
@@ -162,9 +218,9 @@ export const useTotemCart = create<CartState>()(
     }),
     {
       name: "totem-cart",
-      // El carrito viejo guardaba productId y no distinguía combos. Las tablets
-      // que tengan uno a medio armar se migran en vez de romperse.
-      version: 3,
+      // v3: guardaba productId y no distinguía combos. v4: suma los extras. Las
+      // tablets con un carrito a medio armar se migran en vez de romperse.
+      version: 4,
       migrate: (state: unknown) => {
         const viejo = state as { slug?: string | null; items?: Record<string, unknown>[] };
         return {
@@ -177,8 +233,9 @@ export const useTotemCart = create<CartState>()(
             photoUrl: (i.photoUrl as string | null) ?? null,
             quantity: Number(i.quantity ?? 1),
             // Los carritos de antes no tenían personalización: van sin nada
-            // sacado, que es justo lo que el cliente había pedido.
+            // sacado ni agregado, que es justo lo que el cliente había pedido.
             removed: (i.removed as TotemCartRemoval[]) ?? [],
+            extras: (i.extras as TotemCartExtra[]) ?? [],
           })),
         };
       },
@@ -187,7 +244,7 @@ export const useTotemCart = create<CartState>()(
 );
 
 export const cartTotal = (items: TotemCartItem[]) =>
-  items.reduce((t, i) => t + Number(i.price) * i.quantity, 0);
+  items.reduce((t, i) => t + precioLinea(i) * i.quantity, 0);
 
 export const cartCount = (items: TotemCartItem[]) => items.reduce((t, i) => t + i.quantity, 0);
 
@@ -204,9 +261,18 @@ export function useCartForSlug(slug: string) {
   return storeSlug === slug ? items : [];
 }
 
+/** Un producto del menú, con lo que hace falta para reajustar el carrito. */
+interface ProductoVigente {
+  id: number;
+  name: string;
+  price: string;
+  photoUrl: string | null;
+  extras: { id: number; price: string }[];
+}
+
 /** Arma la lista de precios vigentes a partir del menú. */
 export function vigentesDeMenu(
-  products: { id: number; name: string; price: string; photoUrl: string | null }[],
+  products: ProductoVigente[],
   combos: { id: number; name: string; price: string; photoUrl: string | null }[],
 ): ItemVigente[] {
   return [
@@ -216,6 +282,7 @@ export function vigentesDeMenu(
       price: p.price,
       name: p.name,
       photoUrl: p.photoUrl,
+      extras: p.extras.map((e) => ({ id: e.id, price: e.price })),
     })),
     ...combos.map((c) => ({
       kind: "combo" as const,
@@ -234,7 +301,7 @@ export function vigentesDeMenu(
  */
 export function useRepriceCart(
   slug: string,
-  products: { id: number; name: string; price: string; photoUrl: string | null }[],
+  products: ProductoVigente[],
   combos: { id: number; name: string; price: string; photoUrl: string | null }[],
 ) {
   const reprice = useTotemCart((s) => s.reprice);

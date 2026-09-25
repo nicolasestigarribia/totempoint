@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, desc, inArray, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, orderItems, orderItemRemovals, locations } from "@/db/schema";
+import { orders, orderItems, orderItemRemovals, orderItemExtras, locations } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
 import {
   accessibleLocationIds,
@@ -24,6 +24,8 @@ export interface KitchenOrderItem {
   unitPrice: string;
   /** Lo que el cliente pidió sacar, ya con el nombre congelado del pedido. */
   removed: string[];
+  /** Lo que pidió de más ("+2 carne"), con la cantidad. */
+  extras: { name: string; quantity: number }[];
 }
 
 export interface KitchenOrder {
@@ -150,6 +152,23 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
           )
       : [];
 
+    // Y el "+carne" de cada línea, que también mira quien prepara.
+    const agregados = items.length
+      ? await db
+          .select({
+            orderItemId: orderItemExtras.orderItemId,
+            ingredientName: orderItemExtras.ingredientName,
+            quantity: orderItemExtras.quantity,
+          })
+          .from(orderItemExtras)
+          .where(
+            inArray(
+              orderItemExtras.orderItemId,
+              items.map((i) => i.id),
+            ),
+          )
+      : [];
+
     return rows.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
@@ -171,6 +190,9 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
           quantity: i.quantity,
           unitPrice: i.unitPrice,
           removed: sacados.filter((s) => s.orderItemId === i.id).map((s) => s.ingredientName),
+          extras: agregados
+            .filter((e) => e.orderItemId === i.id)
+            .map((e) => ({ name: e.ingredientName, quantity: e.quantity })),
         })),
     }));
   });

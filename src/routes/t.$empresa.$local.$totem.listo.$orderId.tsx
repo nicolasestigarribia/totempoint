@@ -65,6 +65,8 @@ function aTicketData(t: TotemTicket): TicketData {
       name: i.name,
       quantity: i.quantity,
       unitPrice: Number(i.unitPrice),
+      removed: i.removed,
+      extras: i.extras,
     })),
   };
 }

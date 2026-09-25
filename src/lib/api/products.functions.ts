@@ -14,6 +14,12 @@ export interface ProductIngredientRow {
   quantity: string | null;
   /** Si el cliente puede pedir que se lo saquen desde el tótem. */
   removable: boolean;
+  /** Si el cliente puede pedir de más ("+carne"). */
+  extraAllowed: boolean;
+  /** Precio de una unidad extra de este ingrediente en este producto. */
+  extraPrice: string | null;
+  /** Cuántas unidades extra como mucho. */
+  extraMax: number | null;
 }
 
 export interface ProductRow {
@@ -38,6 +44,9 @@ const ingredientInput = z.object({
   ingredientId: z.number().int(),
   quantity: z.number().nullable().optional(),
   removable: z.boolean().optional(),
+  extraAllowed: z.boolean().optional(),
+  extraPrice: z.number().nullable().optional(),
+  extraMax: z.number().int().nullable().optional(),
 });
 
 // Valida que la categoría (si viene) pertenezca a la empresa del user.
@@ -58,12 +67,39 @@ async function assertCategoryOwned(
 // Valida que cada ingredientId sea global (companyId null) o de la empresa del user.
 // Devuelve la lista deduplicada de ingredientes válidos con su cantidad.
 async function validateIngredients(
-  list: { ingredientId: number; quantity?: number | null; removable?: boolean }[] | undefined,
+  list:
+    | {
+        ingredientId: number;
+        quantity?: number | null;
+        removable?: boolean;
+        extraAllowed?: boolean;
+        extraPrice?: number | null;
+        extraMax?: number | null;
+      }[]
+    | undefined,
   companyId: number,
-): Promise<{ ingredientId: number; quantity: string | null; removable: boolean }[]> {
+): Promise<
+  {
+    ingredientId: number;
+    quantity: string | null;
+    removable: boolean;
+    extraAllowed: boolean;
+    extraPrice: string | null;
+    extraMax: number | null;
+  }[]
+> {
   if (!list || list.length === 0) return [];
 
-  const dedup = new Map<number, { quantity?: number | null; removable?: boolean }>();
+  const dedup = new Map<
+    number,
+    {
+      quantity?: number | null;
+      removable?: boolean;
+      extraAllowed?: boolean;
+      extraPrice?: number | null;
+      extraMax?: number | null;
+    }
+  >();
   for (const it of list) dedup.set(it.ingredientId, it);
   const ids = [...dedup.keys()];
 
@@ -85,10 +121,18 @@ async function validateIngredients(
   return ids.map((id) => {
     const it = dedup.get(id);
     const q = it?.quantity;
+    // El extra necesita precio y tope para poder ofrecerse; si falta alguno,
+    // queda deshabilitado aunque venga marcado.
+    const ep = it?.extraPrice;
+    const em = it?.extraMax;
+    const extraOk = (it?.extraAllowed ?? false) && ep != null && em != null && em > 0;
     return {
       ingredientId: id,
       quantity: q === null || q === undefined ? null : String(q),
       removable: it?.removable ?? false,
+      extraAllowed: extraOk,
+      extraPrice: extraOk ? String(ep) : null,
+      extraMax: extraOk ? em! : null,
     };
   });
 }
@@ -123,6 +167,9 @@ async function loadProductRow(productId: number, companyId: number): Promise<Pro
       ingredientId: productIngredients.ingredientId,
       quantity: productIngredients.quantity,
       removable: productIngredients.removable,
+      extraAllowed: productIngredients.extraAllowed,
+      extraPrice: productIngredients.extraPrice,
+      extraMax: productIngredients.extraMax,
       name: ingredients.name,
       unit: ingredients.unit,
     })
@@ -139,6 +186,9 @@ async function loadProductRow(productId: number, companyId: number): Promise<Pro
       unit: i.unit,
       quantity: i.quantity,
       removable: i.removable,
+      extraAllowed: i.extraAllowed,
+      extraPrice: i.extraPrice,
+      extraMax: i.extraMax,
     })),
   };
 }
@@ -178,6 +228,9 @@ export const listProducts = createServerFn({ method: "GET" })
         ingredientId: productIngredients.ingredientId,
         quantity: productIngredients.quantity,
         removable: productIngredients.removable,
+        extraAllowed: productIngredients.extraAllowed,
+        extraPrice: productIngredients.extraPrice,
+        extraMax: productIngredients.extraMax,
         name: ingredients.name,
         unit: ingredients.unit,
       })
@@ -200,6 +253,9 @@ export const listProducts = createServerFn({ method: "GET" })
         unit: i.unit,
         quantity: i.quantity,
         removable: i.removable,
+        extraAllowed: i.extraAllowed,
+        extraPrice: i.extraPrice,
+        extraMax: i.extraMax,
       });
       byProduct.set(i.productId, arr);
     }
@@ -270,6 +326,9 @@ export const createProduct = createServerFn({ method: "POST" })
           ingredientId: i.ingredientId,
           quantity: i.quantity,
           removable: i.removable,
+          extraAllowed: i.extraAllowed,
+          extraPrice: i.extraPrice,
+          extraMax: i.extraMax,
         })),
       );
     }
@@ -351,6 +410,9 @@ export const updateProduct = createServerFn({ method: "POST" })
           ingredientId: i.ingredientId,
           quantity: i.quantity,
           removable: i.removable,
+          extraAllowed: i.extraAllowed,
+          extraPrice: i.extraPrice,
+          extraMax: i.extraMax,
         })),
       );
     }

@@ -341,6 +341,13 @@ export const productIngredients = mysqlTable(
     // hamburguesa no; la cebolla sí. Sólo cuenta si el producto además está
     // marcado como `customizable`.
     removable: boolean("removable").notNull().default(false),
+    // Si se puede pedir de más ("+carne", "+queso"). A diferencia de sacar, el
+    // extra sí cuesta y suma stock. El precio es por producto: un extra de carne
+    // puede valer distinto en la hamburguesa que en el lomo. `extraMax` es el
+    // tope de unidades extra que el cliente puede pedir de este ingrediente.
+    extraAllowed: boolean("extra_allowed").notNull().default(false),
+    extraPrice: decimal("extra_price", { precision: 10, scale: 2 }),
+    extraMax: int("extra_max"),
   },
   (t) => [
     unique("product_ingredients_uq").on(t.productId, t.ingredientId),
@@ -671,6 +678,29 @@ export const orderItemRemovals = mysqlTable(
   (t) => [
     unique("order_item_removals_uq").on(t.orderItemId, t.ingredientId),
     index("order_item_removals_item_idx").on(t.orderItemId),
+  ],
+);
+
+// Qué ingredientes extra pidió el cliente en una línea: el "+carne", "+queso".
+//
+// Espeja `order_item_removals` pero con precio: un extra cuesta y ya está
+// cobrado, así que congela el precio unitario del extra además del nombre y la
+// cantidad. El precio de la línea (`order_items.unit_price`) ya incluye estos
+// extras; esta tabla es el detalle de qué se agregó, para la comanda y para
+// devolver el stock al cancelar.
+export const orderItemExtras = mysqlTable(
+  "order_item_extras",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    orderItemId: int("order_item_id").notNull(),
+    ingredientId: int("ingredient_id").notNull(),
+    ingredientName: varchar("ingredient_name", { length: 120 }).notNull(),
+    quantity: int("quantity").notNull(),
+    unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  },
+  (t) => [
+    unique("order_item_extras_uq").on(t.orderItemId, t.ingredientId),
+    index("order_item_extras_item_idx").on(t.orderItemId),
   ],
 );
 

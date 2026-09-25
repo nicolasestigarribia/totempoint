@@ -20,6 +20,10 @@ export interface TicketItem {
   quantity: number;
   /** Precio unitario en unidades de moneda (no centavos). */
   unitPrice: number;
+  /** Lo que el cliente sacó ("sin cebolla"), para la cocina. */
+  removed?: string[];
+  /** Lo que agregó ("+2 carne"), con cantidad. */
+  extras?: { name: string; quantity: number }[];
 }
 
 export interface TicketData {
@@ -148,12 +152,22 @@ export function buildTicket(data: TicketData): Uint8Array {
 
   sep();
 
-  // Ítems: cantidad x nombre, con el subtotal a la derecha.
+  // Ítems: cantidad x nombre, con el subtotal a la derecha. El precio unitario
+  // ya incluye los extras (se congeló así en el pedido). Debajo, lo sacado y lo
+  // agregado, que es lo que mira la cocina.
   for (const it of data.items) {
     const izq = `${it.quantity}x ${it.name}`;
     const der = formatearPrecio(it.unitPrice * it.quantity);
     texto(lineaDoble(izq, der, ancho));
     nl();
+    for (const r of it.removed ?? []) {
+      texto(`   sin ${r}`);
+      nl();
+    }
+    for (const e of it.extras ?? []) {
+      texto(`   +${e.quantity} ${e.name}`);
+      nl();
+    }
   }
 
   sep();

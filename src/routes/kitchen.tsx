@@ -506,6 +506,13 @@ function Kitchen() {
                                     {i.removed.map((r) => `sin ${r}`).join(" · ")}
                                   </span>
                                 )}
+                                {/* Los extras van igual de resaltados: agregar de
+                                    más también cambia el plato. */}
+                                {i.extras.length > 0 && (
+                                  <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-emerald-400">
+                                    {i.extras.map((e) => `+${e.quantity} ${e.name}`).join(" · ")}
+                                  </span>
+                                )}
                               </li>
                             ))}
                           </ul>
