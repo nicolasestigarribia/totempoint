@@ -679,7 +679,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                         Todavía no agregaste ingredientes.
                       </p>
                     ) : (
-                      <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                      <div className="max-h-[26rem] space-y-2 overflow-auto pr-1">
                         {draftIngredients.map((d) => (
                           <div
                             key={d.ingredientId}
