@@ -56,27 +56,36 @@ const SIZE_DOUBLE = [GS, 0x21, 0x11]; // ancho y alto x2
 const SIZE_NORMAL = [GS, 0x21, 0x00];
 const FEED_AND_CUT = [GS, 0x56, 0x42, 0x00]; // corte parcial; la TM-P20 sin cutter lo ignora
 
-const SIN_TILDES: Record<string, string> = {
-  á: "a",
-  é: "e",
-  í: "i",
-  ó: "o",
-  ú: "u",
-  Á: "A",
-  É: "E",
-  Í: "I",
-  Ó: "O",
-  Ú: "U",
-  ñ: "n",
-  Ñ: "N",
-  ü: "u",
-  Ü: "U",
+// Puntuación no-ASCII común en nombres y comentarios, con su reemplazo legible.
+// El "·" (punto medio) es el que usan los negocios como separador ("01 · Jamón")
+// y sin esto sale como basura en la impresora.
+const PUNTUACION: Record<string, string> = {
+  "·": "-",
+  "•": "-",
+  "–": "-",
+  "—": "-",
   "¿": "?",
   "¡": "!",
+  "“": '"',
+  "”": '"',
+  "‘": "'",
+  "’": "'",
+  "…": "...",
 };
 
 function aAscii(texto: string): string {
-  return texto.replace(/[áéíóúÁÉÍÓÚñÑüÜ¿¡]/g, (c) => SIN_TILDES[c] ?? c);
+  return (
+    texto
+      // Saca las tildes descomponiendo la letra y borrando el acento: á→a, ñ→n,
+      // ü→u, etc. Cubre cualquier acentuada sin listarlas una por una.
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      // Puntuación conocida a su equivalente ASCII.
+      .replace(/[·•–—¿¡“”‘’…]/g, (c) => PUNTUACION[c] ?? "")
+      // Lo que quede fuera del ASCII imprimible se descarta: mejor un carácter
+      // de menos que basura en el ticket.
+      .replace(/[^\x20-\x7e]/g, "")
+  );
 }
 
 const money = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
