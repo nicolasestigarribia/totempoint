@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Sparkles, ChevronRight, Store } from "lucide-react";
+import { Sparkles, ChevronRight, Store, Loader2 } from "lucide-react";
 import type { TotemHome as TotemHomeData } from "@/lib/api/totem.functions";
 import type { TotemNav } from "@/lib/totem-nav";
 import { themeVars } from "@/components/totem/useTotemTheme";
@@ -72,9 +73,12 @@ function StartButton({
   size?: "lg" | "xl";
 }) {
   const accent = data.accentColor || data.primaryColor || undefined;
+  // El catálogo se pide al tocar; el primer arranque va a la base y tarda. El
+  // botón muestra que está trabajando para que nadie lo toque tres veces.
+  const [cargando, setCargando] = useState(false);
   const className = `late group flex w-full items-center justify-between gap-4 rounded-3xl transition hover:scale-[1.02] active:scale-[0.98] ${
     size === "xl" ? "px-12 py-10" : "px-10 py-8"
-  }`;
+  } ${cargando ? "pointer-events-none opacity-90" : ""}`;
   const style = {
     background: accent ?? "var(--primary)",
     // El halo late en el color de la marca, no en blanco.
@@ -90,9 +94,15 @@ function StartButton({
       >
         {data.ctaLabel}
       </span>
-      <ChevronRight
-        className={`text-white transition group-hover:translate-x-1 ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`}
-      />
+      {cargando ? (
+        <Loader2
+          className={`animate-spin text-white ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`}
+        />
+      ) : (
+        <ChevronRight
+          className={`text-white transition group-hover:translate-x-1 ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`}
+        />
+      )}
     </>
   );
 
@@ -113,6 +123,8 @@ function StartButton({
       params={nav}
       className={className}
       style={style}
+      aria-busy={cargando}
+      onClick={() => setCargando(true)}
     >
       {contenido}
     </Link>
