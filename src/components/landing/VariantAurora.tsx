@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { BENEFICIOS, WHATSAPP_URL, type AuroraTheme } from "./shared";
+import logoImg from "@/assets/totem-logo.png";
 import burgerImg from "@/assets/rubros/burger.jpg";
 import cafeImg from "@/assets/rubros/cafe.jpg";
 import pizzaImg from "@/assets/rubros/pizza.jpg";
@@ -336,12 +337,9 @@ function HeroMosaico() {
       </div>
 
       <div className="absolute -bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-black/5 bg-white px-5 py-2.5 shadow-xl">
-        <div
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-white"
-          style={{ background: ACENTO }}
-        >
-          <QrCode className="h-4 w-4" />
-        </div>
+        <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-lg">
+          <img src={logoImg} alt="" className="h-full w-full scale-[1.7] object-cover" />
+        </span>
         <span className="font-semibold tracking-tight text-[oklch(0.22_0.03_260)]">Totempoint</span>
       </div>
     </div>
@@ -495,9 +493,16 @@ export function VariantAurora({
           <button
             type="button"
             onClick={() => setVista("home")}
-            className="text-xl font-semibold tracking-tight"
+            className="flex items-center gap-2.5"
           >
-            Totempoint
+            <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl">
+              <img
+                src={logoImg}
+                alt="Totempoint"
+                className="h-full w-full scale-[1.7] object-cover"
+              />
+            </span>
+            <span className="text-xl font-semibold tracking-tight">Totempoint</span>
           </button>
           <nav className="hidden items-center gap-7 text-sm text-[oklch(0.45_0.02_260)] md:flex">
             {(
