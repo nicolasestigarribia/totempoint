@@ -487,7 +487,10 @@ export function VariantAurora({
         />
       </div>
 
-      <header className="sticky top-0 z-30 border-b border-black/5 bg-white/60 backdrop-blur-xl">
+      <header
+        className="sticky top-0 z-30 backdrop-blur-xl"
+        style={{ backgroundColor: "color-mix(in oklab, var(--bg) 80%, transparent)" }}
+      >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 md:px-10">
           <button
             type="button"
