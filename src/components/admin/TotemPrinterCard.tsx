@@ -9,7 +9,8 @@ import {
   elegirYConectar,
   reconectarGuardada,
   imprimir,
-  type Impresora,
+  imprimirCompartida,
+  conexionEnMemoria,
 } from "@/lib/print/bluetooth";
 import {
   esAppNativa,
@@ -17,7 +18,18 @@ import {
   imprimirNativo,
   type DispositivoBt,
 } from "@/lib/print/native";
-import { getPaired, savePaired, clearPaired } from "@/lib/print/printer-store";
+import {
+  getPairedList,
+  addPaired,
+  removePaired,
+  type PairedPrinter,
+  type PrinterRole,
+} from "@/lib/print/printer-store";
+
+const LABEL_ROL: Record<PrinterRole, string> = {
+  totem: "Impresora del tótem",
+  caja: "Impresora de caja (compartida)",
+};
 
 function ticketDemo(empresa: string): TicketData {
   const hoy = new Date();
@@ -57,14 +69,18 @@ export function TotemPrinterCard({
   panelClass: string;
 }) {
   const guardarEnDb = useServerFn(setTotemPrinter);
-  const [paired, setPaired] = useState(() => getPaired(empresa, local, totem));
-  const [conn, setConn] = useState<Impresora | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [printers, setPrinters] = useState<PairedPrinter[]>(() =>
+    getPairedList(empresa, local, totem),
+  );
+  const [busy, setBusy] = useState<PrinterRole | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [dispositivos, setDispositivos] = useState<DispositivoBt[]>([]);
 
   const nativo = esAppNativa();
   const soportado = soportaWebBluetooth();
+
+  const refrescar = () => setPrinters(getPairedList(empresa, local, totem));
+  const porRol = (role: PrinterRole) => printers.find((p) => p.role === role) ?? null;
 
   const anotar = (m: string) =>
     setLog((prev) => [...prev, `${new Date().toLocaleTimeString()}  ${m}`]);
@@ -73,7 +89,7 @@ export function TotemPrinterCard({
     return `ERROR: ${String(err)}`;
   };
 
-  // Deja la impresora grabada en la base (respaldo, editable desde el panel).
+  // Deja la impresora grabada en la base (respaldo del camino nativo/APK).
   const persistirEnDb = async (mac: string | null, name: string | null) => {
     try {
       await guardarEnDb({ data: { id: totemId, mac, name } });
@@ -85,7 +101,7 @@ export function TotemPrinterCard({
   // En la app nativa (APK) se elige de los dispositivos ya emparejados en el
   // sistema; el emparejado Bluetooth se hace en Ajustes de Android.
   const cargarDispositivos = async () => {
-    setBusy(true);
+    setBusy("totem");
     setLog([]);
     try {
       anotar("Buscando dispositivos emparejados...");
@@ -95,7 +111,7 @@ export function TotemPrinterCard({
     } catch (err) {
       anotar(detalleError(err));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -104,32 +120,34 @@ export function TotemPrinterCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nativo]);
 
+  // --- Camino nativo (APK): una sola impresora dedicada, rol "totem". ---
   const elegirNativo = async (d: DispositivoBt) => {
-    const p = { deviceId: d.address, name: d.name || d.address };
-    savePaired(empresa, local, totem, p);
-    setPaired(p);
+    const p: PairedPrinter = { deviceId: d.address, name: d.name || d.address, role: "totem" };
+    addPaired(empresa, local, totem, p);
+    refrescar();
     anotar(`Impresora del tótem: ${p.name}`);
-    // La MAC nativa sí sirve de respaldo: se guarda en la base.
     await persistirEnDb(d.address, p.name);
   };
 
   const probarNativo = async () => {
-    if (!paired) return;
-    setBusy(true);
+    const p = porRol("totem");
+    if (!p) return;
+    setBusy("totem");
     setLog([]);
     try {
-      anotar(`Imprimiendo prueba en ${paired.name}...`);
-      await imprimirNativo(paired.deviceId, buildTicket(ticketDemo(companyName)));
+      anotar(`Imprimiendo prueba en ${p.name}...`);
+      await imprimirNativo(p.deviceId, buildTicket(ticketDemo(companyName)));
       anotar("Ticket enviado. Revisá la impresora.");
     } catch (err) {
       anotar(detalleError(err));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
-  const emparejar = async () => {
-    setBusy(true);
+  // --- Camino web (Chrome): dos ranuras, rol "totem" y rol "caja". ---
+  const emparejar = async (role: PrinterRole) => {
+    setBusy(role);
     setLog([]);
     try {
       anotar("Abriendo selector Bluetooth...");
@@ -137,70 +155,78 @@ export function TotemPrinterCard({
       anotar(`Dispositivo: ${c.device.name ?? "(sin nombre)"}`);
       for (const d of c.diagnostico) anotar(d);
       anotar(`Usando característica: ${c.charUuid}`);
-      const p = { deviceId: c.device.id, name: c.device.name ?? "Impresora" };
-      savePaired(empresa, local, totem, p);
-      setPaired(p);
-      setConn(c);
-      anotar(`Emparejada: ${p.name}`);
+      addPaired(empresa, local, totem, {
+        deviceId: c.device.id,
+        name: c.device.name ?? "Impresora",
+        role,
+      });
+      refrescar();
+      // La de caja es compartida: liberar la conexión para no bloquear a otras
+      // tablets. La del tótem queda viva (keep-alive) para imprimir al toque.
+      if (role === "caja") c.device.gatt?.disconnect();
+      anotar(`Emparejada: ${c.device.name ?? "Impresora"} (${LABEL_ROL[role]})`);
     } catch (err) {
       anotar(detalleError(err));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
-  const probar = async () => {
-    setBusy(true);
+  const probar = async (role: PrinterRole) => {
+    const p = porRol(role);
+    if (!p) return;
+    setBusy(role);
     setLog([]);
     try {
-      let c = conn;
-      if (!c && paired) {
-        anotar("Reconectando a la impresora guardada...");
-        c = await reconectarGuardada(paired.deviceId);
+      const bytes = buildTicket(ticketDemo(companyName));
+      if (role === "caja") {
+        anotar("Reconectando impresora de caja (compartida)...");
+        await imprimirCompartida(p.deviceId, bytes);
+        anotar("Ticket enviado a caja. Revisá la impresora.");
+        return;
       }
-      if (!c) {
+      const conn = conexionEnMemoria(p.deviceId) ?? (await reconectarGuardada(p.deviceId));
+      if (!conn) {
         anotar("No se pudo reconectar. Volvé a emparejar desde esta tablet.");
         return;
       }
-      setConn(c);
-      anotar(`Característica: ${c.charUuid}`);
-      const bytes = buildTicket(ticketDemo(companyName));
       anotar(`Enviando ${bytes.length} bytes en tandas de 20...`);
-      await imprimir(c, bytes);
+      await imprimir(conn, bytes);
       anotar("Ticket enviado. Revisá la impresora.");
     } catch (err) {
       anotar(detalleError(err));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
-  const quitar = async () => {
-    clearPaired(empresa, local, totem);
-    setPaired(null);
-    setConn(null);
+  const quitar = async (role: PrinterRole) => {
+    removePaired(empresa, local, totem, role);
+    refrescar();
     setLog([]);
-    // Quitar la impresora del tótem también la borra de la base.
-    await persistirEnDb(null, null);
+    // Solo el camino nativo graba la MAC en la base; limpiarla al quitar el tótem.
+    if (role === "totem") await persistirEnDb(null, null);
   };
 
+  const totemPrinter = porRol("totem");
+  const cajaPrinter = porRol("caja");
+
   return (
-    <div className={`space-y-3 p-4 ${panelClass}`}>
+    <div className={`space-y-4 p-4 ${panelClass}`}>
       <div className="flex items-center gap-2">
         <Printer className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold">Impresora del tótem</span>
-        {(paired || dbPrinterName) && (
-          <span className="ml-auto flex items-center gap-1 text-xs text-green-400">
-            <Check className="h-3.5 w-3.5" />
-            {paired?.name ?? dbPrinterName}
-          </span>
-        )}
+        <span className="text-sm font-semibold">Impresoras</span>
       </div>
 
       {nativo ? (
         <>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" className="gap-2" onClick={cargarDispositivos} disabled={busy}>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={cargarDispositivos}
+              disabled={busy !== null}
+            >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -208,17 +234,17 @@ export function TotemPrinterCard({
               )}
               Buscar impresoras
             </Button>
-            {paired && (
+            {totemPrinter && (
               <>
-                <Button size="sm" variant="outline" onClick={probarNativo} disabled={busy}>
+                <Button size="sm" variant="outline" onClick={probarNativo} disabled={busy !== null}>
                   Imprimir prueba
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   className="gap-1 text-destructive hover:text-destructive"
-                  onClick={() => void quitar()}
-                  disabled={busy}
+                  onClick={() => void quitar("totem")}
+                  disabled={busy !== null}
                 >
                   <X className="h-4 w-4" />
                   Quitar
@@ -234,7 +260,7 @@ export function TotemPrinterCard({
                   type="button"
                   onClick={() => void elegirNativo(d)}
                   className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
-                    paired?.deviceId === d.address
+                    totemPrinter?.deviceId === d.address
                       ? "border-primary bg-primary/10"
                       : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
                   }`}
@@ -253,39 +279,33 @@ export function TotemPrinterCard({
       ) : !soportado ? (
         <p className="text-xs text-muted-foreground">
           Este navegador no puede emparejar Bluetooth. Abrí esta pantalla en la tablet del tótem con
-          Chrome (Android) para emparejar la impresora.
+          Chrome (Android) para emparejar las impresoras.
         </p>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" className="gap-2" onClick={emparejar} disabled={busy}>
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Printer className="h-4 w-4" />
-              )}
-              {paired ? "Cambiar impresora" : "Emparejar impresora"}
-            </Button>
-            {paired && (
-              <>
-                <Button size="sm" variant="outline" onClick={probar} disabled={busy}>
-                  Imprimir prueba
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="gap-1 text-destructive hover:text-destructive"
-                  onClick={() => void quitar()}
-                  disabled={busy}
-                >
-                  <X className="h-4 w-4" />
-                  Quitar
-                </Button>
-              </>
-            )}
-          </div>
+          <RanuraWeb
+            role="totem"
+            printer={totemPrinter}
+            fallbackName={dbPrinterName}
+            busy={busy === "totem"}
+            disabled={busy !== null}
+            onEmparejar={() => void emparejar("totem")}
+            onProbar={() => void probar("totem")}
+            onQuitar={() => void quitar("totem")}
+          />
+          <RanuraWeb
+            role="caja"
+            printer={cajaPrinter}
+            fallbackName={null}
+            busy={busy === "caja"}
+            disabled={busy !== null}
+            onEmparejar={() => void emparejar("caja")}
+            onProbar={() => void probar("caja")}
+            onQuitar={() => void quitar("caja")}
+          />
           <p className="text-xs text-muted-foreground">
-            El emparejado se hace en la tablet del tótem y queda guardado en ese dispositivo.
+            El emparejado se hace en la tablet del tótem y queda guardado en ese dispositivo. La
+            impresora de caja es compartida: emparejala en cada tablet que la use.
           </p>
         </>
       )}
@@ -297,6 +317,64 @@ export function TotemPrinterCard({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function RanuraWeb({
+  role,
+  printer,
+  fallbackName,
+  busy,
+  disabled,
+  onEmparejar,
+  onProbar,
+  onQuitar,
+}: {
+  role: PrinterRole;
+  printer: PairedPrinter | null;
+  fallbackName: string | null;
+  busy: boolean;
+  disabled: boolean;
+  onEmparejar: () => void;
+  onProbar: () => void;
+  onQuitar: () => void;
+}) {
+  const nombre = printer?.name ?? fallbackName;
+  return (
+    <div className="space-y-2 rounded-md border border-white/10 bg-white/[0.02] p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium">{LABEL_ROL[role]}</span>
+        {nombre && (
+          <span className="ml-auto flex items-center gap-1 text-xs text-green-400">
+            <Check className="h-3.5 w-3.5" />
+            {nombre}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" className="gap-2" onClick={onEmparejar} disabled={disabled}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+          {printer ? "Cambiar" : "Emparejar"}
+        </Button>
+        {printer && (
+          <>
+            <Button size="sm" variant="outline" onClick={onProbar} disabled={disabled}>
+              Imprimir prueba
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1 text-destructive hover:text-destructive"
+              onClick={onQuitar}
+              disabled={disabled}
+            >
+              <X className="h-4 w-4" />
+              Quitar
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

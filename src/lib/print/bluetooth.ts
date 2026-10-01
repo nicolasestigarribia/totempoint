@@ -97,13 +97,15 @@ export function soportaReconexion(): boolean {
   return typeof navigator !== "undefined" && !!navigator.bluetooth?.getDevices;
 }
 
-// Última conexión lograda, a nivel módulo: sobrevive a la navegación entre
-// pantallas del tótem dentro de la misma pestaña (la app es una SPA, no recarga
-// la página). Sirve para imprimir en la confirmación sin depender de
-// getDevices(), clave en iOS.
-let conexionActual: Impresora | null = null;
-export function conexionEnMemoria(): Impresora | null {
-  if (conexionActual && conexionActual.device.gatt?.connected) return conexionActual;
+// Conexiones vivas por deviceId, a nivel módulo: sobreviven a la navegación
+// entre pantallas del tótem dentro de la misma pestaña (la app es una SPA, no
+// recarga la página). Sirve para imprimir en la confirmación sin depender de
+// getDevices(), clave en iOS. Se guardan solo las dedicadas (keep-alive); la de
+// caja se desconecta tras cada impresión para no bloquear a otras tablets.
+const conexiones = new Map<string, Impresora>();
+export function conexionEnMemoria(deviceId: string): Impresora | null {
+  const c = conexiones.get(deviceId);
+  if (c && c.device.gatt?.connected) return c;
   return null;
 }
 
@@ -166,14 +168,15 @@ async function conectar(device: BleDevice): Promise<Impresora> {
     escribibles.find((e) => CHARS_IMPRESION.some((p) => e.char.uuid.toLowerCase().includes(p))) ??
     escribibles[0];
 
-  conexionActual = {
+  const impresora: Impresora = {
     device,
     characteristic: elegida.char,
     serviceUuid: elegida.service,
     charUuid: elegida.char.uuid,
     diagnostico,
   };
-  return conexionActual;
+  conexiones.set(device.id, impresora);
+  return impresora;
 }
 
 /**
@@ -207,4 +210,49 @@ export async function imprimir(impresora: Impresora, datos: Uint8Array): Promise
     else await c.writeValueWithResponse(tanda);
     await dormir(20);
   }
+}
+
+/**
+ * Imprime en la impresora de caja, que es compartida entre varios tótems.
+ *
+ * Una impresora BLE acepta una sola conexión a la vez, así que la de caja no se
+ * puede mantener viva: se reconecta, imprime y se desconecta en `finally` para
+ * liberarla. Si otra tablet la tiene tomada en ese instante, el connect falla;
+ * se reintenta con backoff y un jitter aleatorio, para que dos tablets no
+ * reintenten en fase y se bloqueen mutuamente.
+ *
+ * No se guarda en el Map de conexiones vivas: nunca es keep-alive.
+ */
+export async function imprimirCompartida(
+  deviceId: string,
+  datos: Uint8Array,
+  intentos = 5,
+): Promise<void> {
+  let ultimoError: unknown = null;
+  for (let intento = 1; intento <= intentos; intento++) {
+    let impresora: Impresora | null = null;
+    try {
+      impresora = await reconectarGuardada(deviceId);
+      if (!impresora) {
+        throw new Error(
+          "No se pudo reconectar la impresora de caja. Emparejala de nuevo en esta tablet.",
+        );
+      }
+      await imprimir(impresora, datos);
+      return;
+    } catch (err) {
+      ultimoError = err;
+      // Si no hay permiso/reconexión posible, reintentar no ayuda: cortar.
+      if (!navigator.bluetooth?.getDevices) throw err;
+      conexiones.delete(deviceId);
+      if (intento < intentos) await dormir(600 * intento + Math.floor(Math.random() * 400));
+    } finally {
+      // Liberar siempre la impresora compartida, pase lo que pase.
+      if (impresora?.device.gatt?.connected) impresora.device.gatt.disconnect();
+      conexiones.delete(deviceId);
+    }
+  }
+  throw ultimoError instanceof Error
+    ? ultimoError
+    : new Error("No se pudo imprimir en la impresora de caja (ocupada).");
 }

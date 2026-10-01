@@ -8,10 +8,11 @@ import { TotemError } from "@/components/totem/TotemError";
 import { formatPrice } from "@/lib/totem-cart";
 import { buildTicket, type TicketData } from "@/lib/print/ticket";
 import { formatearNumeroPedido } from "@/lib/order-number";
-import { getPaired } from "@/lib/print/printer-store";
+import { getPairedList, type PairedPrinter, type PrinterRole } from "@/lib/print/printer-store";
 import {
   reconectarGuardada,
   imprimir,
+  imprimirCompartida,
   conexionEnMemoria,
   soportaReconexion,
 } from "@/lib/print/bluetooth";
@@ -72,6 +73,15 @@ function aTicketData(t: TotemTicket): TicketData {
 }
 
 type EstadoImpresion = "idle" | "imprimiendo" | "listo" | "error";
+type EstadoPorRol = Partial<
+  Record<PrinterRole, { estado: EstadoImpresion; motivo: string | null }>
+>;
+
+const LABEL_ROL: Record<PrinterRole, string> = { totem: "Tótem", caja: "Caja" };
+
+// La copia del cliente (tótem) sale primero; la de caja, que es compartida,
+// después, porque tiene que reconectar y puede esperar su turno.
+const ORDEN_ROL: Record<PrinterRole, number> = { totem: 0, caja: 1 };
 
 function ListoPage() {
   const order = Route.useLoaderData();
@@ -82,69 +92,87 @@ function ListoPage() {
   const accent = order.accentColor || undefined;
   const [restan, setRestan] = useState(SEGUNDOS);
 
-  // Impresión del ticket en la impresora emparejada a este tótem (si hay).
-  const [hayImpresora, setHayImpresora] = useState(false);
-  const [estado, setEstado] = useState<EstadoImpresion>("idle");
-  const [motivo, setMotivo] = useState<string | null>(null);
+  // Impresión del ticket en las impresoras emparejadas a este tótem (si hay).
+  const [printers, setPrinters] = useState<PairedPrinter[]>([]);
+  const [nativo] = useState(() => esAppNativa());
+  const [estados, setEstados] = useState<EstadoPorRol>({});
   const yaImprimio = useRef(false);
 
-  const imprimirTicket = async () => {
-    const paired = getPaired(nav.empresa, nav.local, Number(nav.totem));
-    const nativo = esAppNativa();
-    // Web necesita el emparejado local; el APK puede usar la MAC de la DB.
-    if (!paired && !nativo) return;
-    setEstado("imprimiendo");
-    setMotivo(null);
+  // En el APK (nativo) no hay lista local: se imprime la copia del tótem por MAC.
+  const rolesVisibles: PrinterRole[] = nativo
+    ? ["totem"]
+    : printers.map((p) => p.role).sort((a, b) => ORDEN_ROL[a] - ORDEN_ROL[b]);
+  const hayImpresora = rolesVisibles.length > 0;
+
+  const marcar = (role: PrinterRole, estado: EstadoImpresion, motivo: string | null = null) =>
+    setEstados((prev) => ({ ...prev, [role]: { estado, motivo } }));
+
+  // Imprime en una impresora del tótem (dedicada, conexión viva) o de caja
+  // (compartida, reconecta → imprime → desconecta, reintentando si está ocupada).
+  const imprimirEn = async (p: PairedPrinter, bytes: Uint8Array) => {
+    marcar(p.role, "imprimiendo");
     try {
-      const ticket = await fetchTicket({
-        data: {
-          empresa: nav.empresa,
-          local: nav.local,
-          totem: Number(nav.totem),
-          orderId: Number(nav.orderId),
-        },
-      });
-      const bytes = buildTicket(aTicketData(ticket));
-
-      // En el APK: Bluetooth nativo por MAC. La MAC de la DB (panel) gana sobre
-      // la cache local, así que un cambio desde otra PC lo toma la tablet.
-      if (nativo) {
-        const mac = ticket.printerMac ?? paired?.deviceId ?? null;
-        if (!mac) {
-          setEstado("idle");
-          return;
+      if (p.role === "caja") {
+        await imprimirCompartida(p.deviceId, bytes);
+      } else {
+        const conn = conexionEnMemoria(p.deviceId) ?? (await reconectarGuardada(p.deviceId));
+        if (!conn) {
+          throw new Error(
+            soportaReconexion()
+              ? "No se pudo reconectar la impresora."
+              : "Este navegador no reconecta en una pantalla nueva. Emparejá desde el tótem en Android.",
+          );
         }
-        await imprimirNativo(mac, bytes);
-        setEstado("listo");
-        return;
+        await imprimir(conn, bytes);
       }
-
-      // En Chrome: reusa la conexión viva de la sesión si la hay; si no, reconecta.
-      let conn = conexionEnMemoria();
-      if (!conn && paired) conn = await reconectarGuardada(paired.deviceId);
-      if (!conn) {
-        setMotivo(
-          soportaReconexion()
-            ? "No se pudo reconectar la impresora."
-            : "Este navegador no reconecta en una pantalla nueva. Emparejá desde el tótem en Android.",
-        );
-        setEstado("error");
-        return;
-      }
-      await imprimir(conn, bytes);
-      setEstado("listo");
+      marcar(p.role, "listo");
     } catch (err) {
-      setMotivo(err instanceof Error ? err.message : String(err));
-      setEstado("error");
+      marcar(p.role, "error", err instanceof Error ? err.message : String(err));
     }
+  };
+
+  const imprimirTicket = async (soloRol?: PrinterRole) => {
+    const lista = getPairedList(nav.empresa, nav.local, Number(nav.totem));
+    // Web necesita el emparejado local; el APK puede usar la MAC de la DB.
+    if (!nativo && lista.length === 0) return;
+
+    const ticket = await fetchTicket({
+      data: {
+        empresa: nav.empresa,
+        local: nav.local,
+        totem: Number(nav.totem),
+        orderId: Number(nav.orderId),
+      },
+    });
+    const bytes = buildTicket(aTicketData(ticket));
+
+    // En el APK: Bluetooth nativo por MAC. La MAC de la DB (panel) gana sobre la
+    // cache local, así que un cambio desde otra PC lo toma la tablet.
+    if (nativo) {
+      const mac = ticket.printerMac ?? lista.find((p) => p.role === "totem")?.deviceId ?? null;
+      if (!mac) return;
+      marcar("totem", "imprimiendo");
+      try {
+        await imprimirNativo(mac, bytes);
+        marcar("totem", "listo");
+      } catch (err) {
+        marcar("totem", "error", err instanceof Error ? err.message : String(err));
+      }
+      return;
+    }
+
+    // En Chrome: tótem primero, caja después; una falla no corta la otra.
+    const aImprimir = (soloRol ? lista.filter((p) => p.role === soloRol) : lista).sort(
+      (a, b) => ORDEN_ROL[a.role] - ORDEN_ROL[b.role],
+    );
+    for (const p of aImprimir) await imprimirEn(p, bytes);
   };
 
   // Auto-imprime una sola vez al llegar a la pantalla de confirmación.
   useEffect(() => {
-    const paired = getPaired(nav.empresa, nav.local, Number(nav.totem));
-    const nativo = esAppNativa();
-    setHayImpresora(!!paired || nativo);
-    if ((!paired && !nativo) || yaImprimio.current) return;
+    const lista = getPairedList(nav.empresa, nav.local, Number(nav.totem));
+    setPrinters(lista);
+    if ((!nativo && lista.length === 0) || yaImprimio.current) return;
     yaImprimio.current = true;
     void imprimirTicket();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,35 +235,38 @@ function ListoPage() {
       </p>
 
       {hayImpresora && (
-        <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-          {estado === "imprimiendo" ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Imprimiendo ticket...
-            </>
-          ) : estado === "listo" ? (
-            <button
-              type="button"
-              onClick={() => void imprimirTicket()}
-              className="flex items-center gap-2 rounded-full border border-border px-4 py-2 transition hover:text-foreground"
-            >
-              <Printer className="h-4 w-4" />
-              Reimprimir ticket
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void imprimirTicket()}
-              className="flex items-center gap-2 rounded-full border border-border px-4 py-2 transition hover:text-foreground"
-            >
-              <Printer className="h-4 w-4" />
-              {estado === "error" ? "No se pudo imprimir. Reintentar" : "Imprimir ticket"}
-            </button>
-          )}
+        <div className="mt-6 flex flex-col items-center gap-2 text-sm text-muted-foreground">
+          {rolesVisibles.map((role) => {
+            const st = estados[role]?.estado ?? "idle";
+            const motivo = estados[role]?.motivo ?? null;
+            return (
+              <div key={role} className="flex flex-col items-center gap-1">
+                {st === "imprimiendo" ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Imprimiendo ticket ({LABEL_ROL[role]})...
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void imprimirTicket(nativo ? undefined : role)}
+                    className="flex items-center gap-2 rounded-full border border-border px-4 py-2 transition hover:text-foreground"
+                  >
+                    <Printer className="h-4 w-4" />
+                    {st === "listo"
+                      ? `Reimprimir (${LABEL_ROL[role]})`
+                      : st === "error"
+                        ? `No se pudo imprimir (${LABEL_ROL[role]}). Reintentar`
+                        : `Imprimir ticket (${LABEL_ROL[role]})`}
+                  </button>
+                )}
+                {st === "error" && motivo && (
+                  <p className="max-w-xs text-center text-xs text-muted-foreground">{motivo}</p>
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
-      {hayImpresora && estado === "error" && motivo && (
-        <p className="mt-2 max-w-xs text-center text-xs text-muted-foreground">{motivo}</p>
       )}
 
       <Link

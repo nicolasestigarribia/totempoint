@@ -3,7 +3,7 @@ import { Monitor, QrCode, Printer, Loader2, Check, ArrowRight } from "lucide-rea
 import { escanearQr } from "@/lib/native/scan";
 import { parseTotemUrl, setTotemUrl, type TotemRef } from "@/lib/native/provisioning";
 import { listarEmparejados, type DispositivoBt } from "@/lib/print/native";
-import { savePaired } from "@/lib/print/printer-store";
+import { addPaired } from "@/lib/print/printer-store";
 
 /**
  * Wizard de setup de una tablet, en la app nativa. Dos pasos, sin login:
@@ -51,9 +51,10 @@ export function TotemSetupScreen() {
 
   const elegirImpresora = (d: DispositivoBt) => {
     if (!ref) return;
-    savePaired(ref.empresa, ref.local, ref.totem, {
+    addPaired(ref.empresa, ref.local, ref.totem, {
       deviceId: d.address,
       name: d.name || d.address,
+      role: "totem",
     });
     setMacElegida(d.address);
   };
