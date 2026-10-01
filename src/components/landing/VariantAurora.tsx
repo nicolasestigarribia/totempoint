@@ -434,7 +434,7 @@ export function VariantAurora({
 
   return (
     <div
-      className="aur-root relative min-h-dvh overflow-x-hidden text-[oklch(0.22_0.03_260)] antialiased"
+      className="aur-root relative min-h-dvh overflow-x-clip text-[oklch(0.22_0.03_260)] antialiased"
       style={
         {
           backgroundColor: "var(--bg)",
