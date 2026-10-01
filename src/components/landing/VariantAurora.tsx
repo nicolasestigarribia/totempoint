@@ -493,7 +493,7 @@ export function VariantAurora({
             onClick={() => setVista("home")}
             className="flex items-center gap-2.5"
           >
-            <img src={logoImg} alt="Totempoint" className="h-[42px] w-auto" />
+            <img src={logoImg} alt="Totempoint" className="h-10 w-auto" />
             <span className="text-xl font-semibold tracking-tight">Totempoint</span>
           </button>
           <nav className="hidden items-center gap-7 text-sm text-[oklch(0.45_0.02_260)] md:flex">
