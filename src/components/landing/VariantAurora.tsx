@@ -464,7 +464,7 @@ export function VariantAurora({
         .aur-blob { animation: aur-drift 18s ease-in-out infinite; }
         .aur-up { animation: aur-up 700ms cubic-bezier(0.22,1,0.36,1) both; }
         .aur-marquee { animation: aur-marquee 32s linear infinite; }
-        .aur-flow { background-size: 200% auto; animation: aur-flow 4s linear infinite; }
+        .aur-flow { background-size: 200% auto; animation: aur-flow 2.5s linear infinite; }
         .aur-float { animation: aur-float 6s ease-in-out infinite; }
         /* Títulos de card (h3/h4) con la fuente elegida. Los títulos grandes de
            sección van con font-family inline (Playfair) y no se ven afectados. */
