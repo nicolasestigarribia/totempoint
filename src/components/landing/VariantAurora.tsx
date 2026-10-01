@@ -339,7 +339,7 @@ function HeroMosaico() {
 
       <div className="absolute -bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-black/5 bg-white px-5 py-2.5 shadow-xl">
         <img src={logoImg} alt="" className="h-7 w-auto" />
-        <img src={wordmarkImg} alt="Totempoint" className="h-5 w-auto" />
+        <img src={wordmarkImg} alt="Totempoint" className="h-4 w-auto" />
       </div>
     </div>
   );
@@ -495,7 +495,7 @@ export function VariantAurora({
             className="flex items-center gap-2.5"
           >
             <img src={logoImg} alt="" className="h-10 w-auto" />
-            <img src={wordmarkImg} alt="Totempoint" className="h-7 w-auto" />
+            <img src={wordmarkImg} alt="Totempoint" className="h-6 w-auto" />
           </button>
           <nav className="hidden items-center gap-7 text-sm text-[oklch(0.45_0.02_260)] md:flex">
             {(
