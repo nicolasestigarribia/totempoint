@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, ne, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, ne, asc, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companies,
@@ -37,6 +37,7 @@ import {
   calcularConsumo,
   registrarVenta,
   asegurarCodigosDeVenta,
+  devolverVenta,
   type LineaVendida,
 } from "@/lib/stock/venta";
 
@@ -1677,6 +1678,16 @@ export interface OnlineOrderStatus {
    * haber salido del pago a mitad de camino y tiene que poder volver.
    */
   pagarEn: string | null;
+  /**
+   * Si el cliente todavía puede cancelarlo o cambiar cómo paga: solo mientras
+   * el local no lo aceptó. Desde que lo aceptan lo están preparando, y después
+   * va en camino: ahí cualquier cambio es por teléfono con el local.
+   */
+  puedeModificar: boolean;
+  /** Formas de pago a las que puede pasarse, si puede modificar. */
+  pagosDisponibles: { efectivo: boolean; mercadopago: boolean };
+  /** Lo canceló el cliente desde su celular, no el local. */
+  canceladoPorCliente: boolean;
   items: Awaited<ReturnType<typeof lineasDelPedido>>;
   companyName: string;
   locationName: string;
@@ -1724,6 +1735,7 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
 
     const o = row.order;
     let paymentStatus = o.paymentStatus;
+    const pagos = await pagosDelOnline(company.id, location.id);
     if (
       o.paymentMethod === "mercadopago" &&
       paymentStatus === "pendiente" &&
@@ -1760,6 +1772,9 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
       paymentStatus,
       cashPaysWith: o.cashPaysWith,
       total: o.total,
+      puedeModificar: modificable(o) && paymentStatus !== "pagado",
+      pagosDisponibles: pagos,
+      canceladoPorCliente: o.status === "cancelado" && o.cancelledBy === null,
       pagarEn:
         o.paymentMethod === "mercadopago" &&
         paymentStatus === "pendiente" &&
@@ -1777,4 +1792,193 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
       fontTheme: row.fontTheme ?? "impacto",
       corners: row.corners ?? "redondeado",
     };
+  });
+
+/**
+ * Un pedido online que el cliente todavía puede cancelar o cambiar: el local no
+ * lo aceptó. Aceptado, ya lo están preparando, y después va en camino.
+ */
+function modificable(o: { channel: string; status: string; acceptedAt: Date | null }): boolean {
+  return o.channel === "online" && o.status !== "cancelado" && o.acceptedAt === null;
+}
+
+/** Con qué se puede pagar un pedido online de esta sucursal. */
+async function pagosDelOnline(companyId: number, locationId: number) {
+  const [[settings], mp] = await Promise.all([
+    db
+      .select({ cash: onlineSettings.cashEnabled })
+      .from(onlineSettings)
+      .where(eq(onlineSettings.locationId, locationId))
+      .limit(1),
+    empresaCobraConMP(companyId),
+  ]);
+  // Mismo criterio que al tomar el pedido: si Mercado Pago no anda, el
+  // efectivo vuelve aunque el dueño lo haya apagado.
+  return { efectivo: (settings?.cash ?? true) || !mp, mercadopago: mp };
+}
+
+/** El pedido de un link de seguimiento, con su empresa y sucursal. */
+async function pedidoDelLink(empresa: string, local: string, token: string) {
+  const { company, location } = await resolverSucursal(empresa, local);
+  const [o] = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.trackingToken, token), eq(orders.locationId, location.id)))
+    .limit(1);
+  if (!o) throw new Error("No encontramos ese pedido");
+  return { company, location, o };
+}
+
+const NO_SE_PUEDE_CAMBIAR =
+  "El local ya aceptó tu pedido y lo está preparando. Si necesitás cambiar algo, llamá al local";
+
+/** Cuántas filas tocó un UPDATE. Si es 0, otro llegó primero. */
+const filasTocadas = (r: unknown) => (r as { affectedRows?: number }).affectedRows ?? 0;
+
+/**
+ * Si un pedido de Mercado Pago ya se pagó, aunque todavía no nos hayamos
+ * enterado. Se pregunta antes de cancelarlo o pasarlo a efectivo: si no, un
+ * pago que entró recién quedaría colgado sin que nadie sepa que hay que
+ * devolverlo.
+ */
+async function pagoEntro(companyId: number, orderId: number): Promise<boolean> {
+  const token = await tokenDeMP(companyId);
+  if (!token) return false;
+  let pago: Awaited<ReturnType<typeof buscarPagoDePedido>>;
+  try {
+    pago = await buscarPagoDePedido(token, String(orderId));
+  } catch {
+    throw new Error("No pudimos confirmar con Mercado Pago. Probá de nuevo en unos segundos");
+  }
+  if (pago?.aprobado) {
+    await acreditarPedido(orderId, pago.id);
+    return true;
+  }
+  return false;
+}
+
+const tokenInput = z.string().regex(/^[0-9a-f]{32}$/, "Pedido inválido");
+
+/**
+ * El cliente cancela su pedido online desde el seguimiento.
+ *
+ * Solo mientras el local no lo aceptó: después lo están preparando o va en
+ * camino, y eso se arregla hablando con el local, no con un botón. Si cancela
+ * justo cuando el local lo acepta, gana el que llega primero: la actualización
+ * solo pasa si sigue sin aceptar.
+ *
+ * Hace lo mismo que la cancelación del local: si ya estaba pagado queda para
+ * devolver, y el stock vuelve. `cancelled_by` queda vacío: así la comandera
+ * sabe que lo canceló el cliente.
+ */
+export const cancelOnlineOrder = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ ...onlineInput, token: tokenInput }))
+  .handler(async ({ data }): Promise<{ ok: true; reembolso: boolean }> => {
+    const { company, o } = await pedidoDelLink(data.empresa, data.local, data.token);
+    if (o.status === "cancelado") return { ok: true, reembolso: false };
+    if (!modificable(o)) throw new Error(NO_SE_PUEDE_CAMBIAR);
+
+    let pagado = o.paymentStatus === "pagado";
+    if (!pagado && o.paymentMethod === "mercadopago") pagado = await pagoEntro(company.id, o.id);
+
+    const [r] = await db
+      .update(orders)
+      .set({
+        status: "cancelado",
+        cancelledAt: new Date(),
+        cancelledBy: null,
+        paymentStatus: pagado ? "reembolso_pendiente" : "pendiente",
+      })
+      .where(and(eq(orders.id, o.id), isNull(orders.acceptedAt), ne(orders.status, "cancelado")));
+    if (filasTocadas(r) === 0) throw new Error(NO_SE_PUEDE_CAMBIAR);
+
+    // Lo que el pedido descontó del stock vuelve, como en cualquier cancelación.
+    try {
+      await devolverVenta(o.id);
+    } catch (error) {
+      console.error(`No se pudo devolver el stock del pedido ${o.id}:`, error);
+    }
+    return { ok: true, reembolso: pagado };
+  });
+
+/**
+ * El cliente cambia cómo paga, mientras el local no aceptó el pedido: se
+ * equivocó de opción, o Mercado Pago no le anduvo y prefiere pagar en efectivo.
+ *
+ * Si pasa a Mercado Pago se arma un cobro nuevo con el total que ya está
+ * guardado (no se recalcula nada del pedido). Si pasa a efectivo, antes se le
+ * pregunta a Mercado Pago que no haya pagado recién.
+ */
+export const changeOnlineOrderPayment = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      ...onlineInput,
+      token: tokenInput,
+      paymentMethod: z.enum(["efectivo", "mercadopago"]),
+      paysWith: z.number().positive().max(100_000_000).optional(),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ pagarEn: string | null }> => {
+    const { company, location, o } = await pedidoDelLink(data.empresa, data.local, data.token);
+    if (!modificable(o)) throw new Error(NO_SE_PUEDE_CAMBIAR);
+    if (o.paymentStatus === "pagado") {
+      throw new Error("Tu pedido ya está pagado: no hace falta cambiar cómo pagás");
+    }
+    const pagos = await pagosDelOnline(company.id, location.id);
+    const sigueSinAceptar = and(
+      eq(orders.id, o.id),
+      isNull(orders.acceptedAt),
+      ne(orders.status, "cancelado"),
+    );
+
+    if (data.paymentMethod === "efectivo") {
+      if (!pagos.efectivo) throw new Error("Esta sucursal no está aceptando efectivo");
+      if (o.paymentMethod === "mercadopago" && (await pagoEntro(company.id, o.id))) {
+        throw new Error("Tu pago con Mercado Pago ya entró: no hace falta cambiarlo");
+      }
+      const total = Number(o.total);
+      if (data.paysWith !== undefined && data.paysWith < total) {
+        throw new Error(
+          `Con $${data.paysWith.toLocaleString("es-AR")} no alcanza: el total es $${total.toLocaleString("es-AR")}`,
+        );
+      }
+      const [r] = await db
+        .update(orders)
+        .set({
+          paymentMethod: "efectivo",
+          cashPaysWith: data.paysWith?.toFixed(2) ?? null,
+          mpPreferenceId: null,
+        })
+        .where(sigueSinAceptar);
+      if (filasTocadas(r) === 0) throw new Error(NO_SE_PUEDE_CAMBIAR);
+      return { pagarEn: null };
+    }
+
+    // A Mercado Pago: un cobro nuevo por lo que ya está guardado.
+    const token = await tokenDeMP(company.id);
+    if (!token) throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
+    const lineas = await lineasDelPedido(o.id);
+    const items: ItemPreferencia[] = lineas.map((l) => ({
+      title: l.name,
+      quantity: l.quantity,
+      unitPrice: Number(l.unitPrice),
+    }));
+    if (o.deliveryFee && Number(o.deliveryFee) > 0) {
+      items.push({ title: "Envío", quantity: 1, unitPrice: Number(o.deliveryFee) });
+    }
+    const pref = await crearPreferencia({
+      accessToken: token,
+      items,
+      externalReference: String(o.id),
+      backUrl: `${origenPublico()}/p/${data.empresa}/${data.local}/pedido/${data.token}`,
+      notificationUrl: urlDeAviso(),
+      negocio: company.name,
+      numeroPedido: o.orderNumber,
+    });
+    const [r] = await db
+      .update(orders)
+      .set({ paymentMethod: "mercadopago", cashPaysWith: null, mpPreferenceId: pref.id })
+      .where(sigueSinAceptar);
+    if (filasTocadas(r) === 0) throw new Error(NO_SE_PUEDE_CAMBIAR);
+    return { pagarEn: pref.initPoint };
   });

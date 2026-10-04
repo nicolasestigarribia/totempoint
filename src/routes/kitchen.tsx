@@ -336,6 +336,10 @@ function Kitchen() {
   // Pedidos que el botón "Limpiar" sacó de la vista a mano. Es solo en memoria:
   // se pierde al recargar, así que la limpieza nunca borra nada de la base.
   const limpiadosRef = useRef<Set<number>>(new Set());
+  // Los online que estaban esperando en el refresco anterior. Si uno pasa a
+  // cancelado porque lo canceló el cliente, quien atiende tiene que enterarse:
+  // la tarjeta desaparece de "Por aceptar" y sin aviso parecería un error.
+  const esperandoRef = useRef<Set<number>>(new Set());
   // Aviso sonoro de pedidos online por aceptar. Quien los atiende está con el
   // celular en la mano haciendo otra cosa: si no suena, el pedido espera.
   const audioRef = useRef<AudioContext | null>(null);
@@ -388,6 +392,15 @@ function Kitchen() {
           desde.delete(o.id);
         }
       }
+      for (const o of nuevos) {
+        if (o.canceladoPorCliente && esperandoRef.current.has(o.id)) {
+          toast.warning(
+            `El cliente canceló el pedido ${formatearNumeroPedido(o.businessDate, o.orderNumber)}`,
+            { duration: 10_000 },
+          );
+        }
+      }
+      esperandoRef.current = new Set(nuevos.filter(esPorAceptar).map((o) => o.id));
       setOrders(nuevos);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudieron cargar los pedidos");
@@ -857,6 +870,11 @@ function Kitchen() {
                                   lo confirma Mercado Pago: cobrado así no se
                                   puede desmarcar, y sin confirmar se consulta
                                   antes de darlo por cobrado en la caja. */}
+                              {o.canceladoPorCliente && (
+                                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Lo canceló el cliente
+                                </span>
+                              )}
                               {o.paymentStatus === "reembolso_pendiente" ? (
                                 <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
                                   Devolver

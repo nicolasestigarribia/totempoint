@@ -18,6 +18,7 @@ import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { formatearDistancia } from "@/lib/delivery";
+import { AccionesPedido } from "@/components/online/AccionesPedido";
 
 export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
   loader: ({ params }) =>
@@ -49,7 +50,7 @@ const horaDe = (d: Date) => d.toLocaleTimeString("es-AR", { hour: "2-digit", min
  */
 function SeguimientoPage() {
   const pedido = Route.useLoaderData();
-  const { empresa, local } = Route.useParams();
+  const { empresa, local, token } = Route.useParams();
   const router = useRouter();
   useTotemTheme(pedido.accentColor, pedido.theme, pedido.fontTheme, pedido.corners);
   const accent = pedido.accentColor || "var(--primary)";
@@ -82,6 +83,26 @@ function SeguimientoPage() {
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
         <Estado pedido={pedido} accent={accent} />
+
+        {pedido.puedeModificar ? (
+          <AccionesPedido
+            pedido={pedido}
+            empresa={empresa}
+            local={local}
+            token={token}
+            accent={accent}
+            onCambio={() => void router.invalidate()}
+          />
+        ) : (
+          // Aceptado: lo están preparando o va en camino. Desde acá ya no se
+          // cancela con un botón; se habla con el local.
+          !terminado &&
+          pedido.acceptedAt && (
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              Si necesitás cambiar algo, llamá al local.
+            </p>
+          )
+        )}
 
         <div className="mt-6 rounded-2xl border border-border bg-card/40 p-4">
           <div className="flex items-baseline justify-between gap-3">
@@ -188,11 +209,13 @@ function Estado({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string 
     return (
       <Tarjeta
         icono={<XCircle className="h-12 w-12 text-destructive" />}
-        titulo="No pudieron tomar tu pedido"
+        titulo={pedido.canceladoPorCliente ? "Cancelaste tu pedido" : "No pudieron tomar tu pedido"}
       >
         {pedido.paymentStatus === "reembolso_pendiente"
           ? "Como ya lo habías pagado, el local te devuelve la plata. Si tenés dudas, llamalos."
-          : "Si querés saber por qué, llamá al local."}
+          : pedido.canceladoPorCliente
+            ? "No te cobramos nada. Cuando quieras, hacés otro."
+            : "Si querés saber por qué, llamá al local."}
       </Tarjeta>
     );
   }

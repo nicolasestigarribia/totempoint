@@ -100,6 +100,13 @@ costo. Todo con servicios gratis y sin clave (OpenStreetMap, Photon, Leaflet).
 la cocina, y `setOrderStatus` se niega a moverlo mientras tanto. Rechazar es cancelar, para que
 devuelva el stock y marque el reembolso si ya estaba pagado.
 
+**El cliente puede cancelar o cambiar cómo paga solo hasta que el local acepta el pedido.** Después
+lo están preparando o va en camino, y cualquier cambio es por teléfono. Las dos cosas y la
+aceptación se escriben con la condición "sigue sin aceptar y sin cancelar", así que si el cliente
+cancela justo cuando el local acepta, gana el que llega primero. Antes de cancelar o de pasar de
+Mercado Pago a efectivo se le pregunta a Mercado Pago si el pago entró recién: si entró, queda para
+devolver. Un pedido que canceló el cliente tiene `cancelled_by` vacío.
+
 **El seguimiento del cliente se abre con `tracking_token`, nunca con el id.** El id es correlativo:
 con él cualquiera recorre pedidos ajenos y ve nombre, teléfono y dirección.
 

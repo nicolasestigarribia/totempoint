@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, or, desc, inArray, gte, lte, isNull } from "drizzle-orm";
+import { eq, and, or, ne, desc, inArray, gte, lte, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, orderItemRemovals, orderItemExtras, locations } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
@@ -63,6 +63,8 @@ export interface KitchenOrder {
    * desde la cocina: la plata está en la cuenta, se haya visto o no.
    */
   mpConfirmado: boolean;
+  /** Lo canceló el cliente desde su celular (pedido online), no alguien del local. */
+  canceladoPorCliente: boolean;
   items: KitchenOrderItem[];
 }
 
@@ -229,6 +231,8 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       paymentMethod: o.paymentMethod,
       paymentStatus: o.paymentStatus,
       mpConfirmado: o.mpPaymentId !== null,
+      canceladoPorCliente:
+        o.status === "cancelado" && o.cancelledBy === null && o.channel === "online",
       items: items
         .filter((i) => i.orderId === o.id)
         .map((i) => ({
@@ -307,10 +311,22 @@ export const acceptOnlineOrder = createServerFn({ method: "POST" })
     if (target.status === "cancelado") throw new Error("Ese pedido ya está cancelado");
     if (target.acceptedAt) return { ok: true };
 
-    await db
+    // Solo si sigue sin aceptar y sin cancelar: el cliente puede cancelarlo
+    // desde su celular justo en este momento, y gana el que llega primero.
+    const [r] = await db
       .update(orders)
       .set({ acceptedAt: new Date(), etaMinutes: data.etaMinutes })
-      .where(and(eq(orders.id, data.orderId), isNull(orders.acceptedAt)));
+      .where(
+        and(eq(orders.id, data.orderId), isNull(orders.acceptedAt), ne(orders.status, "cancelado")),
+      );
+    if (((r as unknown as { affectedRows?: number }).affectedRows ?? 0) === 0) {
+      const [ahora] = await db
+        .select({ status: orders.status })
+        .from(orders)
+        .where(eq(orders.id, data.orderId))
+        .limit(1);
+      if (ahora?.status === "cancelado") throw new Error("El cliente canceló este pedido");
+    }
     return { ok: true };
   });
 
