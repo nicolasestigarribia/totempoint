@@ -36,6 +36,12 @@ interface OpcionesPreferencia {
   negocio: string;
   /** Número visible del pedido, el que el cliente ve en pantalla. */
   numeroPedido: number;
+  /**
+   * Si se pasa, el link de pago deja de aceptar pagos pasados esos minutos. El
+   * pedido online sin pagar se cancela solo al mismo tiempo: sin esto alguien
+   * podría pagar un pedido que ya no existe.
+   */
+  venceEnMinutos?: number;
 }
 
 async function pedir(url: string, accessToken: string, init?: RequestInit) {
@@ -99,6 +105,13 @@ export async function crearPreferencia(o: OpcionesPreferencia): Promise<Preferen
     external_reference: o.externalReference,
     statement_descriptor: o.negocio.slice(0, 22),
     binary_mode: true,
+    ...(o.venceEnMinutos
+      ? {
+          expires: true,
+          expiration_date_from: new Date().toISOString(),
+          expiration_date_to: new Date(Date.now() + o.venceEnMinutos * 60_000).toISOString(),
+        }
+      : {}),
     back_urls: { success: o.backUrl, pending: o.backUrl, failure: o.backUrl },
     ...(o.notificationUrl ? { notification_url: o.notificationUrl } : {}),
   };

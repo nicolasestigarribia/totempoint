@@ -96,24 +96,18 @@ const columns: OrderStatus[] = ["recibido", "preparacion", "entregado", "cancela
 
 // Cuánto se queda un pedido a la vista antes de desaparecer solo de la
 // comandera, para que no se acumulen los ya resueltos. Es solo visual: el
-// pedido sigue en la base y vuelve si se recarga la pantalla. "preparacion" y
-// "cancelado" no tienen límite: uno está en curso y el otro se deja como
-// registro del día.
+// pedido sigue en la base y vuelve si se recarga la pantalla.
+//
+// Solo se van solos los entregados. "Recibido" antes también se iba a los 3
+// minutos, y un pedido que nadie movió a "En preparación" dejaba de verse
+// mientras el cliente lo seguía esperando. "En preparación" está en curso, y
+// "Cancelado" queda como registro del día. Para despejar la pantalla está el
+// botón "Limpiar".
 const OCULTAR_MS: Partial<Record<OrderStatus, number>> = {
-  recibido: 3 * 60_000,
   entregado: 60_000,
 };
 
-/**
- * Cuánto se queda este pedido a la vista, o null si no se va solo.
- *
- * Un pedido online aceptado no se esconde: alguien del local le prometió al
- * cliente una hora, y si nadie lo pasa a "En preparación" a los 3 minutos
- * dejaba de verse aunque el cliente lo seguía esperando. Queda en "Recibido"
- * hasta que alguien lo mueva o lo limpie a mano.
- */
 function limiteOcultar(o: KitchenOrder): number | undefined {
-  if (o.channel === "online" && o.status === "recibido") return undefined;
   return OCULTAR_MS[o.status];
 }
 

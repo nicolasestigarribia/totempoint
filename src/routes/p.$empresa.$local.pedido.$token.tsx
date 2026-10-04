@@ -209,13 +209,21 @@ function Estado({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string 
     return (
       <Tarjeta
         icono={<XCircle className="h-12 w-12 text-destructive" />}
-        titulo={pedido.canceladoPorCliente ? "Cancelaste tu pedido" : "No pudieron tomar tu pedido"}
+        titulo={
+          pedido.vencioSinPagar
+            ? "Tu pedido venció sin pagarse"
+            : pedido.canceladoPorCliente
+              ? "Cancelaste tu pedido"
+              : "No pudieron tomar tu pedido"
+        }
       >
         {pedido.paymentStatus === "reembolso_pendiente"
           ? "Como ya lo habías pagado, el local te devuelve la plata. Si tenés dudas, llamalos."
-          : pedido.canceladoPorCliente
-            ? "No te cobramos nada. Cuando quieras, hacés otro."
-            : "Si querés saber por qué, llamá al local."}
+          : pedido.vencioSinPagar
+            ? "Pasaron 30 minutos sin que se complete el pago con Mercado Pago, así que lo cancelamos. No te cobramos nada: si todavía lo querés, hacé uno nuevo."
+            : pedido.canceladoPorCliente
+              ? "No te cobramos nada. Cuando quieras, hacés otro."
+              : "Si querés saber por qué, llamá al local."}
       </Tarjeta>
     );
   }

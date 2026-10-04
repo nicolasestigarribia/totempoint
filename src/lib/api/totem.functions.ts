@@ -1141,6 +1141,9 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       notificationUrl: urlDeAviso(),
       negocio: company.name,
       numeroPedido: creado.orderNumber,
+      // El online sin pagar se cancela solo: el link vence con él. En el tótem
+      // el cliente está parado enfrente y el local lo cobra igual en la caja.
+      venceEnMinutos: p.channel === "online" ? VENCE_PAGO_ONLINE_MIN : undefined,
     });
 
     await db.update(orders).set({ mpPreferenceId: pref.id }).where(eq(orders.id, creado.orderId));
@@ -1688,6 +1691,8 @@ export interface OnlineOrderStatus {
   pagosDisponibles: { efectivo: boolean; mercadopago: boolean };
   /** Lo canceló el cliente desde su celular, no el local. */
   canceladoPorCliente: boolean;
+  /** Se canceló solo porque no se terminó de pagar con Mercado Pago a tiempo. */
+  vencioSinPagar: boolean;
   items: Awaited<ReturnType<typeof lineasDelPedido>>;
   companyName: string;
   locationName: string;
@@ -1774,7 +1779,8 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
       total: o.total,
       puedeModificar: modificable(o) && paymentStatus !== "pagado",
       pagosDisponibles: pagos,
-      canceladoPorCliente: o.status === "cancelado" && o.cancelledBy === null,
+      canceladoPorCliente: o.status === "cancelado" && o.cancelledBy === null && !vencido(o),
+      vencioSinPagar: vencido(o),
       pagarEn:
         o.paymentMethod === "mercadopago" &&
         paymentStatus === "pendiente" &&
@@ -1856,6 +1862,32 @@ async function pagoEntro(companyId: number, orderId: number): Promise<boolean> {
   }
   return false;
 }
+
+/**
+ * Si un pedido se canceló solo por no pagarse a tiempo. No hay una columna para
+ * eso: lo cancela la comandera sin usuario, con Mercado Pago sin pagar, y
+ * después del plazo. Uno que el cliente canceló antes del plazo no cuenta.
+ */
+function vencido(o: {
+  status: string;
+  cancelledBy: number | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  paymentMethod: string;
+  paymentStatus: string;
+}): boolean {
+  return (
+    o.status === "cancelado" &&
+    o.cancelledBy === null &&
+    o.paymentMethod === "mercadopago" &&
+    o.paymentStatus === "pendiente" &&
+    o.cancelledAt !== null &&
+    o.cancelledAt.getTime() - o.createdAt.getTime() >= VENCE_PAGO_ONLINE_MIN * 60_000
+  );
+}
+
+/** Lo mismo que `VENCE_PAGO_ONLINE_MS` de la comandera, en minutos para Mercado Pago. */
+const VENCE_PAGO_ONLINE_MIN = 30;
 
 const tokenInput = z.string().regex(/^[0-9a-f]{32}$/, "Pedido inválido");
 
@@ -1974,6 +2006,12 @@ export const changeOnlineOrderPayment = createServerFn({ method: "POST" })
       notificationUrl: urlDeAviso(),
       negocio: company.name,
       numeroPedido: o.orderNumber,
+      // Vence cuando vence el pedido, contado desde que se hizo y no desde el
+      // cambio: si no, el pedido se cancelaría con el link todavía andando.
+      venceEnMinutos: Math.max(
+        5,
+        VENCE_PAGO_ONLINE_MIN - Math.floor((Date.now() - o.createdAt.getTime()) / 60_000),
+      ),
     });
     const [r] = await db
       .update(orders)

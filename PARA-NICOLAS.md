@@ -100,6 +100,11 @@ costo. Todo con servicios gratis y sin clave (OpenStreetMap, Photon, Leaflet).
 la cocina, y `setOrderStatus` se niega a moverlo mientras tanto. Rechazar es cancelar, para que
 devuelva el stock y marque el reembolso si ya estaba pagado.
 
+**Un pedido online con Mercado Pago llega a la comandera recién cuando está pagado** (o cuando el
+cliente lo pasa a efectivo): antes no se ve, no suena y no se puede aceptar. Como ya descontó stock,
+si no se paga en 30 minutos se cancela solo y devuelve el stock, y el link de Mercado Pago vence al
+mismo tiempo. Si igual entra un pago sobre un pedido cancelado, queda "a devolver".
+
 **El cliente puede cancelar o cambiar cómo paga solo hasta que el local acepta el pedido.** Después
 lo están preparando o va en camino, y cualquier cambio es por teléfono. Las dos cosas y la
 aceptación se escriben con la condición "sigue sin aceptar y sin cancelar", así que si el cliente

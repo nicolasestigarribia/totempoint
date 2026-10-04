@@ -76,6 +76,32 @@ export interface KitchenOrder {
  */
 const VENTANA_COMANDERA_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Cuánto espera un pedido online de Mercado Pago a que lo paguen antes de
+ * cancelarse solo. Ese pedido no se muestra en la comandera hasta que se paga,
+ * pero ya descontó stock: si el cliente abandona el pago, sin este vencimiento
+ * quedaría oculto para siempre con la mercadería apartada. El link de pago de
+ * Mercado Pago vence al mismo tiempo, así nadie paga un pedido ya cancelado.
+ */
+export const VENCE_PAGO_ONLINE_MS = 30 * 60 * 1000;
+
+/**
+ * Un pedido online de Mercado Pago que todavía no se pagó. No va a la
+ * comandera: el local recién se entera cuando el cliente terminó de pagar o
+ * lo pasó a efectivo, así no suena ni se acepta un pedido que quizás nunca se
+ * pague.
+ */
+const esperandoPagoOnline = (o: {
+  channel: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  acceptedAt: Date | null;
+}) =>
+  o.channel === "online" &&
+  o.paymentMethod === "mercadopago" &&
+  o.paymentStatus === "pendiente" &&
+  o.acceptedAt === null;
+
 /** Cuánto hacia atrás la cocina sale a buscar pagos de Mercado Pago sin confirmar. */
 const VENTANA_VERIFICACION_MS = 3 * 60 * 60 * 1000;
 /** Tope de consultas a Mercado Pago por refresco de la comandera. */
@@ -136,10 +162,23 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       )
       .slice(0, MAX_VERIFICACIONES);
     const companyId = user.companyId;
+    const vencidos: number[] = [];
     if (sinConfirmar.length > 0 && companyId) {
       const resultados = await Promise.all(
         sinConfirmar.map((o) => verificarPagoMP(o.id, companyId)),
       );
+      // Los online que Mercado Pago confirma que no se pagaron y pasaron el
+      // plazo se cancelan. Si Mercado Pago no contestó (null) no se toca nada:
+      // mejor esperar al próximo refresco que cancelar un pedido pagado.
+      sinConfirmar.forEach((o, i) => {
+        if (
+          resultados[i] === false &&
+          esperandoPagoOnline(o) &&
+          Date.now() - o.createdAt.getTime() > VENCE_PAGO_ONLINE_MS
+        ) {
+          vencidos.push(o.id);
+        }
+      });
       const acreditados = sinConfirmar.filter((_, i) => resultados[i]).map((o) => o.id);
       if (acreditados.length > 0) {
         // Se relee para traer el id del pago que quedó guardado.
@@ -160,13 +199,52 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       }
     }
 
+    // Los que quedaron afuera de la ventana de verificación (más de 3 horas
+    // sin pagar) también vencen: su link de pago ya no sirve.
+    for (const o of rows) {
+      if (
+        esperandoPagoOnline(o) &&
+        o.status !== "cancelado" &&
+        o.createdAt.getTime() < desde &&
+        !vencidos.includes(o.id)
+      ) {
+        vencidos.push(o.id);
+      }
+    }
+    if (vencidos.length > 0) {
+      await db
+        .update(orders)
+        .set({ status: "cancelado", cancelledAt: new Date(), cancelledBy: null })
+        .where(
+          and(
+            inArray(orders.id, vencidos),
+            eq(orders.paymentStatus, "pendiente"),
+            isNull(orders.acceptedAt),
+            ne(orders.status, "cancelado"),
+          ),
+        );
+      for (const id of vencidos) {
+        // El stock que había apartado vuelve. Nunca frena la comandera.
+        try {
+          await devolverVenta(id);
+        } catch (error) {
+          console.error(`No se pudo devolver el stock del pedido vencido ${id}:`, error);
+        }
+      }
+    }
+
+    // A la comandera llega solo lo que el local tiene que atender: un pedido
+    // online de Mercado Pago aparece recién pagado (o pasado a efectivo).
+    const enCocina = rows.filter((o) => !esperandoPagoOnline(o));
+    if (enCocina.length === 0) return [];
+
     const items = await db
       .select()
       .from(orderItems)
       .where(
         inArray(
           orderItems.orderId,
-          rows.map((r) => r.id),
+          enCocina.map((r) => r.id),
         ),
       );
 
@@ -206,7 +284,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
         : [],
     ]);
 
-    return rows.map((o) => ({
+    return enCocina.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
       businessDate: o.businessDate,
@@ -308,6 +386,9 @@ export const acceptOnlineOrder = createServerFn({ method: "POST" })
 
     const target = await pedidoVisible(user, data.orderId);
     if (target.channel !== "online") throw new Error("Ese pedido no es online");
+    if (target.paymentMethod === "mercadopago" && target.paymentStatus !== "pagado") {
+      throw new Error("El cliente todavía no terminó de pagar con Mercado Pago");
+    }
     if (target.status === "cancelado") throw new Error("Ese pedido ya está cancelado");
     if (target.acceptedAt) return { ok: true };
 

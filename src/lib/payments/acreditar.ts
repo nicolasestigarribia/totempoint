@@ -18,5 +18,25 @@ export async function acreditarPedido(orderId: number, paymentId: string): Promi
   await db
     .update(orders)
     .set({ paymentStatus: "pagado", mpPaymentId: paymentId })
-    .where(and(eq(orders.id, orderId), ne(orders.paymentStatus, "pagado")));
+    .where(
+      and(
+        eq(orders.id, orderId),
+        ne(orders.paymentStatus, "pagado"),
+        ne(orders.status, "cancelado"),
+      ),
+    );
+  // Un pago que llega sobre un pedido ya cancelado (el cliente pagó tarde, o el
+  // aviso llegó después de que venció) no puede quedar como "pagado" de un
+  // pedido que no cuenta en ningún lado: queda para devolver, que es lo que el
+  // cierre de caja muestra.
+  await db
+    .update(orders)
+    .set({ paymentStatus: "reembolso_pendiente", mpPaymentId: paymentId })
+    .where(
+      and(
+        eq(orders.id, orderId),
+        eq(orders.status, "cancelado"),
+        eq(orders.paymentStatus, "pendiente"),
+      ),
+    );
 }
