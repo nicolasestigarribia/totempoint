@@ -78,6 +78,40 @@ function guardarCliente(d: DatosGuardados) {
   }
 }
 
+/**
+ * El último pedido que hizo este celular en esta sucursal. Sirve para el caso
+ * en que el cliente sale de la página de Mercado Pago con "atrás": vuelve a
+ * "Tu pedido" con el carrito ya vacío, y tiene que poder llegar a su pedido en
+ * vez de encontrarse con "no agregaste nada".
+ */
+const CLAVE_ULTIMO = "pedido-online-ultimo";
+/** Pasado este tiempo, el pedido anterior ya no se ofrece: es de otra comida. */
+const VIGENCIA_ULTIMO_MS = 3 * 60 * 60 * 1000;
+
+interface UltimoPedido {
+  sucursal: string;
+  token: string;
+  hecho: number;
+}
+
+function guardarUltimo(u: UltimoPedido) {
+  try {
+    localStorage.setItem(CLAVE_ULTIMO, JSON.stringify(u));
+  } catch {
+    // Sin almacenamiento: el cliente igual tiene el link de seguimiento.
+  }
+}
+
+function leerUltimo(sucursal: string): UltimoPedido | null {
+  try {
+    const u = JSON.parse(localStorage.getItem(CLAVE_ULTIMO) ?? "null") as UltimoPedido | null;
+    if (!u || u.sucursal !== sucursal || Date.now() - u.hecho > VIGENCIA_ULTIMO_MS) return null;
+    return u;
+  } catch {
+    return null;
+  }
+}
+
 function CarritoOnlinePage() {
   const menu = Route.useLoaderData();
   const { empresa, local } = Route.useParams();
@@ -116,6 +150,10 @@ function CarritoOnlinePage() {
   const [pagaCon, setPagaCon] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // El pedido ya está tomado y el cliente va camino a pagar a Mercado Pago.
+  // Mientras esa página carga, esta no puede mostrar el carrito vacío.
+  const [aPagar, setAPagar] = useState<{ url: string; token: string } | null>(null);
+  const [ultimo, setUltimo] = useState<UltimoPedido | null>(null);
 
   // Se lee después de montar: en el servidor no hay localStorage.
   useEffect(() => {
@@ -123,7 +161,8 @@ function CarritoOnlinePage() {
     if (d.nombre) setNombre(d.nombre);
     if (d.telefono) setTelefono(d.telefono);
     if (d.destino) setAnterior(d.destino);
-  }, []);
+    setUltimo(leerUltimo(cartKey));
+  }, [cartKey]);
 
   const subtotal = cartTotal(items);
   // El costo que ve el cliente; el servidor lo vuelve a calcular y es el que vale.
@@ -189,14 +228,19 @@ function CarritoOnlinePage() {
           })),
         },
       });
-      clear();
+      guardarUltimo({ sucursal: cartKey, token: r.trackingToken, hecho: Date.now() });
       // Con Mercado Pago se paga en la página de Mercado Pago, que al terminar
       // vuelve a la de seguimiento. Si el cliente la abandona, el seguimiento
-      // le vuelve a ofrecer el pago.
+      // le vuelve a ofrecer el pago. Primero se muestra que vamos para allá y
+      // recién después se vacía el carrito: al revés, mientras Mercado Pago
+      // carga, el cliente veía "Todavía no agregaste nada".
       if (r.pagarEn) {
-        window.location.href = r.pagarEn;
+        setAPagar({ url: r.pagarEn, token: r.trackingToken });
+        clear();
+        window.location.assign(r.pagarEn);
         return;
       }
+      clear();
       navigate({
         to: "/p/$empresa/$local/pedido/$token",
         params: { empresa, local, token: r.trackingToken },
@@ -207,6 +251,41 @@ function CarritoOnlinePage() {
       setEnviando(false);
     }
   };
+
+  if (aPagar) {
+    return (
+      <div className="flex min-h-svh flex-col bg-background">
+        <OnlineHeader
+          empresa={empresa}
+          local={local}
+          name={menu.name}
+          sucursal={menu.locationName}
+          logoUrl={menu.logoUrl}
+        />
+        <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
+          <Loader2 className="h-10 w-10 animate-spin" style={{ color: accent }} />
+          <p className="font-display text-3xl">Te llevamos a Mercado Pago</p>
+          <p className="text-muted-foreground">
+            Tu pedido ya está anotado. Pagá ahí y volvés solo a ver cuándo lo tenés.
+          </p>
+          <a
+            href={aPagar.url}
+            className="mt-2 flex h-12 w-full max-w-xs items-center justify-center rounded-2xl font-bold text-white"
+            style={{ background: accent }}
+          >
+            Ir a pagar
+          </a>
+          <Link
+            to="/p/$empresa/$local/pedido/$token"
+            params={{ empresa, local, token: aPagar.token }}
+            className="text-sm text-muted-foreground underline underline-offset-4"
+          >
+            Ver mi pedido
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -221,15 +300,43 @@ function CarritoOnlinePage() {
         />
         <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
           <ShoppingBag className="h-12 w-12 text-muted-foreground" />
-          <p className="text-lg text-muted-foreground">Todavía no agregaste nada</p>
-          <Link
-            to="/p/$empresa/$local"
-            params={{ empresa, local }}
-            className="rounded-2xl px-6 py-3 font-bold text-white"
-            style={{ background: accent }}
-          >
-            Ver el menú
-          </Link>
+          {/* Volvió de Mercado Pago con "atrás", o entró de nuevo después de
+              pedir: su pedido existe, y es lo primero que tiene que ver. */}
+          {ultimo ? (
+            <>
+              <p className="font-display text-3xl">Ya hiciste tu pedido</p>
+              <p className="text-muted-foreground">
+                Fijate cómo va, o si te faltó pagarlo con Mercado Pago.
+              </p>
+              <Link
+                to="/p/$empresa/$local/pedido/$token"
+                params={{ empresa, local, token: ultimo.token }}
+                className="rounded-2xl px-6 py-3 font-bold text-white"
+                style={{ background: accent }}
+              >
+                Ver mi pedido
+              </Link>
+              <Link
+                to="/p/$empresa/$local"
+                params={{ empresa, local }}
+                className="text-sm text-muted-foreground underline underline-offset-4"
+              >
+                Hacer otro pedido
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="text-lg text-muted-foreground">Todavía no agregaste nada</p>
+              <Link
+                to="/p/$empresa/$local"
+                params={{ empresa, local }}
+                className="rounded-2xl px-6 py-3 font-bold text-white"
+                style={{ background: accent }}
+              >
+                Ver el menú
+              </Link>
+            </>
+          )}
         </main>
       </div>
     );
