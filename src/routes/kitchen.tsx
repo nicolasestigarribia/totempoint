@@ -104,6 +104,19 @@ const OCULTAR_MS: Partial<Record<OrderStatus, number>> = {
   entregado: 60_000,
 };
 
+/**
+ * Cuánto se queda este pedido a la vista, o null si no se va solo.
+ *
+ * Un pedido online aceptado no se esconde: alguien del local le prometió al
+ * cliente una hora, y si nadie lo pasa a "En preparación" a los 3 minutos
+ * dejaba de verse aunque el cliente lo seguía esperando. Queda en "Recibido"
+ * hasta que alguien lo mueva o lo limpie a mano.
+ */
+function limiteOcultar(o: KitchenOrder): number | undefined {
+  if (o.channel === "online" && o.status === "recibido") return undefined;
+  return OCULTAR_MS[o.status];
+}
+
 const pagoMeta: Record<PaymentMethod, { label: string; icon: typeof Clock }> = {
   efectivo: { label: "Efectivo", icon: Banknote },
   mercadopago: { label: "Mercado Pago", icon: Smartphone },
@@ -275,7 +288,7 @@ function restanteMs(
   ahora: number,
   desdeEntregado: Map<number, number>,
 ): number | null {
-  const limite = OCULTAR_MS[o.status];
+  const limite = limiteOcultar(o);
   if (limite == null) return null;
   const desde =
     o.status === "entregado"
@@ -461,7 +474,7 @@ function Kitchen() {
       // Los online sin aceptar van en su propia franja, no en las columnas.
       if (esPorAceptar(o)) return false;
       if (limpiadosRef.current.has(o.id)) return false;
-      const limite = OCULTAR_MS[o.status];
+      const limite = limiteOcultar(o);
       if (limite == null) return true;
       const desde =
         o.status === "entregado"
