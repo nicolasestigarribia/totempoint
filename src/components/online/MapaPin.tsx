@@ -12,7 +12,8 @@ import type { Punto } from "@/lib/delivery";
  * servidor esto es una caja vacía del mismo tamaño.
  *
  * El pin se mueve arrastrándolo o tocando el mapa: en un celular, arrastrar un
- * pin chico con el dedo es difícil, tocar donde va es más fácil.
+ * pin chico con el dedo es difícil, tocar donde va es más fácil. El mapa no
+ * se queda con el scroll de la página: ver las opciones de `L.map` abajo.
  */
 export function MapaPin({
   pin,
@@ -44,10 +45,18 @@ export function MapaPin({
     let observador: ResizeObserver | null = null;
     void import("leaflet").then((L) => {
       if (!vivo || !contenedor.current || mapa.current) return;
-      const m = L.map(contenedor.current, { zoomControl: true, attributionControl: true }).setView(
-        [pin.lat, pin.lng],
-        16,
-      );
+      const m = L.map(contenedor.current, {
+        zoomControl: true,
+        attributionControl: true,
+        // El mapa está en medio de una página que se scrollea. Si la rueda
+        // hace zoom y un dedo arrastra el mapa, pasar por encima del mapa deja
+        // al cliente sin poder volver arriba: el mapa se queda con el gesto.
+        // Así que la rueda scrollea la página (el zoom va con + y −), y en
+        // pantallas táctiles un dedo también: el mapa se mueve con dos dedos,
+        // y el pin, tocando donde va o arrastrando el pin mismo.
+        scrollWheelZoom: false,
+        dragging: !L.Browser.mobile,
+      }).setView([pin.lat, pin.lng], 16);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: "© OpenStreetMap",
