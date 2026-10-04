@@ -33,8 +33,16 @@ export interface TicketData {
   businessDate: string;
   customerName: string;
   createdAt: Date;
-  deliveryMethod: "local" | "mostrador";
+  deliveryMethod: "local" | "mostrador" | "envio";
   items: TicketItem[];
+  /** Pedido online: cómo ubicar al cliente y a dónde va. */
+  customerPhone?: string | null;
+  deliveryZoneName?: string | null;
+  /** Costo del envío, ya incluido en el total. */
+  deliveryFee?: number | null;
+  deliveryAddress?: string | null;
+  /** "Paga con": para que el repartidor salga con el vuelto. */
+  cashPaysWith?: number | null;
   total: number;
   comments?: string | null;
   paymentMethod?: "efectivo" | "mercadopago";
@@ -150,10 +158,31 @@ export function buildTicket(data: TicketData): Uint8Array {
   nl();
   texto(`Cliente: ${data.customerName}`);
   nl();
-  texto(
-    `Entrega: ${data.deliveryMethod === "local" ? "Comer en el local" : "Retira en mostrador"}`,
-  );
-  nl();
+  if (data.customerPhone) {
+    texto(`Tel: ${data.customerPhone}`);
+    nl();
+  }
+  if (data.deliveryMethod === "envio") {
+    // El envío va grande: es lo primero que tiene que ver quien arma el paquete
+    // y quien sale a llevarlo.
+    cmd(BOLD_ON);
+    cmd(SIZE_DOUBLE);
+    texto("ENVIO");
+    nl();
+    cmd(SIZE_NORMAL);
+    texto(`Zona: ${data.deliveryZoneName ?? "-"}`);
+    nl();
+    cmd(BOLD_OFF);
+    if (data.deliveryAddress) {
+      texto(`Donde: ${data.deliveryAddress}`);
+      nl();
+    }
+  } else {
+    texto(
+      `Entrega: ${data.deliveryMethod === "local" ? "Comer en el local" : "Retira en mostrador"}`,
+    );
+    nl();
+  }
   if (data.paymentMethod) {
     texto(`Pago: ${data.paymentMethod === "efectivo" ? "Efectivo" : "Mercado Pago"}`);
     nl();
@@ -179,6 +208,11 @@ export function buildTicket(data: TicketData): Uint8Array {
     }
   }
 
+  if (data.deliveryFee) {
+    texto(lineaDoble("Envio", formatearPrecio(data.deliveryFee), ancho));
+    nl();
+  }
+
   sep();
 
   // Total grande.
@@ -188,6 +222,13 @@ export function buildTicket(data: TicketData): Uint8Array {
   nl();
   cmd(SIZE_NORMAL);
   cmd(BOLD_OFF);
+
+  if (data.paymentMethod === "efectivo" && data.cashPaysWith) {
+    texto(lineaDoble("Paga con", formatearPrecio(data.cashPaysWith), ancho));
+    nl();
+    texto(lineaDoble("Vuelto", formatearPrecio(data.cashPaysWith - data.total), ancho));
+    nl();
+  }
 
   if (data.comments?.trim()) {
     nl();

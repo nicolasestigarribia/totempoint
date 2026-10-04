@@ -67,6 +67,27 @@ cuyo token reconoció el pago.
 parche de desarrollo: los avisos se pierden también en producción, y hay alguien parado frente a la
 pantalla esperando que avance.
 
+### Pedido online
+
+Es un segundo canal de venta dentro de Totempoint, no un producto aparte: el cliente abre
+`/p/{empresa}/{sucursal}` en su celular, con el mismo menú que el tótem, y elige retiro o envío. El
+bot de WhatsApp sí es otro producto; si algún día manda este link, es una integración entre los dos.
+
+**El tótem y el online toman pedidos por el mismo camino** (`tomarPedido` en
+`totem.functions.ts`). Precios, extras, "sin cebolla", disponibilidad, numeración, stock y Mercado
+Pago son una sola función: un arreglo en un canal no puede quedar roto en el otro. No la dupliques.
+
+**El costo del envío sale de la zona guardada en la base**, nunca del celular, igual que los
+precios. El mínimo se mide sobre lo pedido *sin* el envío, y el pedido congela nombre y costo de la
+zona: borrar una zona no cambia pedidos viejos.
+
+**Un pedido online espera que el local lo acepte** (`accepted_at`) antes de entrar a las columnas de
+la cocina, y `setOrderStatus` se niega a moverlo mientras tanto. Rechazar es cancelar, para que
+devuelva el stock y marque el reembolso si ya estaba pagado.
+
+**El seguimiento del cliente se abre con `tracking_token`, nunca con el id.** El id es correlativo:
+con él cualquiera recorre pedidos ajenos y ve nombre, teléfono y dirección.
+
 ### Accesos
 
 **Toda mutación verifica el permiso, no solo la empresa.** `requireCompany` responde "¿sos de esta
@@ -184,6 +205,18 @@ agregar un agente local que hable ESC/POS, sin rehacer el contenido del ticket.
 
 **La comanda tiene que imprimirse sola al entrar el pedido**, no con alguien apretando un botón. Eso
 implica que la pantalla de cocina quede siempre abierta en la máquina que tiene la impresora.
+
+### Pedido online — lo que falta
+
+La etapa 1 está hecha y probada de punta a punta (envío y retiro, aceptar y rechazar). Falta:
+
+- **Imprimir los pedidos online.** El ticket ya sabe mostrar envío, zona, teléfono y vuelto
+  (`src/lib/print/ticket.ts`), pero hoy imprime la tablet del tótem al terminar el pedido, y un
+  pedido online no pasa por ninguna tablet. Lo natural es que imprima la comandera al aceptarlo.
+- **Abrir y cerrar el canal lo hace solo el dueño** (sección "Pedido online"). Si lo va a hacer el
+  de la caja, hay que volverlo un permiso delegable — y extender `user_permissions.section`.
+- **Horario del canal** ("cerrado, abrimos a las 19") y estado "en camino" para el envío.
+- **El bot de WhatsApp** contestando con el link y avisando los cambios de estado.
 
 ### Decisión pendiente del dueño del producto
 

@@ -16,6 +16,11 @@ import {
   Smartphone,
   BadgeCheck,
   Eraser,
+  Bike,
+  Phone,
+  MapPin,
+  Volume2,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
@@ -25,6 +30,7 @@ import {
   setOrderPaid,
   verifyOrderPayment,
   cancelOrder,
+  acceptOnlineOrder,
   type KitchenOrder,
   type OrderStatus,
   type PaymentMethod,
@@ -102,6 +108,133 @@ const pagoMeta: Record<PaymentMethod, { label: string; icon: typeof Clock }> = {
   mercadopago: { label: "Mercado Pago", icon: Smartphone },
 };
 
+/** Las demoras que se ofrecen al aceptar un pedido online, en minutos. */
+const DEMORAS = [20, 30, 45, 60];
+
+/** Un pedido online que todavía nadie aceptó: espera arriba, fuera de las columnas. */
+const esPorAceptar = (o: KitchenOrder) =>
+  o.channel === "online" && !o.acceptedAt && o.status !== "cancelado";
+
+function entregaLabel(o: KitchenOrder): string {
+  if (o.deliveryMethod === "envio") return `Envío · ${o.deliveryZoneName ?? "sin zona"}`;
+  if (o.deliveryMethod === "local") return "Comer en el local";
+  return o.channel === "online" ? "Retira en el local" : "Retirar en mostrador";
+}
+
+/** Link a la ubicación que compartió el cliente. No necesita ninguna clave de API. */
+const mapaUrl = (o: KitchenOrder) =>
+  o.deliveryLat && o.deliveryLng
+    ? `https://www.google.com/maps?q=${o.deliveryLat},${o.deliveryLng}`
+    : null;
+
+/**
+ * Dos pitidos cortos con Web Audio, sin archivo de sonido. El navegador no deja
+ * sonar nada hasta que alguien toca la pantalla, así que el contexto se crea y
+ * se destraba con el primer toque.
+ */
+function pitar(ctx: AudioContext | null) {
+  if (!ctx || ctx.state !== "running") return;
+  for (const t of [0, 0.28]) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    const inicio = ctx.currentTime + t;
+    gain.gain.setValueAtTime(0.0001, inicio);
+    gain.gain.exponentialRampToValueAtTime(0.5, inicio + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.22);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(inicio);
+    osc.stop(inicio + 0.24);
+  }
+}
+
+/** Lo que lleva el pedido, con lo sacado y lo agregado bien a la vista. */
+function LineasPedido({ items }: { items: KitchenOrder["items"] }) {
+  return (
+    <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
+      {items.map((i, idx) => (
+        <li key={idx}>
+          <span className="flex justify-between">
+            <span className="truncate">
+              <span className="font-bold text-gold">{i.quantity}×</span> {i.productName}
+            </span>
+          </span>
+          {/* Lo que hay que sacar va debajo del producto y resaltado:
+              equivocarse acá significa rehacer el plato, así que no puede
+              parecer un detalle del renglón. */}
+          {i.removed.length > 0 && (
+            <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-amber-400">
+              {i.removed.map((r) => `sin ${r}`).join(" · ")}
+            </span>
+          )}
+          {/* Los extras van igual de resaltados: agregar de más también
+              cambia el plato. */}
+          {i.extras.length > 0 && (
+            <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-emerald-400">
+              {i.extras.map((e) => `+${e.quantity} ${e.name}`).join(" · ")}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Teléfono, a dónde va y con cuánto paga: lo que necesita quien lo despacha. */
+function DatosOnline({ o }: { o: KitchenOrder }) {
+  const mapa = mapaUrl(o);
+  const vuelto =
+    o.paymentMethod === "efectivo" && o.cashPaysWith
+      ? Number(o.cashPaysWith) - Number(o.total)
+      : null;
+  return (
+    <div className="mt-3 space-y-1.5 rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 text-sm">
+      {o.customerPhone && (
+        <a
+          href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`}
+          className="flex items-center gap-2 font-bold text-sky-300 underline-offset-4 hover:underline"
+        >
+          <Phone className="h-4 w-4 shrink-0" />
+          {o.customerPhone}
+        </a>
+      )}
+      {o.deliveryMethod === "envio" && (
+        <>
+          <p className="flex items-start gap-2">
+            <Bike className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
+            <span>
+              <span className="font-bold">{o.deliveryZoneName}</span>
+              {o.deliveryFee && (
+                <span className="text-muted-foreground"> · envío {formatPrice(o.deliveryFee)}</span>
+              )}
+              {o.deliveryAddress && <span className="block">{o.deliveryAddress}</span>}
+            </span>
+          </p>
+          {mapa && (
+            <a
+              href={mapa}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 text-sky-300 underline underline-offset-4"
+            >
+              <MapPin className="h-4 w-4 shrink-0" />
+              Ver ubicación en el mapa
+            </a>
+          )}
+        </>
+      )}
+      {vuelto !== null && (
+        <p className="flex items-center gap-2">
+          <Banknote className="h-4 w-4 shrink-0 text-sky-300" />
+          Paga con {formatPrice(o.cashPaysWith!)} · vuelto{" "}
+          <span className="font-bold">{formatPrice(vuelto)}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return `${Math.max(s, 0)}s`;
@@ -124,8 +257,17 @@ function restanteMs(
   const desde =
     o.status === "entregado"
       ? (desdeEntregado.get(o.id) ?? new Date(o.createdAt).getTime())
-      : new Date(o.createdAt).getTime();
+      : llegadaACocina(o);
   return Math.max(0, limite - (ahora - desde));
+}
+
+/**
+ * Desde cuándo está el pedido en la cocina. Uno online entra recién cuando lo
+ * aceptan, que puede ser bastante después de creado: medirlo desde la creación
+ * lo haría desaparecer de "Recibido" apenas aceptado.
+ */
+function llegadaACocina(o: KitchenOrder): number {
+  return new Date(o.acceptedAt ?? o.createdAt).getTime();
 }
 
 function cuentaRegresiva(ms: number): string {
@@ -141,6 +283,7 @@ function Kitchen() {
   const updatePaid = useServerFn(setOrderPaid);
   const doVerify = useServerFn(verifyOrderPayment);
   const doCancel = useServerFn(cancelOrder);
+  const doAccept = useServerFn(acceptOnlineOrder);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -170,10 +313,43 @@ function Kitchen() {
   // Pedidos que el botón "Limpiar" sacó de la vista a mano. Es solo en memoria:
   // se pierde al recargar, así que la limpieza nunca borra nada de la base.
   const limpiadosRef = useRef<Set<number>>(new Set());
+  // Aviso sonoro de pedidos online por aceptar. Quien los atiende está con el
+  // celular en la mano haciendo otra cosa: si no suena, el pedido espera.
+  const audioRef = useRef<AudioContext | null>(null);
+  const [sonidoActivo, setSonidoActivo] = useState(false);
+  const [aceptando, setAceptando] = useState<number | null>(null);
+
+  // El navegador no deja sonar nada hasta el primer toque en la página: ese
+  // toque, sea donde sea, destraba el sonido.
+  const activarSonido = useCallback(async () => {
+    try {
+      const Ctor =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) return;
+      audioRef.current ??= new Ctor();
+      await audioRef.current.resume();
+      setSonidoActivo(audioRef.current.state === "running");
+    } catch {
+      // Sin sonido la comandera igual funciona: queda el cartel.
+    }
+  }, []);
+
+  useEffect(() => {
+    const alTocar = () => void activarSonido();
+    window.addEventListener("pointerdown", alTocar, { once: true });
+    return () => window.removeEventListener("pointerdown", alTocar);
+  }, [activarSonido]);
 
   const load = useCallback(async () => {
     try {
       const nuevos = await fetchOrders();
+      // Mientras haya pedidos online esperando, suena en cada refresco: uno
+      // solo al llegar se pierde si nadie estaba mirando.
+      if (nuevos.some(esPorAceptar)) {
+        pitar(audioRef.current);
+        navigator.vibrate?.([200, 100, 200]);
+      }
       const vivos = new Set(nuevos.map((o) => o.id));
       const desde = entregadoDesdeRef.current;
       // Olvidar los pedidos que ya no vienen del servidor, para que los mapas no
@@ -242,16 +418,48 @@ function Kitchen() {
   // que se limpiaron a mano. Depende de `ahora` para reevaluarse con el reloj.
   const visibles = useMemo(() => {
     return orders.filter((o) => {
+      // Los online sin aceptar van en su propia franja, no en las columnas.
+      if (esPorAceptar(o)) return false;
       if (limpiadosRef.current.has(o.id)) return false;
       const limite = OCULTAR_MS[o.status];
       if (limite == null) return true;
       const desde =
         o.status === "entregado"
           ? (entregadoDesdeRef.current.get(o.id) ?? new Date(o.createdAt).getTime())
-          : new Date(o.createdAt).getTime();
+          : llegadaACocina(o);
       return ahora - desde < limite;
     });
   }, [orders, ahora]);
+
+  // Los más viejos primero: el que más esperó es el primero a contestar.
+  const porAceptar = useMemo(
+    () =>
+      orders
+        .filter(esPorAceptar)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    [orders],
+  );
+
+  // La pestaña avisa también, por si la comandera quedó detrás de otra.
+  useEffect(() => {
+    document.title =
+      porAceptar.length > 0 ? `(${porAceptar.length}) Por aceptar` : "Panel de cocina";
+  }, [porAceptar.length]);
+
+  const aceptar = async (order: KitchenOrder, etaMinutes: number) => {
+    setAceptando(order.id);
+    try {
+      await doAccept({ data: { orderId: order.id, etaMinutes } });
+      toast.success(
+        `Pedido ${formatearNumeroPedido(order.businessDate, order.orderNumber)} aceptado: ${etaMinutes} min`,
+      );
+      await load();
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo aceptar el pedido"));
+    } finally {
+      setAceptando(null);
+    }
+  };
 
   const grouped = useMemo(() => {
     const g: Record<OrderStatus, KitchenOrder[]> = {
@@ -412,7 +620,117 @@ function Kitchen() {
           </div>
         </div>
 
-        {visibles.length === 0 ? (
+        {porAceptar.length > 0 && (
+          <section className="mb-6 rounded-3xl border-2 border-sky-500/60 bg-sky-500/5 p-4 md:p-5">
+            <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-sky-300" />
+                <h2 className="font-display text-2xl">Pedidos online por aceptar</h2>
+                <span className="rounded-full bg-sky-500 px-3 py-0.5 text-sm font-extrabold text-white">
+                  {porAceptar.length}
+                </span>
+              </div>
+              {!sonidoActivo && (
+                <button
+                  type="button"
+                  onClick={activarSonido}
+                  className="flex h-10 items-center gap-2 rounded-xl border border-sky-500/60 px-3 text-sm font-bold text-sky-300"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  Activar el aviso con sonido
+                </button>
+              )}
+            </header>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {porAceptar.map((o) => (
+                <article
+                  key={o.id}
+                  className="rounded-2xl border border-border border-l-4 border-l-sky-500 bg-card p-4 shadow-card"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-display text-3xl text-gold">
+                        {formatearNumeroPedido(o.businessDate, o.orderNumber)}
+                      </div>
+                      <div className="text-sm font-bold">{o.customerName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {entregaLabel(o)}
+                        {" · "}
+                        <span className="text-gold">hace {timeAgo(o.createdAt)}</span>
+                      </div>
+                    </div>
+                    <span className="shrink-0 font-display text-2xl">{formatPrice(o.total)}</span>
+                  </div>
+
+                  <DatosOnline o={o} />
+                  <LineasPedido items={o.items} />
+
+                  {o.comments && (
+                    <div className="mt-3 rounded-lg bg-secondary p-2 text-xs italic text-muted-foreground">
+                      {o.comments}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {(() => {
+                      const P = pagoMeta[o.paymentMethod].icon;
+                      return <P className="h-3.5 w-3.5" />;
+                    })()}
+                    {pagoMeta[o.paymentMethod].label}
+                    {o.paymentMethod === "mercadopago" &&
+                      (o.paymentStatus === "pagado" ? (
+                        <span className="ml-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-300">
+                          Pagado
+                        </span>
+                      ) : (
+                        <span className="ml-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-sky-300">
+                          Esperando pago
+                        </span>
+                      ))}
+                  </div>
+
+                  {puedeOperar && (
+                    <>
+                      {/* Aceptar es elegir la demora: un solo toque, y el
+                          cliente ve en su celular en cuánto lo tiene. */}
+                      <p className="mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Aceptar con demora de
+                      </p>
+                      <div className="mt-2 grid grid-cols-4 gap-2">
+                        {DEMORAS.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            disabled={aceptando !== null}
+                            onClick={() => aceptar(o, m)}
+                            className="flex h-12 items-center justify-center rounded-xl bg-gradient-primary text-sm font-extrabold text-primary-foreground transition active:scale-95 disabled:opacity-50"
+                          >
+                            {aceptando === o.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              `${m}'`
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setACancelar(o)}
+                        disabled={aceptando !== null}
+                        className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border text-xs font-bold uppercase tracking-wider text-muted-foreground transition hover:border-destructive hover:text-destructive"
+                      >
+                        <Ban className="h-4 w-4" /> Rechazar
+                      </button>
+                    </>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {visibles.length === 0 && porAceptar.length > 0 ? null : visibles.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-card/40 p-16 text-center">
             <h2 className="font-display text-3xl">Sin pedidos todavía</h2>
             <p className="mt-2 text-muted-foreground">
@@ -450,9 +768,12 @@ function Kitchen() {
                               </div>
                               <div className="text-sm font-bold">{o.customerName}</div>
                               <div className="text-xs text-muted-foreground">
-                                {o.deliveryMethod === "local"
-                                  ? "Comer en el local"
-                                  : "Retirar en mostrador"}
+                                {o.channel === "online" && (
+                                  <span className="mr-1 rounded bg-sky-500/20 px-1.5 py-0.5 font-bold uppercase text-sky-300">
+                                    Online
+                                  </span>
+                                )}
+                                {entregaLabel(o)}
                                 {" · "}
                                 <span className="text-gold">{timeAgo(o.createdAt)}</span>
                               </div>
@@ -488,34 +809,8 @@ function Kitchen() {
                             </div>
                           </div>
 
-                          <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
-                            {o.items.map((i, idx) => (
-                              <li key={idx}>
-                                <span className="flex justify-between">
-                                  <span className="truncate">
-                                    <span className="font-bold text-gold">{i.quantity}×</span>{" "}
-                                    {i.productName}
-                                  </span>
-                                </span>
-                                {/* Lo que hay que sacar va debajo del producto
-                                    y resaltado: equivocarse acá significa
-                                    rehacer el plato, así que no puede parecer
-                                    un detalle del renglón. */}
-                                {i.removed.length > 0 && (
-                                  <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-amber-400">
-                                    {i.removed.map((r) => `sin ${r}`).join(" · ")}
-                                  </span>
-                                )}
-                                {/* Los extras van igual de resaltados: agregar de
-                                    más también cambia el plato. */}
-                                {i.extras.length > 0 && (
-                                  <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-emerald-400">
-                                    {i.extras.map((e) => `+${e.quantity} ${e.name}`).join(" · ")}
-                                  </span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
+                          {o.channel === "online" && <DatosOnline o={o} />}
+                          <LineasPedido items={o.items} />
 
                           {o.comments && (
                             <div className="mt-3 rounded-lg bg-secondary p-2 text-xs italic text-muted-foreground">
@@ -659,13 +954,15 @@ function Kitchen() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Cancelar el pedido{" "}
+              {aCancelar && esPorAceptar(aCancelar) ? "Rechazar" : "Cancelar"} el pedido{" "}
               {aCancelar && formatearNumeroPedido(aCancelar.businessDate, aCancelar.orderNumber)}
             </DialogTitle>
             <DialogDescription>
               {aCancelar?.paymentStatus === "pagado"
                 ? "Este pedido ya está cobrado. Al cancelarlo queda marcado como pendiente de reembolso y la plata se devuelve a mano, por caja o por Mercado Pago."
-                : "El pedido deja de contar para el cierre de caja del día."}
+                : aCancelar && esPorAceptar(aCancelar)
+                  ? "El cliente ve en su celular que no se lo pueden hacer. Si querés explicarle por qué, llamalo al teléfono del pedido."
+                  : "El pedido deja de contar para el cierre de caja del día."}
             </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
@@ -691,7 +988,7 @@ function Kitchen() {
               ) : (
                 <Ban className="h-4 w-4" />
               )}
-              Cancelar el pedido
+              {aCancelar && esPorAceptar(aCancelar) ? "Rechazar" : "Cancelar"} el pedido
             </button>
           </div>
         </DialogContent>

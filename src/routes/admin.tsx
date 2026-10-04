@@ -34,6 +34,7 @@ import {
   ChevronDown,
   ArrowLeft,
   History,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -58,6 +59,7 @@ import { OperadoresSection } from "@/components/admin/OperadoresSection";
 import { CajaSection } from "@/components/admin/CajaSection";
 import { PagosSection } from "@/components/admin/PagosSection";
 import { AuditoriaSection } from "@/components/admin/AuditoriaSection";
+import { OnlineSection } from "@/components/admin/OnlineSection";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -82,6 +84,7 @@ type SectionId =
   | "caja"
   | "pagos"
   | "totems"
+  | "online"
   | "operadores"
   | "auditoria";
 
@@ -130,6 +133,16 @@ const SECTIONS: SectionDef[] = [
     label: "Tótems",
     icon: Monitor,
     desc: "Enlaces, QR y portada de cada tótem",
+    group: "empresa",
+    ownerOnly: true,
+  },
+  {
+    // Es del dueño, como Cobros: decide cuánto se cobra el envío y por dónde
+    // entran los pedidos.
+    id: "online",
+    label: "Pedido online",
+    icon: Globe,
+    desc: "El link para que tus clientes pidan desde el celular, con retiro o envío",
     group: "empresa",
     ownerOnly: true,
   },
@@ -712,6 +725,8 @@ function SectionContent({
       return <CajaSection panelClass={panelClass} />;
     case "pagos":
       return <PagosSection panelClass={panelClass} />;
+    case "online":
+      return <OnlineSection panelClass={panelClass} />;
     case "totems":
       return (
         <TotemsSection panelClass={panelClass} business={business} onEditPortada={onEditPortada} />

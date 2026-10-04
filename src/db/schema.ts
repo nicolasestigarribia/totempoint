@@ -587,8 +587,38 @@ export const orders = mysqlTable(
      */
     totemId: int("totem_id"),
     orderNumber: int("order_number").notNull(),
+    /**
+     * Por dónde entró el pedido: el tótem del mostrador o el link de pedido
+     * online que el cliente abre en su celular. Un pedido online espera que
+     * alguien del local lo acepte (`acceptedAt`) antes de ir a la cocina.
+     */
+    channel: mysqlEnum("channel", ["totem", "online"]).notNull().default("totem"),
     customerName: varchar("customer_name", { length: 120 }).notNull(),
-    deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador"]).notNull(),
+    /** "envio" es solo del canal online: el tótem ofrece comer acá o retirar. */
+    deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador", "envio"]).notNull(),
+    /** Obligatorio en el canal online: es cómo el local y el repartidor lo encuentran. */
+    customerPhone: varchar("customer_phone", { length: 40 }),
+    /** Zona y costo del envío, congelados como el nombre y precio de los ítems. */
+    deliveryZoneName: varchar("delivery_zone_name", { length: 80 }),
+    /** Ya está sumado en `total`; se guarda aparte para mostrarlo desglosado. */
+    deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }),
+    /** Dirección o referencia ("parador 3, sombrilla roja"). */
+    deliveryAddress: varchar("delivery_address", { length: 255 }),
+    /** Ubicación que compartió el celular, si la compartió. */
+    deliveryLat: decimal("delivery_lat", { precision: 9, scale: 6 }),
+    deliveryLng: decimal("delivery_lng", { precision: 9, scale: 6 }),
+    /** "Pago con $20.000": para que el repartidor salga con el vuelto. */
+    cashPaysWith: decimal("cash_pays_with", { precision: 10, scale: 2 }),
+    /** Cuándo lo aceptó el local. Null en un pedido online = todavía por aceptar. */
+    acceptedAt: timestamp("accepted_at"),
+    /** Demora que prometió el local al aceptar, en minutos. */
+    etaMinutes: int("eta_minutes"),
+    /**
+     * Código aleatorio de la página de seguimiento del cliente. No se usa el id
+     * porque es correlativo: cualquiera podría recorrer pedidos ajenos y ver
+     * nombre, teléfono y dirección.
+     */
+    trackingToken: varchar("tracking_token", { length: 40 }),
     comments: text("comments"),
     status: mysqlEnum("status", ["recibido", "preparacion", "entregado", "cancelado"])
       .notNull()
@@ -625,7 +655,52 @@ export const orders = mysqlTable(
     // Sigue siendo la red de seguridad: el número se asigna con order_sequences,
     // pero esta unique key garantiza que dos pedidos nunca compartan número.
     unique("orders_location_date_number_uq").on(t.locationId, t.businessDate, t.orderNumber),
+    unique("orders_tracking_token_uq").on(t.trackingToken),
   ],
+);
+
+/**
+ * Cómo toma pedidos online cada sucursal: una fila por sucursal. Sin fila, o
+ * con `enabled` apagado, el link de pedido online muestra que no está tomando
+ * pedidos — nadie empieza a recibir envíos sin haberlo prendido.
+ */
+export const onlineSettings = mysqlTable(
+  "online_settings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    companyId: int("company_id").notNull(),
+    locationId: int("location_id").notNull(),
+    /** El interruptor de "estamos tomando pedidos". */
+    enabled: boolean("enabled").notNull().default(false),
+    pickupEnabled: boolean("pickup_enabled").notNull().default(true),
+    deliveryEnabled: boolean("delivery_enabled").notNull().default(false),
+    /** Si se acepta efectivo. Mercado Pago depende de la sección Cobros. */
+    cashEnabled: boolean("cash_enabled").notNull().default(true),
+    /** Pedido mínimo, sobre lo pedido y sin contar el envío. 0 = sin mínimo. */
+    minOrder: decimal("min_order", { precision: 10, scale: 2 }).notNull().default("0"),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [unique("online_settings_location_uq").on(t.locationId)],
+);
+
+/**
+ * Zonas de envío de una sucursal, con su costo. Las carga el dueño ("Centro",
+ * "Playa norte") y el cliente elige la suya. Se pueden borrar sin miedo: el
+ * pedido congela el nombre y el costo de la zona que eligió.
+ */
+export const deliveryZones = mysqlTable(
+  "delivery_zones",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    companyId: int("company_id").notNull(),
+    locationId: int("location_id").notNull(),
+    name: varchar("name", { length: 80 }).notNull(),
+    price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+    active: boolean("active").notNull().default(true),
+    sort: int("sort").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("delivery_zones_location_idx").on(t.locationId)],
 );
 
 // Contador de numeración por local y jornada.

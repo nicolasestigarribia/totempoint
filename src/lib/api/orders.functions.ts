@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, desc, inArray, gte, lte } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lte, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, orderItemRemovals, orderItemExtras, locations } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
@@ -33,8 +33,24 @@ export interface KitchenOrder {
   orderNumber: number;
   businessDate: string;
   customerName: string;
-  deliveryMethod: "local" | "mostrador";
+  deliveryMethod: "local" | "mostrador" | "envio";
   comments: string | null;
+  /** Tótem del mostrador o pedido online desde el celular del cliente. */
+  channel: "totem" | "online";
+  /**
+   * Cuándo lo aceptó el local. Un pedido online sin aceptar no entra todavía
+   * a las columnas de la cocina: espera en "Por aceptar".
+   */
+  acceptedAt: string | null;
+  etaMinutes: number | null;
+  /** Datos del pedido online: cómo ubicar al cliente y cómo le llega. */
+  customerPhone: string | null;
+  deliveryZoneName: string | null;
+  deliveryFee: string | null;
+  deliveryAddress: string | null;
+  deliveryLat: string | null;
+  deliveryLng: string | null;
+  cashPaysWith: string | null;
   status: OrderStatus;
   total: string;
   createdAt: string;
@@ -176,6 +192,16 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       customerName: o.customerName,
       deliveryMethod: o.deliveryMethod,
       comments: o.comments,
+      channel: o.channel,
+      acceptedAt: o.acceptedAt?.toISOString() ?? null,
+      etaMinutes: o.etaMinutes,
+      customerPhone: o.customerPhone,
+      deliveryZoneName: o.deliveryZoneName,
+      deliveryFee: o.deliveryFee,
+      deliveryAddress: o.deliveryAddress,
+      deliveryLat: o.deliveryLat,
+      deliveryLng: o.deliveryLng,
+      cashPaysWith: o.cashPaysWith,
       status: o.status,
       total: o.total,
       createdAt: o.createdAt.toISOString(),
@@ -214,7 +240,12 @@ export const setOrderStatus = createServerFn({ method: "POST" })
     if (locIds.length === 0) throw new Error("Ese pedido no es de una sucursal tuya");
 
     const [target] = await db
-      .select({ id: orders.id, status: orders.status })
+      .select({
+        id: orders.id,
+        status: orders.status,
+        channel: orders.channel,
+        acceptedAt: orders.acceptedAt,
+      })
       .from(orders)
       .where(and(eq(orders.id, data.orderId), inArray(orders.locationId, locIds)))
       .limit(1);
@@ -223,8 +254,43 @@ export const setOrderStatus = createServerFn({ method: "POST" })
     if (target.status === "cancelado") {
       throw new Error("Ese pedido está cancelado: no se le puede cambiar el estado");
     }
+    // Un pedido online que nadie aceptó no se prepara: el cliente todavía no
+    // sabe si se lo van a hacer, ni en cuánto.
+    if (target.channel === "online" && !target.acceptedAt) {
+      throw new Error("Primero aceptá el pedido online");
+    }
 
     await db.update(orders).set({ status: data.status }).where(eq(orders.id, data.orderId));
+    return { ok: true };
+  });
+
+/**
+ * Acepta un pedido online y le promete una demora al cliente.
+ *
+ * Lo hace quien atiende los pedidos, que es quien sabe cuánto está tardando la
+ * cocina y si el repartidor está en la calle. Recién aceptado el pedido entra a
+ * las columnas de la comandera, y el cliente lo ve en su página de seguimiento.
+ * Rechazar no pasa por acá: es cancelar, que además decide qué hacer con la
+ * plata y devuelve el stock.
+ */
+export const acceptOnlineOrder = createServerFn({ method: "POST" })
+  .middleware([requireCompany])
+  .inputValidator(
+    z.object({ orderId: z.number().int(), etaMinutes: z.number().int().min(5).max(240) }),
+  )
+  .handler(async ({ context, data }) => {
+    const user = context.user as SessionUser;
+    assertCanOperateKitchen(user);
+
+    const target = await pedidoVisible(user, data.orderId);
+    if (target.channel !== "online") throw new Error("Ese pedido no es online");
+    if (target.status === "cancelado") throw new Error("Ese pedido ya está cancelado");
+    if (target.acceptedAt) return { ok: true };
+
+    await db
+      .update(orders)
+      .set({ acceptedAt: new Date(), etaMinutes: data.etaMinutes })
+      .where(and(eq(orders.id, data.orderId), isNull(orders.acceptedAt)));
     return { ok: true };
   });
 
@@ -243,6 +309,8 @@ async function pedidoVisible(user: SessionUser, orderId: number) {
       paymentMethod: orders.paymentMethod,
       paymentStatus: orders.paymentStatus,
       mpPaymentId: orders.mpPaymentId,
+      channel: orders.channel,
+      acceptedAt: orders.acceptedAt,
       locationId: orders.locationId,
       companyId: locations.companyId,
     })

@@ -16,11 +16,14 @@ import { Route as CuentaRouteImport } from './routes/cuenta'
 import { Route as BienvenidaRouteImport } from './routes/bienvenida'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PEmpresaLocalIndexRouteImport } from './routes/p.$empresa.$local.index'
+import { Route as PEmpresaLocalCarritoRouteImport } from './routes/p.$empresa.$local.carrito'
 import { Route as TEmpresaLocalTotemIndexRouteImport } from './routes/t.$empresa.$local.$totem.index'
 import { Route as TEmpresaLocalTotemCombosRouteImport } from './routes/t.$empresa.$local.$totem.combos'
 import { Route as TEmpresaLocalTotemCheckoutRouteImport } from './routes/t.$empresa.$local.$totem.checkout'
 import { Route as TEmpresaLocalTotemCategoriasRouteImport } from './routes/t.$empresa.$local.$totem.categorias'
 import { Route as TEmpresaLocalTotemCarritoRouteImport } from './routes/t.$empresa.$local.$totem.carrito'
+import { Route as PEmpresaLocalPedidoTokenRouteImport } from './routes/p.$empresa.$local.pedido.$token'
 import { Route as TEmpresaLocalTotemPagarOrderIdRouteImport } from './routes/t.$empresa.$local.$totem.pagar.$orderId'
 import { Route as TEmpresaLocalTotemMenuCategoryRouteImport } from './routes/t.$empresa.$local.$totem.menu.$category'
 import { Route as TEmpresaLocalTotemListoOrderIdRouteImport } from './routes/t.$empresa.$local.$totem.listo.$orderId'
@@ -60,6 +63,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PEmpresaLocalIndexRoute = PEmpresaLocalIndexRouteImport.update({
+  id: '/p/$empresa/$local/',
+  path: '/p/$empresa/$local/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PEmpresaLocalCarritoRoute = PEmpresaLocalCarritoRouteImport.update({
+  id: '/p/$empresa/$local/carrito',
+  path: '/p/$empresa/$local/carrito',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TEmpresaLocalTotemIndexRoute = TEmpresaLocalTotemIndexRouteImport.update({
   id: '/t/$empresa/$local/$totem/',
   path: '/t/$empresa/$local/$totem/',
@@ -89,6 +102,12 @@ const TEmpresaLocalTotemCarritoRoute =
     path: '/t/$empresa/$local/$totem/carrito',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PEmpresaLocalPedidoTokenRoute =
+  PEmpresaLocalPedidoTokenRouteImport.update({
+    id: '/p/$empresa/$local/pedido/$token',
+    path: '/p/$empresa/$local/pedido/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const TEmpresaLocalTotemPagarOrderIdRoute =
   TEmpresaLocalTotemPagarOrderIdRouteImport.update({
     id: '/t/$empresa/$local/$totem/pagar/$orderId',
@@ -116,6 +135,9 @@ export interface FileRoutesByFullPath {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
+  '/p/$empresa/$local/': typeof PEmpresaLocalIndexRoute
+  '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
   '/t/$empresa/$local/$totem/carrito': typeof TEmpresaLocalTotemCarritoRoute
   '/t/$empresa/$local/$totem/categorias': typeof TEmpresaLocalTotemCategoriasRoute
   '/t/$empresa/$local/$totem/checkout': typeof TEmpresaLocalTotemCheckoutRoute
@@ -133,6 +155,9 @@ export interface FileRoutesByTo {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
+  '/p/$empresa/$local': typeof PEmpresaLocalIndexRoute
+  '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
   '/t/$empresa/$local/$totem/carrito': typeof TEmpresaLocalTotemCarritoRoute
   '/t/$empresa/$local/$totem/categorias': typeof TEmpresaLocalTotemCategoriasRoute
   '/t/$empresa/$local/$totem/checkout': typeof TEmpresaLocalTotemCheckoutRoute
@@ -151,6 +176,9 @@ export interface FileRoutesById {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
+  '/p/$empresa/$local/': typeof PEmpresaLocalIndexRoute
+  '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
   '/t/$empresa/$local/$totem/carrito': typeof TEmpresaLocalTotemCarritoRoute
   '/t/$empresa/$local/$totem/categorias': typeof TEmpresaLocalTotemCategoriasRoute
   '/t/$empresa/$local/$totem/checkout': typeof TEmpresaLocalTotemCheckoutRoute
@@ -170,6 +198,9 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/p/$empresa/$local/carrito'
+    | '/p/$empresa/$local/'
+    | '/p/$empresa/$local/pedido/$token'
     | '/t/$empresa/$local/$totem/carrito'
     | '/t/$empresa/$local/$totem/categorias'
     | '/t/$empresa/$local/$totem/checkout'
@@ -187,6 +218,9 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/p/$empresa/$local/carrito'
+    | '/p/$empresa/$local'
+    | '/p/$empresa/$local/pedido/$token'
     | '/t/$empresa/$local/$totem/carrito'
     | '/t/$empresa/$local/$totem/categorias'
     | '/t/$empresa/$local/$totem/checkout'
@@ -204,6 +238,9 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/p/$empresa/$local/carrito'
+    | '/p/$empresa/$local/'
+    | '/p/$empresa/$local/pedido/$token'
     | '/t/$empresa/$local/$totem/carrito'
     | '/t/$empresa/$local/$totem/categorias'
     | '/t/$empresa/$local/$totem/checkout'
@@ -222,6 +259,9 @@ export interface RootRouteChildren {
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
+  PEmpresaLocalCarritoRoute: typeof PEmpresaLocalCarritoRoute
+  PEmpresaLocalIndexRoute: typeof PEmpresaLocalIndexRoute
+  PEmpresaLocalPedidoTokenRoute: typeof PEmpresaLocalPedidoTokenRoute
   TEmpresaLocalTotemCarritoRoute: typeof TEmpresaLocalTotemCarritoRoute
   TEmpresaLocalTotemCategoriasRoute: typeof TEmpresaLocalTotemCategoriasRoute
   TEmpresaLocalTotemCheckoutRoute: typeof TEmpresaLocalTotemCheckoutRoute
@@ -283,6 +323,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$empresa/$local/': {
+      id: '/p/$empresa/$local/'
+      path: '/p/$empresa/$local'
+      fullPath: '/p/$empresa/$local/'
+      preLoaderRoute: typeof PEmpresaLocalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$empresa/$local/carrito': {
+      id: '/p/$empresa/$local/carrito'
+      path: '/p/$empresa/$local/carrito'
+      fullPath: '/p/$empresa/$local/carrito'
+      preLoaderRoute: typeof PEmpresaLocalCarritoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/t/$empresa/$local/$totem/': {
       id: '/t/$empresa/$local/$totem/'
       path: '/t/$empresa/$local/$totem'
@@ -318,6 +372,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TEmpresaLocalTotemCarritoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$empresa/$local/pedido/$token': {
+      id: '/p/$empresa/$local/pedido/$token'
+      path: '/p/$empresa/$local/pedido/$token'
+      fullPath: '/p/$empresa/$local/pedido/$token'
+      preLoaderRoute: typeof PEmpresaLocalPedidoTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/t/$empresa/$local/$totem/pagar/$orderId': {
       id: '/t/$empresa/$local/$totem/pagar/$orderId'
       path: '/t/$empresa/$local/$totem/pagar/$orderId'
@@ -350,6 +411,9 @@ const rootRouteChildren: RootRouteChildren = {
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
+  PEmpresaLocalCarritoRoute: PEmpresaLocalCarritoRoute,
+  PEmpresaLocalIndexRoute: PEmpresaLocalIndexRoute,
+  PEmpresaLocalPedidoTokenRoute: PEmpresaLocalPedidoTokenRoute,
   TEmpresaLocalTotemCarritoRoute: TEmpresaLocalTotemCarritoRoute,
   TEmpresaLocalTotemCategoriasRoute: TEmpresaLocalTotemCategoriasRoute,
   TEmpresaLocalTotemCheckoutRoute: TEmpresaLocalTotemCheckoutRoute,

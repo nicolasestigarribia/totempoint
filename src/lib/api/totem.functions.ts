@@ -22,6 +22,8 @@ import {
   productIngredients,
   ingredients,
   paymentSettings,
+  onlineSettings,
+  deliveryZones,
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
 import {
@@ -425,235 +427,261 @@ export const getTotemMenu = createServerFn({ method: "GET" })
   .inputValidator(z.object(totemInput))
   .handler(async ({ data }): Promise<TotemMenu> => {
     const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
-    const companyId = resuelto.company.id;
-    const locationId = resuelto.locationId;
-
-    const [row] = await db
-      .select({
-        company: companies,
-        accentColor: totemSettings.accentColor,
-        theme: totemSettings.theme,
-        fontTheme: totemSettings.fontTheme,
-        corners: totemSettings.corners,
-      })
-      .from(companies)
-      .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
-      .where(eq(companies.id, companyId))
-      .limit(1);
-
-    if (!row) throw new Error("No encontramos este comercio");
-
-    // Se traen con el override de disponibilidad de ESTE local: si el negocio
-    // apagó un producto o una categoría acá, no tiene que aparecer en el tótem.
-    // Ausencia de fila = disponible (hereda de .active).
-    const [catRows, prodRows] = await Promise.all([
-      db
-        .select({
-          id: categories.id,
-          name: categories.name,
-          tagline: categories.tagline,
-          photoUrl: categories.photoUrl,
-          available: locationCategories.available,
-        })
-        .from(categories)
-        .leftJoin(
-          locationCategories,
-          and(
-            eq(locationCategories.categoryId, categories.id),
-            eq(locationCategories.locationId, locationId),
-          ),
-        )
-        .where(and(eq(categories.companyId, companyId), eq(categories.active, true)))
-        .orderBy(asc(categories.sort), asc(categories.name)),
-      db
-        .select({
-          id: products.id,
-          categoryId: products.categoryId,
-          name: products.name,
-          description: products.description,
-          price: products.price,
-          photoUrl: products.photoUrl,
-          customizable: products.customizable,
-          available: locationProducts.available,
-        })
-        .from(products)
-        .leftJoin(
-          locationProducts,
-          and(
-            eq(locationProducts.productId, products.id),
-            eq(locationProducts.locationId, locationId),
-          ),
-        )
-        .where(and(eq(products.companyId, companyId), eq(products.active, true)))
-        .orderBy(asc(products.sort), asc(products.name)),
-    ]);
-
-    const cats = catRows.filter((c) => c.available !== false);
-    // Un producto se cae también si su categoría está apagada en este local:
-    // sin tarjeta de categoría el cliente no llega a él, pero seguía viajando
-    // en `products` y el carrito podía quedar con algo que el local no tiene.
-    const categoriasVisibles = new Set(cats.map((c) => c.id));
-    const prods = prodRows.filter(
-      (p) =>
-        p.available !== false && (p.categoryId === null || categoriasVisibles.has(p.categoryId)),
-    );
-
-    const prodOverrides = await priceOverrides(
-      locationId,
-      "product",
-      prods.map((p) => p.id),
-    );
-
-    // Lo que se puede sacar, sólo de los productos habilitados para eso. Un
-    // ingrediente marcado como quitable en un producto que no es configurable
-    // no llega a la pantalla: mandan las dos condiciones, no una.
-    const configurables = prods.filter((p) => p.customizable).map((p) => p.id);
-    const quitables = configurables.length
-      ? await db
-          .select({
-            productId: productIngredients.productId,
-            id: ingredients.id,
-            name: ingredients.name,
-          })
-          .from(productIngredients)
-          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
-          .where(
-            and(
-              eq(productIngredients.removable, true),
-              eq(ingredients.active, true),
-              inArray(productIngredients.productId, configurables),
-            ),
-          )
-          .orderBy(asc(ingredients.name))
-      : [];
-
-    // Lo que se puede agregar de más, con su precio y su tope. Mismo gate que
-    // los quitables (el producto tiene que ser configurable), y además el
-    // ingrediente marcado como extra con precio y máximo cargados.
-    const agregables = configurables.length
-      ? await db
-          .select({
-            productId: productIngredients.productId,
-            id: ingredients.id,
-            name: ingredients.name,
-            price: productIngredients.extraPrice,
-            max: productIngredients.extraMax,
-          })
-          .from(productIngredients)
-          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
-          .where(
-            and(
-              eq(productIngredients.extraAllowed, true),
-              eq(ingredients.active, true),
-              inArray(productIngredients.productId, configurables),
-            ),
-          )
-          .orderBy(asc(ingredients.name))
-      : [];
-
-    const visibleProducts: TotemProduct[] = prods.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      photoUrl: p.photoUrl,
-      price: prodOverrides.get(p.id) ?? p.price,
-      categoryId: p.categoryId ?? UNCATEGORIZED,
-      removables: p.customizable
-        ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
-        : [],
-      // Sólo los que tienen precio y tope > 0: un extra sin precio o sin cupo no
-      // se puede ofrecer bien, así que no llega a la pantalla.
-      extras: p.customizable
-        ? agregables
-            .filter((a) => a.productId === p.id && a.price !== null && (a.max ?? 0) > 0)
-            .map((a) => ({ id: a.id, name: a.name, price: a.price!, max: a.max! }))
-        : [],
-    }));
-
-    const totemCategories: TotemCategory[] = cats.map((c) => ({
-      id: c.id,
-      name: c.name,
-      tagline: c.tagline,
-      photoUrl: c.photoUrl,
-      productCount: visibleProducts.filter((p) => p.categoryId === c.id).length,
-    }));
-
-    // Combos: van con el detalle de lo que traen, para que el cliente sepa qué
-    // está comprando sin tener que abrir nada.
-    const comboRows = await db
-      .select({
-        id: combos.id,
-        name: combos.name,
-        description: combos.description,
-        price: combos.price,
-        photoUrl: combos.photoUrl,
-      })
-      .from(combos)
-      .where(and(eq(combos.companyId, companyId), eq(combos.active, true)))
-      .orderBy(asc(combos.sort), asc(combos.name));
-
-    const comboItems = comboRows.length
-      ? await db
-          .select({
-            comboId: comboProducts.comboId,
-            quantity: comboProducts.quantity,
-            name: products.name,
-          })
-          .from(comboProducts)
-          .innerJoin(products, eq(products.id, comboProducts.productId))
-          .where(
-            inArray(
-              comboProducts.comboId,
-              comboRows.map((c) => c.id),
-            ),
-          )
-      : [];
-
-    // Los que este local no puede armar no llegan a la pantalla.
-    const combosApagados = await combosApagadosEnElLocal(
-      locationId,
-      comboRows.map((c) => c.id),
-    );
-    const combosVendibles = comboRows.filter((c) => !combosApagados.has(c.id));
-
-    const comboOverrides = await priceOverrides(
-      locationId,
-      "combo",
-      combosVendibles.map((c) => c.id),
-    );
-    const totemCombos: TotemCombo[] = combosVendibles.map((c) => ({
-      ...c,
-      price: comboOverrides.get(c.id) ?? c.price,
-      items: comboItems
-        .filter((i) => i.comboId === c.id)
-        .map((i) => ({ name: i.name, quantity: i.quantity })),
-    }));
-
-    const looseCount = visibleProducts.filter((p) => p.categoryId === UNCATEGORIZED).length;
-    if (looseCount > 0) {
-      totemCategories.push({
-        id: UNCATEGORIZED,
-        name: "Otros",
-        tagline: "Del menú",
-        photoUrl: null,
-        productCount: looseCount,
-      });
-    }
-
-    return {
-      name: row.company.name,
-      slug: row.company.slug,
-      logoUrl: row.company.logoUrl,
-      accentColor: row.accentColor ?? row.company.primaryColor,
-      theme: row.theme ?? "oscuro",
-      fontTheme: row.fontTheme ?? "impacto",
-      corners: row.corners ?? "redondeado",
-      categories: totemCategories.filter((c) => c.productCount > 0),
-      products: visibleProducts,
-      combos: totemCombos,
-      mercadoPago: await empresaCobraConMP(companyId),
-    };
+    return armarMenu(resuelto.company.id, resuelto.locationId);
   });
+
+/**
+ * El menú de una sucursal tal como lo ve el cliente: lo que está activo, lo que
+ * esta sucursal no apagó, con sus precios propios y lo que se puede sacar o
+ * agregar. Lo usan el tótem y el pedido online, que venden lo mismo.
+ */
+async function armarMenu(companyId: number, locationId: number): Promise<TotemMenu> {
+  const [row] = await db
+    .select({
+      company: companies,
+      accentColor: totemSettings.accentColor,
+      theme: totemSettings.theme,
+      fontTheme: totemSettings.fontTheme,
+      corners: totemSettings.corners,
+    })
+    .from(companies)
+    .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
+    .where(eq(companies.id, companyId))
+    .limit(1);
+
+  if (!row) throw new Error("No encontramos este comercio");
+
+  // Se traen con el override de disponibilidad de ESTE local: si el negocio
+  // apagó un producto o una categoría acá, no tiene que aparecer en el tótem.
+  // Ausencia de fila = disponible (hereda de .active).
+  const [catRows, prodRows] = await Promise.all([
+    db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        tagline: categories.tagline,
+        photoUrl: categories.photoUrl,
+        available: locationCategories.available,
+      })
+      .from(categories)
+      .leftJoin(
+        locationCategories,
+        and(
+          eq(locationCategories.categoryId, categories.id),
+          eq(locationCategories.locationId, locationId),
+        ),
+      )
+      .where(and(eq(categories.companyId, companyId), eq(categories.active, true)))
+      .orderBy(asc(categories.sort), asc(categories.name)),
+    db
+      .select({
+        id: products.id,
+        categoryId: products.categoryId,
+        name: products.name,
+        description: products.description,
+        price: products.price,
+        photoUrl: products.photoUrl,
+        customizable: products.customizable,
+        available: locationProducts.available,
+      })
+      .from(products)
+      .leftJoin(
+        locationProducts,
+        and(
+          eq(locationProducts.productId, products.id),
+          eq(locationProducts.locationId, locationId),
+        ),
+      )
+      .where(and(eq(products.companyId, companyId), eq(products.active, true)))
+      .orderBy(asc(products.sort), asc(products.name)),
+  ]);
+
+  const cats = catRows.filter((c) => c.available !== false);
+  // Un producto se cae también si su categoría está apagada en este local:
+  // sin tarjeta de categoría el cliente no llega a él, pero seguía viajando
+  // en `products` y el carrito podía quedar con algo que el local no tiene.
+  const categoriasVisibles = new Set(cats.map((c) => c.id));
+  const prods = prodRows.filter(
+    (p) => p.available !== false && (p.categoryId === null || categoriasVisibles.has(p.categoryId)),
+  );
+
+  const prodOverrides = await priceOverrides(
+    locationId,
+    "product",
+    prods.map((p) => p.id),
+  );
+
+  // Lo que se puede sacar, sólo de los productos habilitados para eso. Un
+  // ingrediente marcado como quitable en un producto que no es configurable
+  // no llega a la pantalla: mandan las dos condiciones, no una.
+  const configurables = prods.filter((p) => p.customizable).map((p) => p.id);
+  const quitables = configurables.length
+    ? await db
+        .select({
+          productId: productIngredients.productId,
+          id: ingredients.id,
+          name: ingredients.name,
+        })
+        .from(productIngredients)
+        .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+        .where(
+          and(
+            eq(productIngredients.removable, true),
+            eq(ingredients.active, true),
+            inArray(productIngredients.productId, configurables),
+          ),
+        )
+        .orderBy(asc(ingredients.name))
+    : [];
+
+  // Lo que se puede agregar de más, con su precio y su tope. Mismo gate que
+  // los quitables (el producto tiene que ser configurable), y además el
+  // ingrediente marcado como extra con precio y máximo cargados.
+  const agregables = configurables.length
+    ? await db
+        .select({
+          productId: productIngredients.productId,
+          id: ingredients.id,
+          name: ingredients.name,
+          price: productIngredients.extraPrice,
+          max: productIngredients.extraMax,
+        })
+        .from(productIngredients)
+        .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+        .where(
+          and(
+            eq(productIngredients.extraAllowed, true),
+            eq(ingredients.active, true),
+            inArray(productIngredients.productId, configurables),
+          ),
+        )
+        .orderBy(asc(ingredients.name))
+    : [];
+
+  const visibleProducts: TotemProduct[] = prods.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    photoUrl: p.photoUrl,
+    price: prodOverrides.get(p.id) ?? p.price,
+    categoryId: p.categoryId ?? UNCATEGORIZED,
+    removables: p.customizable
+      ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
+      : [],
+    // Sólo los que tienen precio y tope > 0: un extra sin precio o sin cupo no
+    // se puede ofrecer bien, así que no llega a la pantalla.
+    extras: p.customizable
+      ? agregables
+          .filter((a) => a.productId === p.id && a.price !== null && (a.max ?? 0) > 0)
+          .map((a) => ({ id: a.id, name: a.name, price: a.price!, max: a.max! }))
+      : [],
+  }));
+
+  const totemCategories: TotemCategory[] = cats.map((c) => ({
+    id: c.id,
+    name: c.name,
+    tagline: c.tagline,
+    photoUrl: c.photoUrl,
+    productCount: visibleProducts.filter((p) => p.categoryId === c.id).length,
+  }));
+
+  // Combos: van con el detalle de lo que traen, para que el cliente sepa qué
+  // está comprando sin tener que abrir nada.
+  const comboRows = await db
+    .select({
+      id: combos.id,
+      name: combos.name,
+      description: combos.description,
+      price: combos.price,
+      photoUrl: combos.photoUrl,
+    })
+    .from(combos)
+    .where(and(eq(combos.companyId, companyId), eq(combos.active, true)))
+    .orderBy(asc(combos.sort), asc(combos.name));
+
+  const comboItems = comboRows.length
+    ? await db
+        .select({
+          comboId: comboProducts.comboId,
+          quantity: comboProducts.quantity,
+          name: products.name,
+        })
+        .from(comboProducts)
+        .innerJoin(products, eq(products.id, comboProducts.productId))
+        .where(
+          inArray(
+            comboProducts.comboId,
+            comboRows.map((c) => c.id),
+          ),
+        )
+    : [];
+
+  // Los que este local no puede armar no llegan a la pantalla.
+  const combosApagados = await combosApagadosEnElLocal(
+    locationId,
+    comboRows.map((c) => c.id),
+  );
+  const combosVendibles = comboRows.filter((c) => !combosApagados.has(c.id));
+
+  const comboOverrides = await priceOverrides(
+    locationId,
+    "combo",
+    combosVendibles.map((c) => c.id),
+  );
+  const totemCombos: TotemCombo[] = combosVendibles.map((c) => ({
+    ...c,
+    price: comboOverrides.get(c.id) ?? c.price,
+    items: comboItems
+      .filter((i) => i.comboId === c.id)
+      .map((i) => ({ name: i.name, quantity: i.quantity })),
+  }));
+
+  const looseCount = visibleProducts.filter((p) => p.categoryId === UNCATEGORIZED).length;
+  if (looseCount > 0) {
+    totemCategories.push({
+      id: UNCATEGORIZED,
+      name: "Otros",
+      tagline: "Del menú",
+      photoUrl: null,
+      productCount: looseCount,
+    });
+  }
+
+  return {
+    name: row.company.name,
+    slug: row.company.slug,
+    logoUrl: row.company.logoUrl,
+    accentColor: row.accentColor ?? row.company.primaryColor,
+    theme: row.theme ?? "oscuro",
+    fontTheme: row.fontTheme ?? "impacto",
+    corners: row.corners ?? "redondeado",
+    categories: totemCategories.filter((c) => c.productCount > 0),
+    products: visibleProducts,
+    combos: totemCombos,
+    mercadoPago: await empresaCobraConMP(companyId),
+  };
+}
+
+/**
+ * Una línea del pedido tal como la manda el cliente: qué y cuántos, y lo que
+ * sacó o agregó. El precio no viaja nunca: se recalcula acá contra la base.
+ */
+const lineaPedido = z.object({
+  kind: z.enum(["producto", "combo"]),
+  id: z.number().int(),
+  quantity: z.number().int().min(1).max(50),
+  // Los ingredientes que el cliente sacó de esta línea. Se valida abajo
+  // contra la receta: el cliente no elige qué se puede sacar.
+  removedIngredientIds: z.array(z.number().int()).max(30).optional(),
+  // Los extras que pidió: id del ingrediente y cuántos. El precio y el tope no
+  // viajan: se validan y recalculan abajo contra la receta.
+  extras: z
+    .array(z.object({ id: z.number().int(), quantity: z.number().int().min(1).max(20) }))
+    .max(30)
+    .optional(),
+});
+
+type LineaPedido = z.infer<typeof lineaPedido>;
 
 // El tótem manda sólo qué productos y cuántos: los precios y el total se
 // calculan acá con los datos de la base, nunca con lo que llega del cliente.
@@ -665,381 +693,453 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       deliveryMethod: z.enum(["local", "mostrador"]),
       paymentMethod: z.enum(["efectivo", "mercadopago"]),
       comments: z.string().trim().max(500).optional(),
-      // Cada línea es un producto suelto o un combo. El precio no viaja nunca:
-      // se recalcula acá contra la base.
-      items: z
-        .array(
-          z.object({
-            kind: z.enum(["producto", "combo"]),
-            id: z.number().int(),
-            quantity: z.number().int().min(1).max(50),
-            // Los ingredientes que el cliente sacó de esta línea. Se valida
-            // abajo contra la receta: el cliente no elige qué se puede sacar.
-            removedIngredientIds: z.array(z.number().int()).max(30).optional(),
-            // Los extras que pidió: id del ingrediente y cuántos. El precio y el
-            // tope no viajan: se validan y recalculan abajo contra la receta.
-            extras: z
-              .array(z.object({ id: z.number().int(), quantity: z.number().int().min(1).max(20) }))
-              .max(30)
-              .optional(),
-          }),
-        )
-        .min(1),
+      items: z.array(lineaPedido).min(1),
     }),
   )
   .handler(
     async ({ data }): Promise<{ orderId: number; orderNumber: number; pagarEn: string | null }> => {
       const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
-      const company = resuelto.company;
-      const location = { id: resuelto.locationId };
-
-      // Únicos: desde que un producto se puede personalizar, el mismo id
-      // aparece en varias líneas —una con cambios y otra sin— y la base
-      // devuelve una sola fila por producto. Comparar contra la lista con
-      // repetidos rechazaba el pedido entero por "no disponible".
-      const productIds = [
-        ...new Set(data.items.filter((i) => i.kind === "producto").map((i) => i.id)),
-      ];
-      const comboIds = [...new Set(data.items.filter((i) => i.kind === "combo").map((i) => i.id))];
-
-      const productRows = productIds.length
-        ? await db
-            .select({
-              id: products.id,
-              name: products.name,
-              price: products.price,
-              categoryId: products.categoryId,
-              customizable: products.customizable,
-            })
-            .from(products)
-            .where(
-              and(
-                eq(products.companyId, company.id),
-                eq(products.active, true),
-                inArray(products.id, productIds),
-              ),
-            )
-        : [];
-
-      const comboRows = comboIds.length
-        ? await db
-            .select({ id: combos.id, name: combos.name, price: combos.price })
-            .from(combos)
-            .where(
-              and(
-                eq(combos.companyId, company.id),
-                eq(combos.active, true),
-                inArray(combos.id, comboIds),
-              ),
-            )
-        : [];
-
-      if (productRows.length !== productIds.length || comboRows.length !== comboIds.length) {
-        throw new Error("Algo de tu pedido ya no está disponible");
-      }
-
-      // El local puede tener apagado algo que la empresa sigue vendiendo. El
-      // menú ya no lo muestra, pero el carrito de la tablet puede ser anterior
-      // a que lo apagaran.
-      const [apagados, combosApagados] = await Promise.all([
-        productosApagadosEnElLocal(location.id, productRows),
-        combosApagadosEnElLocal(location.id, comboIds),
-      ]);
-      if (apagados.size > 0 || combosApagados.size > 0) {
-        throw new Error("Algo de tu pedido ya no está disponible");
-      }
-
-      // Lo que el cliente sacó se valida contra la receta, no se cree. El
-      // tótem podría mandar cualquier id: sólo se aceptan ingredientes que ese
-      // producto lleva y que el dueño marcó como quitables, y sólo si el
-      // producto está habilitado para personalizar.
-      // Por índice de línea y no por producto: el mismo producto puede estar
-      // dos veces con cambios distintos —uno sin tomate y otro como viene— y
-      // guardarlo por id le pegaría los mismos cambios a las dos.
-      const sacadosPorLinea = new Map<number, { id: number; name: string }[]>();
-      const lineasConSacados = data.items
-        .map((item, indice) => ({ item, indice }))
-        .filter(
-          ({ item }) => item.kind === "producto" && (item.removedIngredientIds?.length ?? 0) > 0,
-        );
-      if (lineasConSacados.length > 0) {
-        const quitables = await db
-          .select({
-            productId: productIngredients.productId,
-            ingredientId: productIngredients.ingredientId,
-            name: ingredients.name,
-          })
-          .from(productIngredients)
-          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
-          .where(
-            and(
-              eq(productIngredients.removable, true),
-              inArray(
-                productIngredients.productId,
-                lineasConSacados.map((l) => l.item.id),
-              ),
-            ),
-          );
-
-        for (const { item, indice } of lineasConSacados) {
-          const producto = productRows.find((p) => p.id === item.id)!;
-          if (!producto.customizable) {
-            throw new Error(`${producto.name} no se puede personalizar`);
-          }
-          const permitidos = quitables.filter((q) => q.productId === item.id);
-          const elegidos = [...new Set(item.removedIngredientIds ?? [])].map((id) => {
-            const ok = permitidos.find((p) => p.ingredientId === id);
-            if (!ok) throw new Error(`Ese ingrediente no se puede sacar de ${producto.name}`);
-            return { id, name: ok.name };
-          });
-          sacadosPorLinea.set(indice, elegidos);
-        }
-      }
-
-      // Los extras se validan igual que los sacados: contra la receta, nunca el
-      // precio ni el tope que manda el cliente. Se guarda por índice de línea.
-      const extrasPorLinea = new Map<
-        number,
-        { id: number; name: string; quantity: number; price: string }[]
-      >();
-      const lineasConExtras = data.items
-        .map((item, indice) => ({ item, indice }))
-        .filter(({ item }) => item.kind === "producto" && (item.extras?.length ?? 0) > 0);
-      if (lineasConExtras.length > 0) {
-        const agregables = await db
-          .select({
-            productId: productIngredients.productId,
-            ingredientId: productIngredients.ingredientId,
-            name: ingredients.name,
-            price: productIngredients.extraPrice,
-            max: productIngredients.extraMax,
-          })
-          .from(productIngredients)
-          .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
-          .where(
-            and(
-              eq(productIngredients.extraAllowed, true),
-              inArray(
-                productIngredients.productId,
-                lineasConExtras.map((l) => l.item.id),
-              ),
-            ),
-          );
-
-        for (const { item, indice } of lineasConExtras) {
-          const producto = productRows.find((p) => p.id === item.id)!;
-          if (!producto.customizable) {
-            throw new Error(`${producto.name} no se puede personalizar`);
-          }
-          const permitidos = agregables.filter((a) => a.productId === item.id);
-          // Un id repetido en el request se colapsa sumando cantidades.
-          const porId = new Map<number, number>();
-          for (const e of item.extras ?? []) {
-            porId.set(e.id, (porId.get(e.id) ?? 0) + e.quantity);
-          }
-          const elegidos = [...porId.entries()].map(([id, quantity]) => {
-            const ok = permitidos.find((p) => p.ingredientId === id);
-            if (!ok || ok.price === null || (ok.max ?? 0) <= 0) {
-              throw new Error(`Ese ingrediente no se puede agregar a ${producto.name}`);
-            }
-            if (quantity > ok.max!) {
-              throw new Error(`Máximo ${ok.max} de ${ok.name} en ${producto.name}`);
-            }
-            return { id, name: ok.name, quantity, price: ok.price };
-          });
-          extrasPorLinea.set(indice, elegidos);
-        }
-      }
-
-      // Precio efectivo del local: override por local si existe, si no el base.
-      const [prodOverrides, comboOverrides] = await Promise.all([
-        priceOverrides(location.id, "product", productIds),
-        priceOverrides(location.id, "combo", comboIds),
-      ]);
-
-      // El combo se guarda como una línea con su propio precio y sin product_id:
-      // order_items ya congela nombre y precio, así que el pedido queda fiel
-      // aunque después se cambie el combo.
-      const priced = data.items.map((item, indice) => {
-        if (item.kind === "combo") {
-          const combo = comboRows.find((c) => c.id === item.id)!;
-          return {
-            productId: null,
-            productName: combo.name,
-            unitPrice: comboOverrides.get(combo.id) ?? combo.price,
-            quantity: item.quantity,
-          };
-        }
-        const product = productRows.find((r) => r.id === item.id)!;
-        const base = Number(prodOverrides.get(product.id) ?? product.price);
-        // El precio unitario de la línea incluye los extras: una unidad de este
-        // producto "con lo que le agregó" cuesta base + suma de los extras.
-        const extras = extrasPorLinea.get(indice) ?? [];
-        const extrasCost = extras.reduce((t, e) => t + Number(e.price) * e.quantity, 0);
-        return {
-          productId: product.id,
-          productName: product.name,
-          unitPrice: (base + extrasCost).toFixed(2),
-          quantity: item.quantity,
-        };
+      const tomado = await tomarPedido({
+        company: resuelto.company,
+        locationId: resuelto.locationId,
+        totemId: resuelto.totemId,
+        channel: "totem",
+        customerName: data.customerName,
+        deliveryMethod: data.deliveryMethod,
+        paymentMethod: data.paymentMethod,
+        comments: data.comments,
+        items: data.items,
+        volverA: ({ orderId }) => `/t/${data.empresa}/${data.local}/${data.totem}/listo/${orderId}`,
       });
-
-      const total = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
-
-      const jornada = diaDeHoy();
-
-      // El consumo de stock se resuelve ANTES de abrir la transacción: son
-      // lecturas, y si algo falla acá el pedido tiene que tomarse igual. Perder
-      // una venta porque no pudimos calcular el inventario sería el peor de los
-      // dos errores, el mismo criterio que con Mercado Pago más abajo.
-      let consumo: Awaited<ReturnType<typeof calcularConsumo>> = [];
-      try {
-        await asegurarCodigosDeVenta(company.id);
-        const lineas: LineaVendida[] = data.items.map((i, indice) => ({
-          kind: i.kind,
-          refId: i.id,
-          quantity: i.quantity,
-          removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
-          extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
-            ingredientId: x.id,
-            quantity: x.quantity,
-          })),
-        }));
-        consumo = await calcularConsumo(company.id, lineas);
-      } catch (error) {
-        console.error("No se pudo calcular el stock de la venta:", error);
-      }
-
-      const creado = await db.transaction(async (tx) => {
-        // La numeración arranca en 1 cada mañana y por local: el cliente ve un
-        // número corto y el local no arrastra los miles del mes pasado. El id
-        // interno sigue siendo el autoincremental, que nunca se repite.
-        //
-        // Se asigna con un contador atómico y no con MAX(order_number)+1: aquel
-        // es una lectura no bloqueante, así que dos pedidos simultáneos del
-        // mismo local leerían el mismo máximo y el segundo chocaría contra la
-        // unique key. El upsert incrementa last_number y toma un lock de fila
-        // que serializa solo los pedidos de este local y jornada; locales
-        // distintos son filas distintas y no compiten. LAST_INSERT_ID devuelve
-        // el número recién asignado en el mismo viaje. Va ANTES del insert del
-        // pedido, que pisa LAST_INSERT_ID con su propio id autoincremental.
-        await tx.execute(sql`
-          INSERT INTO order_sequences (location_id, business_date, last_number)
-          VALUES (${location.id}, ${jornada}, LAST_INSERT_ID(1))
-          ON DUPLICATE KEY UPDATE last_number = LAST_INSERT_ID(last_number + 1)
-        `);
-        const [filasSeq] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS n`);
-        const orderNumber = Number((filasSeq as unknown as { n: number | string }[])[0].n);
-
-        const [{ id: orderId }] = await tx
-          .insert(orders)
-          .values({
-            locationId: location.id,
-            totemId: resuelto.totemId,
-            orderNumber,
-            businessDate: jornada,
-            customerName: data.customerName.trim(),
-            deliveryMethod: data.deliveryMethod,
-            comments: data.comments?.trim() || null,
-            status: "recibido",
-            total: total.toFixed(2),
-            paymentMethod: data.paymentMethod,
-            // Nada se cobra desde el tótem todavía: el efectivo se cobra en el
-            // mostrador y Mercado Pago no está integrado.
-            paymentStatus: "pendiente",
-          })
-          .$returningId();
-
-        // Con ids: hacen falta para colgarles lo que el cliente sacó.
-        for (const [indice, linea] of priced.entries()) {
-          const [{ id: orderItemId }] = await tx
-            .insert(orderItems)
-            .values({ orderId, ...linea })
-            .$returningId();
-
-          const sacados = sacadosPorLinea.get(indice) ?? [];
-          if (sacados.length > 0) {
-            await tx.insert(orderItemRemovals).values(
-              sacados.map((x) => ({
-                orderItemId,
-                ingredientId: x.id,
-                // El nombre queda congelado, como el del producto: la comanda
-                // de un pedido viejo tiene que seguir diciendo lo mismo.
-                ingredientName: x.name,
-              })),
-            );
-          }
-
-          const extras = extrasPorLinea.get(indice) ?? [];
-          if (extras.length > 0) {
-            await tx.insert(orderItemExtras).values(
-              extras.map((x) => ({
-                orderItemId,
-                ingredientId: x.id,
-                // Nombre y precio congelados: la comanda vieja tiene que seguir
-                // diciendo lo mismo y el cobro ya está hecho a este precio.
-                ingredientName: x.name,
-                quantity: x.quantity,
-                unitPrice: x.price,
-              })),
-            );
-          }
-        }
-
-        // El descuento va en la misma transacción que el pedido: no puede
-        // quedar un pedido sin su consumo ni un consumo sin su pedido.
-        await registrarVenta(
-          tx,
-          {
-            companyId: company.id,
-            locationId: location.id,
-            orderId,
-            orderNumber,
-          },
-          consumo,
-        );
-
-        return { orderId, orderNumber };
-      });
-
-      // El pedido ya está guardado. Si es con Mercado Pago, recién ahora se pide
-      // la preferencia: así, si Mercado Pago está caído, el pedido no se pierde
-      // y el mostrador lo puede cobrar en efectivo igual.
-      if (data.paymentMethod === "mercadopago") {
-        const token = await tokenDeMP(company.id);
-        if (!token)
-          throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
-
-        const items: ItemPreferencia[] = priced.map((p) => ({
-          title: p.productName,
-          quantity: p.quantity,
-          unitPrice: Number(p.unitPrice),
-        }));
-
-        const volverA = `${origenPublico()}/t/${data.empresa}/${data.local}/${data.totem}/listo/${creado.orderId}`;
-        const aviso = urlDeAviso();
-
-        const pref = await crearPreferencia({
-          accessToken: token,
-          items,
-          externalReference: String(creado.orderId),
-          backUrl: volverA,
-          notificationUrl: aviso,
-          negocio: company.name,
-          numeroPedido: creado.orderNumber,
-        });
-
-        await db
-          .update(orders)
-          .set({ mpPreferenceId: pref.id })
-          .where(eq(orders.id, creado.orderId));
-
-        return { ...creado, pagarEn: pref.initPoint };
-      }
-
-      return { ...creado, pagarEn: null as string | null };
+      return { orderId: tomado.orderId, orderNumber: tomado.orderNumber, pagarEn: tomado.pagarEn };
     },
   );
+
+/** Lo que el canal online suma a un pedido: quién es y cómo le llega. */
+interface DatosOnline {
+  phone: string;
+  /** Zona y costo del envío, ya resueltos contra la base. Null si retira. */
+  zoneName: string | null;
+  fee: number;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  paysWith: number | null;
+  /** Mínimo de la sucursal, sobre lo pedido y sin el envío. */
+  minOrder: number;
+}
+
+interface PedidoATomar {
+  company: { id: number; name: string };
+  locationId: number;
+  totemId: number | null;
+  channel: "totem" | "online";
+  customerName: string;
+  deliveryMethod: "local" | "mostrador" | "envio";
+  paymentMethod: "efectivo" | "mercadopago";
+  comments?: string;
+  items: LineaPedido[];
+  online?: DatosOnline;
+  /** Ruta (sin origen) a la que vuelve el cliente después de pagar con Mercado Pago. */
+  volverA: (pedido: { orderId: number; trackingToken: string | null }) => string;
+}
+
+interface PedidoTomado {
+  orderId: number;
+  orderNumber: number;
+  trackingToken: string | null;
+  /** URL de pago de Mercado Pago, o null si paga en efectivo. */
+  pagarEn: string | null;
+}
+
+/**
+ * Toma un pedido: valida lo pedido contra la base, recalcula precios, numera,
+ * guarda, descuenta stock y, si corresponde, arma el cobro de Mercado Pago.
+ *
+ * Es el mismo camino para el tótem y para el pedido online, a propósito: los
+ * dos venden el mismo menú, y una regla de precio o de disponibilidad que se
+ * arregle en uno no puede quedar rota en el otro.
+ */
+async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
+  const company = p.company;
+  const location = { id: p.locationId };
+
+  // Únicos: desde que un producto se puede personalizar, el mismo id aparece en
+  // varias líneas —una con cambios y otra sin— y la base devuelve una sola fila
+  // por producto. Comparar contra la lista con repetidos rechazaba el pedido
+  // entero por "no disponible".
+  const productIds = [...new Set(p.items.filter((i) => i.kind === "producto").map((i) => i.id))];
+  const comboIds = [...new Set(p.items.filter((i) => i.kind === "combo").map((i) => i.id))];
+
+  const productRows = productIds.length
+    ? await db
+        .select({
+          id: products.id,
+          name: products.name,
+          price: products.price,
+          categoryId: products.categoryId,
+          customizable: products.customizable,
+        })
+        .from(products)
+        .where(
+          and(
+            eq(products.companyId, company.id),
+            eq(products.active, true),
+            inArray(products.id, productIds),
+          ),
+        )
+    : [];
+
+  const comboRows = comboIds.length
+    ? await db
+        .select({ id: combos.id, name: combos.name, price: combos.price })
+        .from(combos)
+        .where(
+          and(
+            eq(combos.companyId, company.id),
+            eq(combos.active, true),
+            inArray(combos.id, comboIds),
+          ),
+        )
+    : [];
+
+  if (productRows.length !== productIds.length || comboRows.length !== comboIds.length) {
+    throw new Error("Algo de tu pedido ya no está disponible");
+  }
+
+  // El local puede tener apagado algo que la empresa sigue vendiendo. El menú
+  // ya no lo muestra, pero el carrito puede ser anterior a que lo apagaran.
+  const [apagados, combosApagados] = await Promise.all([
+    productosApagadosEnElLocal(location.id, productRows),
+    combosApagadosEnElLocal(location.id, comboIds),
+  ]);
+  if (apagados.size > 0 || combosApagados.size > 0) {
+    throw new Error("Algo de tu pedido ya no está disponible");
+  }
+
+  // Lo que el cliente sacó se valida contra la receta, no se cree. El cliente
+  // podría mandar cualquier id: sólo se aceptan ingredientes que ese producto
+  // lleva y que el dueño marcó como quitables, y sólo si el producto está
+  // habilitado para personalizar.
+  // Por índice de línea y no por producto: el mismo producto puede estar dos
+  // veces con cambios distintos —uno sin tomate y otro como viene— y guardarlo
+  // por id le pegaría los mismos cambios a las dos.
+  const sacadosPorLinea = new Map<number, { id: number; name: string }[]>();
+  const lineasConSacados = p.items
+    .map((item, indice) => ({ item, indice }))
+    .filter(({ item }) => item.kind === "producto" && (item.removedIngredientIds?.length ?? 0) > 0);
+  if (lineasConSacados.length > 0) {
+    const quitables = await db
+      .select({
+        productId: productIngredients.productId,
+        ingredientId: productIngredients.ingredientId,
+        name: ingredients.name,
+      })
+      .from(productIngredients)
+      .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+      .where(
+        and(
+          eq(productIngredients.removable, true),
+          inArray(
+            productIngredients.productId,
+            lineasConSacados.map((l) => l.item.id),
+          ),
+        ),
+      );
+
+    for (const { item, indice } of lineasConSacados) {
+      const producto = productRows.find((r) => r.id === item.id)!;
+      if (!producto.customizable) {
+        throw new Error(`${producto.name} no se puede personalizar`);
+      }
+      const permitidos = quitables.filter((q) => q.productId === item.id);
+      const elegidos = [...new Set(item.removedIngredientIds ?? [])].map((id) => {
+        const ok = permitidos.find((x) => x.ingredientId === id);
+        if (!ok) throw new Error(`Ese ingrediente no se puede sacar de ${producto.name}`);
+        return { id, name: ok.name };
+      });
+      sacadosPorLinea.set(indice, elegidos);
+    }
+  }
+
+  // Los extras se validan igual que los sacados: contra la receta, nunca el
+  // precio ni el tope que manda el cliente. Se guarda por índice de línea.
+  const extrasPorLinea = new Map<
+    number,
+    { id: number; name: string; quantity: number; price: string }[]
+  >();
+  const lineasConExtras = p.items
+    .map((item, indice) => ({ item, indice }))
+    .filter(({ item }) => item.kind === "producto" && (item.extras?.length ?? 0) > 0);
+  if (lineasConExtras.length > 0) {
+    const agregables = await db
+      .select({
+        productId: productIngredients.productId,
+        ingredientId: productIngredients.ingredientId,
+        name: ingredients.name,
+        price: productIngredients.extraPrice,
+        max: productIngredients.extraMax,
+      })
+      .from(productIngredients)
+      .innerJoin(ingredients, eq(ingredients.id, productIngredients.ingredientId))
+      .where(
+        and(
+          eq(productIngredients.extraAllowed, true),
+          inArray(
+            productIngredients.productId,
+            lineasConExtras.map((l) => l.item.id),
+          ),
+        ),
+      );
+
+    for (const { item, indice } of lineasConExtras) {
+      const producto = productRows.find((r) => r.id === item.id)!;
+      if (!producto.customizable) {
+        throw new Error(`${producto.name} no se puede personalizar`);
+      }
+      const permitidos = agregables.filter((a) => a.productId === item.id);
+      // Un id repetido en el request se colapsa sumando cantidades.
+      const porId = new Map<number, number>();
+      for (const e of item.extras ?? []) {
+        porId.set(e.id, (porId.get(e.id) ?? 0) + e.quantity);
+      }
+      const elegidos = [...porId.entries()].map(([id, quantity]) => {
+        const ok = permitidos.find((x) => x.ingredientId === id);
+        if (!ok || ok.price === null || (ok.max ?? 0) <= 0) {
+          throw new Error(`Ese ingrediente no se puede agregar a ${producto.name}`);
+        }
+        if (quantity > ok.max!) {
+          throw new Error(`Máximo ${ok.max} de ${ok.name} en ${producto.name}`);
+        }
+        return { id, name: ok.name, quantity, price: ok.price };
+      });
+      extrasPorLinea.set(indice, elegidos);
+    }
+  }
+
+  // Precio efectivo del local: override por local si existe, si no el base.
+  const [prodOverrides, comboOverrides] = await Promise.all([
+    priceOverrides(location.id, "product", productIds),
+    priceOverrides(location.id, "combo", comboIds),
+  ]);
+
+  // El combo se guarda como una línea con su propio precio y sin product_id:
+  // order_items ya congela nombre y precio, así que el pedido queda fiel aunque
+  // después se cambie el combo.
+  const priced = p.items.map((item, indice) => {
+    if (item.kind === "combo") {
+      const combo = comboRows.find((c) => c.id === item.id)!;
+      return {
+        productId: null,
+        productName: combo.name,
+        unitPrice: comboOverrides.get(combo.id) ?? combo.price,
+        quantity: item.quantity,
+      };
+    }
+    const product = productRows.find((r) => r.id === item.id)!;
+    const base = Number(prodOverrides.get(product.id) ?? product.price);
+    // El precio unitario de la línea incluye los extras: una unidad de este
+    // producto "con lo que le agregó" cuesta base + suma de los extras.
+    const extras = extrasPorLinea.get(indice) ?? [];
+    const extrasCost = extras.reduce((t, e) => t + Number(e.price) * e.quantity, 0);
+    return {
+      productId: product.id,
+      productName: product.name,
+      unitPrice: (base + extrasCost).toFixed(2),
+      quantity: item.quantity,
+    };
+  });
+
+  const subtotal = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
+  const envio = p.online?.fee ?? 0;
+  const total = subtotal + envio;
+
+  if (p.online) {
+    // El mínimo se mide sobre lo pedido, sin el envío: si no, una zona cara
+    // ayudaría a llegar al mínimo, y el mínimo existe para que valga la pena
+    // salir con el pedido.
+    if (p.online.minOrder > 0 && subtotal < p.online.minOrder) {
+      throw new Error(
+        `El pedido mínimo es de $${p.online.minOrder.toLocaleString("es-AR")} (sin contar el envío)`,
+      );
+    }
+    if (p.paymentMethod === "efectivo" && p.online.paysWith !== null && p.online.paysWith < total) {
+      throw new Error(
+        `Con $${p.online.paysWith.toLocaleString("es-AR")} no alcanza: el total es $${total.toLocaleString("es-AR")}`,
+      );
+    }
+  }
+
+  const jornada = diaDeHoy();
+  // La página de seguimiento del pedido online se abre con este código y no con
+  // el id, que es correlativo y dejaría recorrer pedidos ajenos.
+  const trackingToken =
+    p.channel === "online" ? globalThis.crypto.randomUUID().replace(/-/g, "") : null;
+
+  // El consumo de stock se resuelve ANTES de abrir la transacción: son lecturas,
+  // y si algo falla acá el pedido tiene que tomarse igual. Perder una venta
+  // porque no pudimos calcular el inventario sería el peor de los dos errores,
+  // el mismo criterio que con Mercado Pago más abajo.
+  let consumo: Awaited<ReturnType<typeof calcularConsumo>> = [];
+  try {
+    await asegurarCodigosDeVenta(company.id);
+    const lineas: LineaVendida[] = p.items.map((i, indice) => ({
+      kind: i.kind,
+      refId: i.id,
+      quantity: i.quantity,
+      removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
+      extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
+        ingredientId: x.id,
+        quantity: x.quantity,
+      })),
+    }));
+    consumo = await calcularConsumo(company.id, lineas);
+  } catch (error) {
+    console.error("No se pudo calcular el stock de la venta:", error);
+  }
+
+  const creado = await db.transaction(async (tx) => {
+    // La numeración arranca en 1 cada mañana y por local: el cliente ve un
+    // número corto y el local no arrastra los miles del mes pasado. El id
+    // interno sigue siendo el autoincremental, que nunca se repite. El tótem y
+    // el pedido online comparten la numeración: es la misma cocina.
+    //
+    // Se asigna con un contador atómico y no con MAX(order_number)+1: aquel es
+    // una lectura no bloqueante, así que dos pedidos simultáneos del mismo local
+    // leerían el mismo máximo y el segundo chocaría contra la unique key. El
+    // upsert incrementa last_number y toma un lock de fila que serializa solo
+    // los pedidos de este local y jornada; locales distintos son filas distintas
+    // y no compiten. LAST_INSERT_ID devuelve el número recién asignado en el
+    // mismo viaje. Va ANTES del insert del pedido, que pisa LAST_INSERT_ID con
+    // su propio id autoincremental.
+    await tx.execute(sql`
+      INSERT INTO order_sequences (location_id, business_date, last_number)
+      VALUES (${location.id}, ${jornada}, LAST_INSERT_ID(1))
+      ON DUPLICATE KEY UPDATE last_number = LAST_INSERT_ID(last_number + 1)
+    `);
+    const [filasSeq] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS n`);
+    const orderNumber = Number((filasSeq as unknown as { n: number | string }[])[0].n);
+
+    const [{ id: orderId }] = await tx
+      .insert(orders)
+      .values({
+        locationId: location.id,
+        totemId: p.totemId,
+        orderNumber,
+        channel: p.channel,
+        businessDate: jornada,
+        customerName: p.customerName.trim(),
+        deliveryMethod: p.deliveryMethod,
+        comments: p.comments?.trim() || null,
+        status: "recibido",
+        total: total.toFixed(2),
+        paymentMethod: p.paymentMethod,
+        // Nada se cobra al tomar el pedido: el efectivo se cobra en el mostrador
+        // o al entregar, y Mercado Pago lo confirma Mercado Pago.
+        paymentStatus: "pendiente",
+        ...(p.online
+          ? {
+              customerPhone: p.online.phone,
+              deliveryZoneName: p.online.zoneName,
+              deliveryFee: p.online.zoneName ? p.online.fee.toFixed(2) : null,
+              deliveryAddress: p.online.address,
+              deliveryLat: p.online.lat?.toFixed(6) ?? null,
+              deliveryLng: p.online.lng?.toFixed(6) ?? null,
+              cashPaysWith:
+                p.paymentMethod === "efectivo" && p.online.paysWith !== null
+                  ? p.online.paysWith.toFixed(2)
+                  : null,
+              trackingToken,
+            }
+          : {}),
+      })
+      .$returningId();
+
+    // Con ids: hacen falta para colgarles lo que el cliente sacó.
+    for (const [indice, linea] of priced.entries()) {
+      const [{ id: orderItemId }] = await tx
+        .insert(orderItems)
+        .values({ orderId, ...linea })
+        .$returningId();
+
+      const sacados = sacadosPorLinea.get(indice) ?? [];
+      if (sacados.length > 0) {
+        await tx.insert(orderItemRemovals).values(
+          sacados.map((x) => ({
+            orderItemId,
+            ingredientId: x.id,
+            // El nombre queda congelado, como el del producto: la comanda de
+            // un pedido viejo tiene que seguir diciendo lo mismo.
+            ingredientName: x.name,
+          })),
+        );
+      }
+
+      const extras = extrasPorLinea.get(indice) ?? [];
+      if (extras.length > 0) {
+        await tx.insert(orderItemExtras).values(
+          extras.map((x) => ({
+            orderItemId,
+            ingredientId: x.id,
+            // Nombre y precio congelados: la comanda vieja tiene que seguir
+            // diciendo lo mismo y el cobro ya está hecho a este precio.
+            ingredientName: x.name,
+            quantity: x.quantity,
+            unitPrice: x.price,
+          })),
+        );
+      }
+    }
+
+    // El descuento va en la misma transacción que el pedido: no puede quedar
+    // un pedido sin su consumo ni un consumo sin su pedido.
+    await registrarVenta(
+      tx,
+      {
+        companyId: company.id,
+        locationId: location.id,
+        orderId,
+        orderNumber,
+      },
+      consumo,
+    );
+
+    return { orderId, orderNumber };
+  });
+
+  // El pedido ya está guardado. Si es con Mercado Pago, recién ahora se pide la
+  // preferencia: así, si Mercado Pago está caído, el pedido no se pierde y el
+  // local lo puede cobrar en efectivo igual.
+  if (p.paymentMethod === "mercadopago") {
+    const token = await tokenDeMP(company.id);
+    if (!token) throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
+
+    const items: ItemPreferencia[] = priced.map((x) => ({
+      title: x.productName,
+      quantity: x.quantity,
+      unitPrice: Number(x.unitPrice),
+    }));
+    if (envio > 0) {
+      items.push({ title: `Envío (${p.online?.zoneName ?? ""})`, quantity: 1, unitPrice: envio });
+    }
+
+    const pref = await crearPreferencia({
+      accessToken: token,
+      items,
+      externalReference: String(creado.orderId),
+      backUrl: `${origenPublico()}${p.volverA({ orderId: creado.orderId, trackingToken })}`,
+      notificationUrl: urlDeAviso(),
+      negocio: company.name,
+      numeroPedido: creado.orderNumber,
+    });
+
+    await db.update(orders).set({ mpPreferenceId: pref.id }).where(eq(orders.id, creado.orderId));
+
+    return { ...creado, trackingToken, pagarEn: pref.initPoint };
+  }
+
+  return { ...creado, trackingToken, pagarEn: null };
+}
 
 export interface TotemOrderSummary {
   orderNumber: number;
@@ -1114,7 +1214,7 @@ export interface TotemTicket {
   businessDate: string;
   customerName: string;
   createdAt: string;
-  deliveryMethod: "local" | "mostrador";
+  deliveryMethod: "local" | "mostrador" | "envio";
   paymentMethod: "efectivo" | "mercadopago";
   total: string;
   comments: string | null;
@@ -1164,48 +1264,7 @@ export const getTotemTicket = createServerFn({ method: "GET" })
 
     if (!row) throw new Error("No encontramos ese pedido");
 
-    const itemRows = await db
-      .select({
-        id: orderItems.id,
-        name: orderItems.productName,
-        quantity: orderItems.quantity,
-        unitPrice: orderItems.unitPrice,
-      })
-      .from(orderItems)
-      .where(eq(orderItems.orderId, data.orderId));
-
-    const itemIds = itemRows.map((i) => i.id);
-    const [removalRows, extraRows] = await Promise.all([
-      itemIds.length
-        ? db
-            .select({
-              orderItemId: orderItemRemovals.orderItemId,
-              name: orderItemRemovals.ingredientName,
-            })
-            .from(orderItemRemovals)
-            .where(inArray(orderItemRemovals.orderItemId, itemIds))
-        : [],
-      itemIds.length
-        ? db
-            .select({
-              orderItemId: orderItemExtras.orderItemId,
-              name: orderItemExtras.ingredientName,
-              quantity: orderItemExtras.quantity,
-            })
-            .from(orderItemExtras)
-            .where(inArray(orderItemExtras.orderItemId, itemIds))
-        : [],
-    ]);
-
-    const items = itemRows.map((it) => ({
-      name: it.name,
-      quantity: it.quantity,
-      unitPrice: it.unitPrice,
-      removed: removalRows.filter((r) => r.orderItemId === it.id).map((r) => r.name),
-      extras: extraRows
-        .filter((e) => e.orderItemId === it.id)
-        .map((e) => ({ name: e.name, quantity: e.quantity })),
-    }));
+    const items = await lineasDelPedido(data.orderId);
 
     const [totem] = await db
       .select({ printerMac: totems.printerMac, printerName: totems.printerName })
@@ -1297,3 +1356,374 @@ export const leaveStaffSession = createServerFn({ method: "POST" }).handler(asyn
   await destroySession();
   return { ok: true };
 });
+
+/** Lo que lleva un pedido, línea por línea, con lo sacado y lo agregado. */
+async function lineasDelPedido(orderId: number) {
+  const itemRows = await db
+    .select({
+      id: orderItems.id,
+      name: orderItems.productName,
+      quantity: orderItems.quantity,
+      unitPrice: orderItems.unitPrice,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+
+  const itemIds = itemRows.map((i) => i.id);
+  const [removalRows, extraRows] = await Promise.all([
+    itemIds.length
+      ? db
+          .select({
+            orderItemId: orderItemRemovals.orderItemId,
+            name: orderItemRemovals.ingredientName,
+          })
+          .from(orderItemRemovals)
+          .where(inArray(orderItemRemovals.orderItemId, itemIds))
+      : [],
+    itemIds.length
+      ? db
+          .select({
+            orderItemId: orderItemExtras.orderItemId,
+            name: orderItemExtras.ingredientName,
+            quantity: orderItemExtras.quantity,
+          })
+          .from(orderItemExtras)
+          .where(inArray(orderItemExtras.orderItemId, itemIds))
+      : [],
+  ]);
+
+  return itemRows.map((it) => ({
+    name: it.name,
+    quantity: it.quantity,
+    unitPrice: it.unitPrice,
+    removed: removalRows.filter((r) => r.orderItemId === it.id).map((r) => r.name),
+    extras: extraRows
+      .filter((e) => e.orderItemId === it.id)
+      .map((e) => ({ name: e.name, quantity: e.quantity })),
+  }));
+}
+
+// ─── Pedido online ──────────────────────────────────────────────────────────
+//
+// El mismo menú que el tótem, abierto desde el celular del cliente con el link
+// /p/{empresa}/{sucursal}: retira en el local o se lo llevan. Público como el
+// resto de este archivo, y por el mismo motivo devuelve solo lo que puede verse
+// en pantalla.
+
+export interface OnlineZone {
+  id: number;
+  name: string;
+  price: string;
+}
+
+export interface OnlineMenu extends TotemMenu {
+  locationName: string;
+  locationPhone: string | null;
+  locationAddress: string | null;
+  pickup: boolean;
+  delivery: boolean;
+  /** Si se puede pagar en efectivo. */
+  cash: boolean;
+  /** Pedido mínimo sin contar el envío. "0.00" = sin mínimo. */
+  minOrder: string;
+  zones: OnlineZone[];
+}
+
+const onlineInput = {
+  empresa: z.string().trim().min(1).max(60),
+  local: z.string().trim().min(1).max(60),
+};
+
+/** La empresa y la sucursal de un link online, sin mirar si está tomando pedidos. */
+async function resolverSucursal(empresaSlug: string, localSlug: string) {
+  const [company] = await db
+    .select({ id: companies.id, name: companies.name, active: companies.active })
+    .from(companies)
+    .where(eq(companies.slug, empresaSlug))
+    .limit(1);
+  if (!company) throw new Error("No encontramos este comercio");
+  if (!company.active) throw new Error("Este comercio no está disponible en este momento");
+
+  const [location] = await db
+    .select({
+      id: locations.id,
+      name: locations.name,
+      phone: locations.phone,
+      address: locations.address,
+      active: locations.active,
+    })
+    .from(locations)
+    .where(and(eq(locations.companyId, company.id), eq(locations.slug, localSlug)))
+    .limit(1);
+  if (!location || !location.active) throw new Error("Esta sucursal no está disponible");
+
+  return { company, location };
+}
+
+/**
+ * La sucursal y cómo toma pedidos online. Falla si no los está tomando: el
+ * interruptor del panel es lo que abre y cierra el canal, y un pedido que entra
+ * con el local cerrado es un pedido que nadie va a preparar.
+ */
+async function resolverOnline(empresaSlug: string, localSlug: string) {
+  const { company, location } = await resolverSucursal(empresaSlug, localSlug);
+
+  const [settings] = await db
+    .select()
+    .from(onlineSettings)
+    .where(eq(onlineSettings.locationId, location.id))
+    .limit(1);
+
+  const zones = settings?.deliveryEnabled
+    ? await db
+        .select({ id: deliveryZones.id, name: deliveryZones.name, price: deliveryZones.price })
+        .from(deliveryZones)
+        .where(and(eq(deliveryZones.locationId, location.id), eq(deliveryZones.active, true)))
+        .orderBy(asc(deliveryZones.sort), asc(deliveryZones.name))
+    : [];
+
+  const pickup = Boolean(settings?.pickupEnabled);
+  // Envío sin ninguna zona cargada no se puede pedir: no habría qué cobrar.
+  const delivery = Boolean(settings?.deliveryEnabled) && zones.length > 0;
+
+  if (!settings?.enabled || (!pickup && !delivery)) {
+    throw new Error("En este momento no estamos tomando pedidos online");
+  }
+
+  const mercadoPago = await empresaCobraConMP(company.id);
+  return {
+    company,
+    location,
+    pickup,
+    delivery,
+    // Si el dueño apagó el efectivo pero Mercado Pago no está andando, el
+    // cliente no tendría cómo pagar: el efectivo vuelve, mejor que un pedido
+    // imposible.
+    cash: settings.cashEnabled || !mercadoPago,
+    mercadoPago,
+    minOrder: Number(settings.minOrder),
+    zones,
+  };
+}
+
+export const getOnlineMenu = createServerFn({ method: "GET" })
+  .inputValidator(z.object(onlineInput))
+  .handler(async ({ data }): Promise<OnlineMenu> => {
+    const r = await resolverOnline(data.empresa, data.local);
+    const menu = await armarMenu(r.company.id, r.location.id);
+    return {
+      ...menu,
+      locationName: r.location.name,
+      locationPhone: r.location.phone,
+      locationAddress: r.location.address,
+      pickup: r.pickup,
+      delivery: r.delivery,
+      cash: r.cash,
+      minOrder: r.minOrder.toFixed(2),
+      zones: r.zones,
+    };
+  });
+
+export const createOnlineOrder = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      ...onlineInput,
+      customerName: z.string().trim().min(1).max(120),
+      // Se exige con al menos 8 dígitos: es lo único que tiene el local para
+      // ubicar al cliente si algo sale mal, y un teléfono a medio escribir no
+      // sirve para eso.
+      phone: z
+        .string()
+        .trim()
+        .max(40)
+        .regex(/^[0-9+()\-\s]+$/, "El teléfono solo puede tener números")
+        .refine((t) => t.replace(/\D/g, "").length >= 8, "Revisá el teléfono: le faltan números"),
+      deliveryMethod: z.enum(["mostrador", "envio"]),
+      zoneId: z.number().int().optional(),
+      address: z.string().trim().max(255).optional(),
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
+      paymentMethod: z.enum(["efectivo", "mercadopago"]),
+      paysWith: z.number().positive().max(100_000_000).optional(),
+      comments: z.string().trim().max(500).optional(),
+      items: z.array(lineaPedido).min(1),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
+    const r = await resolverOnline(data.empresa, data.local);
+
+    if (data.deliveryMethod === "mostrador" && !r.pickup) {
+      throw new Error("Esta sucursal no está tomando pedidos para retirar");
+    }
+    if (data.deliveryMethod === "envio" && !r.delivery) {
+      throw new Error("Esta sucursal no está haciendo envíos en este momento");
+    }
+
+    // La zona y su costo salen de la base, nunca del celular.
+    let zona: OnlineZone | null = null;
+    if (data.deliveryMethod === "envio") {
+      zona = r.zones.find((z) => z.id === data.zoneId) ?? null;
+      if (!zona) throw new Error("Elegí a qué zona te lo llevamos");
+      if (!data.address || data.address.length < 3) {
+        throw new Error("Contanos dónde estás para que te lo lleven");
+      }
+    }
+
+    if (data.paymentMethod === "efectivo" && !r.cash) {
+      throw new Error("Esta sucursal no está aceptando efectivo en pedidos online");
+    }
+    // Se mira antes de tomar el pedido: si no, quedaría guardado un pedido de
+    // Mercado Pago que no hay forma de pagar.
+    if (data.paymentMethod === "mercadopago" && !r.mercadoPago) {
+      throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
+    }
+
+    const esEnvio = data.deliveryMethod === "envio";
+    const tomado = await tomarPedido({
+      company: r.company,
+      locationId: r.location.id,
+      totemId: null,
+      channel: "online",
+      customerName: data.customerName,
+      deliveryMethod: data.deliveryMethod,
+      paymentMethod: data.paymentMethod,
+      comments: data.comments,
+      items: data.items,
+      online: {
+        phone: data.phone,
+        zoneName: zona?.name ?? null,
+        fee: zona ? Number(zona.price) : 0,
+        address: esEnvio ? (data.address ?? null) : null,
+        lat: esEnvio ? (data.lat ?? null) : null,
+        lng: esEnvio ? (data.lng ?? null) : null,
+        paysWith: data.paysWith ?? null,
+        minOrder: r.minOrder,
+      },
+      volverA: ({ trackingToken }) => `/p/${data.empresa}/${data.local}/pedido/${trackingToken}`,
+    });
+
+    return { trackingToken: tomado.trackingToken!, pagarEn: tomado.pagarEn };
+  });
+
+export interface OnlineOrderStatus {
+  orderNumber: number;
+  businessDate: string;
+  createdAt: string;
+  customerName: string;
+  status: "recibido" | "preparacion" | "entregado" | "cancelado";
+  /** Si el local ya lo aceptó, y con qué demora. */
+  acceptedAt: string | null;
+  etaMinutes: number | null;
+  deliveryMethod: "local" | "mostrador" | "envio";
+  deliveryZoneName: string | null;
+  deliveryFee: string | null;
+  deliveryAddress: string | null;
+  paymentMethod: "efectivo" | "mercadopago";
+  paymentStatus: "pendiente" | "pagado" | "reembolso_pendiente";
+  cashPaysWith: string | null;
+  total: string;
+  /**
+   * Link para pagar con Mercado Pago, mientras siga sin pagar: el cliente puede
+   * haber salido del pago a mitad de camino y tiene que poder volver.
+   */
+  pagarEn: string | null;
+  items: Awaited<ReturnType<typeof lineasDelPedido>>;
+  companyName: string;
+  locationName: string;
+  locationPhone: string | null;
+  logoUrl: string | null;
+  accentColor: string | null;
+  theme: TotemThemeName;
+  fontTheme: TotemFontName;
+  corners: TotemCornersName;
+}
+
+/**
+ * El estado de un pedido online, para la página de seguimiento del cliente.
+ *
+ * Se pide con el código del pedido y no con el id: quien tiene el link es quien
+ * hizo el pedido. No exige que el canal siga abierto: el cliente tiene que
+ * poder ver su pedido aunque el local haya dejado de tomar nuevos.
+ *
+ * Si es de Mercado Pago y sigue pendiente, le pregunta a Mercado Pago, igual
+ * que el tótem mientras el cliente escanea: el aviso puede perderse.
+ */
+export const getOnlineOrder = createServerFn({ method: "GET" })
+  .inputValidator(
+    z.object({ ...onlineInput, token: z.string().regex(/^[0-9a-f]{32}$/, "Pedido inválido") }),
+  )
+  .handler(async ({ data }): Promise<OnlineOrderStatus> => {
+    const { company, location } = await resolverSucursal(data.empresa, data.local);
+
+    const [row] = await db
+      .select({
+        order: orders,
+        logoUrl: companies.logoUrl,
+        primaryColor: companies.primaryColor,
+        accentColor: totemSettings.accentColor,
+        theme: totemSettings.theme,
+        fontTheme: totemSettings.fontTheme,
+        corners: totemSettings.corners,
+      })
+      .from(orders)
+      .innerJoin(companies, eq(companies.id, company.id))
+      .leftJoin(totemSettings, eq(totemSettings.companyId, company.id))
+      .where(and(eq(orders.trackingToken, data.token), eq(orders.locationId, location.id)))
+      .limit(1);
+    if (!row) throw new Error("No encontramos ese pedido");
+
+    const o = row.order;
+    let paymentStatus = o.paymentStatus;
+    if (
+      o.paymentMethod === "mercadopago" &&
+      paymentStatus === "pendiente" &&
+      o.status !== "cancelado"
+    ) {
+      const token = await tokenDeMP(company.id);
+      if (token) {
+        try {
+          const pago = await buscarPagoDePedido(token, String(o.id));
+          if (pago?.aprobado) {
+            await acreditarPedido(o.id, pago.id);
+            paymentStatus = "pagado";
+          }
+        } catch {
+          // Si Mercado Pago no contesta, la página vuelve a preguntar sola.
+        }
+      }
+    }
+
+    return {
+      orderNumber: o.orderNumber,
+      businessDate: o.businessDate,
+      createdAt: o.createdAt.toISOString(),
+      customerName: o.customerName,
+      status: o.status,
+      acceptedAt: o.acceptedAt?.toISOString() ?? null,
+      etaMinutes: o.etaMinutes,
+      deliveryMethod: o.deliveryMethod,
+      deliveryZoneName: o.deliveryZoneName,
+      deliveryFee: o.deliveryFee,
+      deliveryAddress: o.deliveryAddress,
+      paymentMethod: o.paymentMethod,
+      paymentStatus,
+      cashPaysWith: o.cashPaysWith,
+      total: o.total,
+      pagarEn:
+        o.paymentMethod === "mercadopago" &&
+        paymentStatus === "pendiente" &&
+        o.status !== "cancelado" &&
+        o.mpPreferenceId
+          ? `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${o.mpPreferenceId}`
+          : null,
+      items: await lineasDelPedido(o.id),
+      companyName: company.name,
+      locationName: location.name,
+      locationPhone: location.phone,
+      logoUrl: row.logoUrl,
+      accentColor: row.accentColor ?? row.primaryColor,
+      theme: row.theme ?? "oscuro",
+      fontTheme: row.fontTheme ?? "impacto",
+      corners: row.corners ?? "redondeado",
+    };
+  });
