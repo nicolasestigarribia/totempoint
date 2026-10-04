@@ -17,6 +17,7 @@ import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
+import { formatearDistancia } from "@/lib/delivery";
 
 export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
   loader: ({ params }) =>
@@ -114,7 +115,11 @@ function SeguimientoPage() {
             ))}
             {pedido.deliveryFee && (
               <li className="flex justify-between gap-3 text-muted-foreground">
-                <span>Envío · {pedido.deliveryZoneName}</span>
+                <span>
+                  Envío
+                  {pedido.deliveryDistanceKm &&
+                    ` · ${formatearDistancia(Number(pedido.deliveryDistanceKm))}`}
+                </span>
                 <span>{formatPrice(pedido.deliveryFee)}</span>
               </li>
             )}
@@ -126,15 +131,18 @@ function SeguimientoPage() {
           </div>
 
           <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-            <p className="flex items-center gap-2">
+            <p className="flex items-start gap-2">
               {pedido.deliveryMethod === "envio" ? (
-                <Bike className="h-4 w-4 shrink-0" />
+                <Bike className="mt-0.5 h-4 w-4 shrink-0" />
               ) : (
-                <Store className="h-4 w-4 shrink-0" />
+                <Store className="mt-0.5 h-4 w-4 shrink-0" />
               )}
-              {pedido.deliveryMethod === "envio"
-                ? `Envío a: ${pedido.deliveryAddress ?? pedido.deliveryZoneName}`
-                : "Lo retirás en el local"}
+              <span>
+                {pedido.deliveryMethod === "envio"
+                  ? `Envío a: ${pedido.deliveryAddress}`
+                  : "Lo retirás en el local"}
+                {pedido.deliveryDetails && <span className="block">{pedido.deliveryDetails}</span>}
+              </span>
             </p>
             <p>
               {pedido.paymentMethod === "mercadopago"

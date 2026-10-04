@@ -598,15 +598,26 @@ export const orders = mysqlTable(
     deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador", "envio"]).notNull(),
     /** Obligatorio en el canal online: es cómo el local y el repartidor lo encuentran. */
     customerPhone: varchar("customer_phone", { length: 40 }),
-    /** Zona y costo del envío, congelados como el nombre y precio de los ítems. */
+    /**
+     * Sin uso desde que el envío se cobra por distancia: era la zona que el
+     * cliente elegía de una lista. Queda por los pedidos de prueba que la
+     * tienen; no la vuelvas a usar.
+     */
     deliveryZoneName: varchar("delivery_zone_name", { length: 80 }),
-    /** Ya está sumado en `total`; se guarda aparte para mostrarlo desglosado. */
+    /** Costo del envío, congelado. Ya está sumado en `total`; va aparte para desglosarlo. */
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }),
-    /** Dirección o referencia ("parador 3, sombrilla roja"). */
+    /** La dirección que eligió o escribió el cliente ("Avellano y Cerezo, Cariló"). */
     deliveryAddress: varchar("delivery_address", { length: 255 }),
-    /** Ubicación que compartió el celular, si la compartió. */
+    /** Piso, depto, entre calles, "sombrilla roja": lo que el mapa no dice. */
+    deliveryDetails: varchar("delivery_details", { length: 255 }),
+    /**
+     * El punto exacto que confirmó en el mapa. Es a donde navega el repartidor,
+     * y de donde sale la distancia que define el costo del envío.
+     */
     deliveryLat: decimal("delivery_lat", { precision: 9, scale: 6 }),
     deliveryLng: decimal("delivery_lng", { precision: 9, scale: 6 }),
+    /** Distancia en línea recta desde la sucursal, congelada como el costo. */
+    deliveryDistanceKm: decimal("delivery_distance_km", { precision: 6, scale: 2 }),
     /** "Pago con $20.000": para que el repartidor salga con el vuelto. */
     cashPaysWith: decimal("cash_pays_with", { precision: 10, scale: 2 }),
     /** Cuándo lo aceptó el local. Null en un pedido online = todavía por aceptar. */
@@ -678,29 +689,34 @@ export const onlineSettings = mysqlTable(
     cashEnabled: boolean("cash_enabled").notNull().default(true),
     /** Pedido mínimo, sobre lo pedido y sin contar el envío. 0 = sin mínimo. */
     minOrder: decimal("min_order", { precision: 10, scale: 2 }).notNull().default("0"),
+    /**
+     * Desde dónde salen los envíos: el punto de la sucursal en el mapa. Sin esto
+     * no hay distancia que medir, así que el envío no se ofrece.
+     */
+    originLat: decimal("origin_lat", { precision: 9, scale: 6 }),
+    originLng: decimal("origin_lng", { precision: 9, scale: 6 }),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [unique("online_settings_location_uq").on(t.locationId)],
 );
 
 /**
- * Zonas de envío de una sucursal, con su costo. Las carga el dueño ("Centro",
- * "Playa norte") y el cliente elige la suya. Se pueden borrar sin miedo: el
- * pedido congela el nombre y el costo de la zona que eligió.
+ * Tramos de costo de envío de una sucursal, por distancia: "hasta 2 km, $1.500".
+ * El tramo más largo es el alcance máximo. El sistema mide la distancia entre
+ * la sucursal y el punto que el cliente marcó en el mapa y elige el tramo; el
+ * cliente nunca elige nada. Ver `src/lib/delivery.ts`.
  */
-export const deliveryZones = mysqlTable(
-  "delivery_zones",
+export const deliveryTiers = mysqlTable(
+  "delivery_tiers",
   {
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
     locationId: int("location_id").notNull(),
-    name: varchar("name", { length: 80 }).notNull(),
+    upToKm: decimal("up_to_km", { precision: 5, scale: 2 }).notNull(),
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-    active: boolean("active").notNull().default(true),
-    sort: int("sort").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("delivery_zones_location_idx").on(t.locationId)],
+  (t) => [index("delivery_tiers_location_idx").on(t.locationId)],
 );
 
 // Contador de numeración por local y jornada.

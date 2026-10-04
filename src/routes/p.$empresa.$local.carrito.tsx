@@ -11,8 +11,6 @@ import {
   Store,
   Banknote,
   Smartphone,
-  LocateFixed,
-  CheckCircle2,
   ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +20,8 @@ import { OnlineError } from "@/components/online/OnlineError";
 import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
+import { DireccionEntrega, type Destino } from "@/components/online/DireccionEntrega";
+import { cotizarEnvio, distanciaKm } from "@/lib/delivery";
 import {
   useTotemCart,
   useCartForSlug,
@@ -58,7 +58,8 @@ const CLAVE_CLIENTE = "pedido-online-cliente";
 interface DatosGuardados {
   nombre?: string;
   telefono?: string;
-  direccion?: string;
+  /** La última dirección de entrega, con su punto en el mapa. */
+  destino?: Destino;
 }
 
 function leerCliente(): DatosGuardados {
@@ -76,12 +77,6 @@ function guardarCliente(d: DatosGuardados) {
     // Sin almacenamiento (modo incógnito): la próxima vez los vuelve a escribir.
   }
 }
-
-type Ubicacion =
-  | { estado: "nada" }
-  | { estado: "buscando" }
-  | { estado: "lista"; lat: number; lng: number }
-  | { estado: "error"; motivo: string };
 
 function CarritoOnlinePage() {
   const menu = Route.useLoaderData();
@@ -113,11 +108,8 @@ function CarritoOnlinePage() {
 
   // Envío primero si lo hacen: es el motivo por el que la mayoría pide online.
   const [entrega, setEntrega] = useState<Entrega>(menu.delivery ? "envio" : "mostrador");
-  const [zonaId, setZonaId] = useState<number | null>(
-    menu.zones.length === 1 ? menu.zones[0].id : null,
-  );
-  const [direccion, setDireccion] = useState("");
-  const [ubicacion, setUbicacion] = useState<Ubicacion>({ estado: "nada" });
+  const [destino, setDestino] = useState<Destino | null>(null);
+  const [anterior, setAnterior] = useState<Destino | null>(null);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [pago, setPago] = useState<Pago>(menu.mercadoPago ? "mercadopago" : "efectivo");
@@ -130,39 +122,29 @@ function CarritoOnlinePage() {
     const d = leerCliente();
     if (d.nombre) setNombre(d.nombre);
     if (d.telefono) setTelefono(d.telefono);
-    if (d.direccion) setDireccion(d.direccion);
+    if (d.destino) setAnterior(d.destino);
   }, []);
 
   const subtotal = cartTotal(items);
-  const zona = menu.zones.find((z) => z.id === zonaId) ?? null;
-  const envio = entrega === "envio" && zona ? Number(zona.price) : 0;
+  // El costo que ve el cliente; el servidor lo vuelve a calcular y es el que vale.
+  const cotizacion =
+    entrega === "envio" && destino && menu.origin
+      ? cotizarEnvio(menu.tiers, distanciaKm(menu.origin, destino))
+      : null;
+  const envio = cotizacion?.llega ? cotizacion.precio : 0;
   const total = subtotal + envio;
   const minimo = Number(menu.minOrder);
   const faltaParaMinimo = minimo > 0 && subtotal < minimo ? minimo - subtotal : 0;
 
-  const pedirUbicacion = () => {
-    if (!("geolocation" in navigator)) {
-      setUbicacion({ estado: "error", motivo: "Tu celular no permite compartir la ubicación" });
-      return;
-    }
-    setUbicacion({ estado: "buscando" });
-    navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        setUbicacion({ estado: "lista", lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () =>
-        setUbicacion({
-          estado: "error",
-          motivo: "No pudimos tomar tu ubicación. Escribí bien dónde estás y listo.",
-        }),
-      { enableHighAccuracy: true, timeout: 15_000 },
-    );
-  };
-
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
-    if (entrega === "envio" && !zona) {
-      toast.error("Elegí a qué zona te lo llevamos");
+    if (entrega === "envio" && !destino) {
+      toast.error("Buscá tu dirección o marcala en el mapa");
+      return;
+    }
+    if (cotizacion && !cotizacion.llega) {
+      toast.error("No llegamos hasta esa dirección. Podés elegir retirarlo.");
       return;
     }
     if (faltaParaMinimo > 0) {
@@ -181,7 +163,7 @@ function CarritoOnlinePage() {
     guardarCliente({
       nombre: nombre.trim(),
       telefono: telefono.trim(),
-      direccion: entrega === "envio" ? direccion.trim() : leerCliente().direccion,
+      destino: entrega === "envio" && destino ? destino : leerCliente().destino,
     });
     try {
       const r = await placeOrder({
@@ -191,10 +173,10 @@ function CarritoOnlinePage() {
           customerName: nombre,
           phone: telefono,
           deliveryMethod: entrega,
-          zoneId: entrega === "envio" ? (zona?.id ?? undefined) : undefined,
-          address: entrega === "envio" ? direccion : undefined,
-          lat: entrega === "envio" && ubicacion.estado === "lista" ? ubicacion.lat : undefined,
-          lng: entrega === "envio" && ubicacion.estado === "lista" ? ubicacion.lng : undefined,
+          address: entrega === "envio" ? destino?.address : undefined,
+          details: entrega === "envio" ? destino?.details || undefined : undefined,
+          lat: entrega === "envio" ? destino?.lat : undefined,
+          lng: entrega === "envio" ? destino?.lng : undefined,
           paymentMethod: pago,
           paysWith: pago === "efectivo" ? pagaConNumero : undefined,
           comments: comentarios.trim() || undefined,
@@ -394,76 +376,17 @@ function CarritoOnlinePage() {
             </p>
           )}
 
-          {entrega === "envio" && (
-            <div className="mt-4 space-y-4">
-              <div>
-                <p className="mb-2 text-sm font-bold">¿A qué zona?</p>
-                <div className="space-y-2">
-                  {menu.zones.map((z) => (
-                    <label
-                      key={z.id}
-                      className={`flex cursor-pointer items-center justify-between rounded-xl border px-4 py-3 ${
-                        zonaId === z.id ? "border-transparent text-white" : "border-border"
-                      }`}
-                      style={zonaId === z.id ? { background: accent } : undefined}
-                    >
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="zona"
-                          className="sr-only"
-                          checked={zonaId === z.id}
-                          onChange={() => setZonaId(z.id)}
-                        />
-                        {z.name}
-                      </span>
-                      <span className="font-bold">
-                        {Number(z.price) > 0 ? formatPrice(z.price) : "Gratis"}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="direccion" className="mb-2 block text-sm font-bold">
-                  ¿Dónde estás?
-                </label>
-                <textarea
-                  id="direccion"
-                  value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
-                  required
-                  minLength={3}
-                  maxLength={255}
-                  rows={2}
-                  placeholder="Dirección, o en la playa: parador, bajada, color de la sombrilla…"
-                  className="w-full rounded-xl border border-border bg-card/40 p-3 outline-none focus:border-primary"
-                />
-                {/* La ubicación del celular ayuda al repartidor, sobre todo en
-                    la playa, donde no hay dirección. Es opcional: lo escrito
-                    alcanza. */}
-                <button
-                  type="button"
-                  onClick={pedirUbicacion}
-                  disabled={ubicacion.estado === "buscando"}
-                  className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-sm font-bold"
-                >
-                  {ubicacion.estado === "buscando" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : ubicacion.estado === "lista" ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  ) : (
-                    <LocateFixed className="h-4 w-4" />
-                  )}
-                  {ubicacion.estado === "lista"
-                    ? "Ubicación compartida"
-                    : "Compartir mi ubicación (opcional)"}
-                </button>
-                {ubicacion.estado === "error" && (
-                  <p className="mt-1 text-sm text-amber-400">{ubicacion.motivo}</p>
-                )}
-              </div>
+          {entrega === "envio" && menu.origin && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-bold">¿A dónde te lo llevamos?</p>
+              <DireccionEntrega
+                origen={menu.origin}
+                tramos={menu.tiers}
+                destino={destino}
+                anterior={anterior}
+                onCambiar={setDestino}
+                accent={accent}
+              />
             </div>
           )}
         </Bloque>
@@ -557,7 +480,7 @@ function CarritoOnlinePage() {
               {envio > 0 && (
                 <>
                   <Fila label="Productos" valor={formatPrice(subtotal)} />
-                  <Fila label={`Envío · ${zona?.name}`} valor={formatPrice(envio)} />
+                  <Fila label="Envío" valor={formatPrice(envio)} />
                 </>
               )}
               <div className="flex items-center justify-between pt-1">

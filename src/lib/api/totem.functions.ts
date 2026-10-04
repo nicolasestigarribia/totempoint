@@ -23,7 +23,7 @@ import {
   ingredients,
   paymentSettings,
   onlineSettings,
-  deliveryZones,
+  deliveryTiers,
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
 import {
@@ -32,6 +32,7 @@ import {
   type ItemPreferencia,
 } from "@/lib/payments/mercadopago";
 import { acreditarPedido } from "@/lib/payments/acreditar";
+import { distanciaKm, cotizarEnvio, formatearDistancia } from "@/lib/delivery";
 import {
   calcularConsumo,
   registrarVenta,
@@ -718,12 +719,15 @@ export const createTotemOrder = createServerFn({ method: "POST" })
 /** Lo que el canal online suma a un pedido: quién es y cómo le llega. */
 interface DatosOnline {
   phone: string;
-  /** Zona y costo del envío, ya resueltos contra la base. Null si retira. */
-  zoneName: string | null;
-  fee: number;
-  address: string | null;
-  lat: number | null;
-  lng: number | null;
+  /** El envío, ya cotizado acá contra los tramos de la sucursal. Null si retira. */
+  envio: {
+    fee: number;
+    km: number;
+    address: string;
+    details: string | null;
+    lat: number;
+    lng: number;
+  } | null;
   paysWith: number | null;
   /** Mínimo de la sucursal, sobre lo pedido y sin el envío. */
   minOrder: number;
@@ -951,11 +955,11 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   });
 
   const subtotal = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
-  const envio = p.online?.fee ?? 0;
+  const envio = p.online?.envio?.fee ?? 0;
   const total = subtotal + envio;
 
   if (p.online) {
-    // El mínimo se mide sobre lo pedido, sin el envío: si no, una zona cara
+    // El mínimo se mide sobre lo pedido, sin el envío: si no, un envío caro
     // ayudaría a llegar al mínimo, y el mínimo existe para que valga la pena
     // salir con el pedido.
     if (p.online.minOrder > 0 && subtotal < p.online.minOrder) {
@@ -1040,11 +1044,12 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         ...(p.online
           ? {
               customerPhone: p.online.phone,
-              deliveryZoneName: p.online.zoneName,
-              deliveryFee: p.online.zoneName ? p.online.fee.toFixed(2) : null,
-              deliveryAddress: p.online.address,
-              deliveryLat: p.online.lat?.toFixed(6) ?? null,
-              deliveryLng: p.online.lng?.toFixed(6) ?? null,
+              deliveryFee: p.online.envio?.fee.toFixed(2) ?? null,
+              deliveryAddress: p.online.envio?.address ?? null,
+              deliveryDetails: p.online.envio?.details ?? null,
+              deliveryLat: p.online.envio?.lat.toFixed(6) ?? null,
+              deliveryLng: p.online.envio?.lng.toFixed(6) ?? null,
+              deliveryDistanceKm: p.online.envio?.km.toFixed(2) ?? null,
               cashPaysWith:
                 p.paymentMethod === "efectivo" && p.online.paysWith !== null
                   ? p.online.paysWith.toFixed(2)
@@ -1120,7 +1125,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       unitPrice: Number(x.unitPrice),
     }));
     if (envio > 0) {
-      items.push({ title: `Envío (${p.online?.zoneName ?? ""})`, quantity: 1, unitPrice: envio });
+      items.push({ title: "Envío", quantity: 1, unitPrice: envio });
     }
 
     const pref = await crearPreferencia({
@@ -1410,10 +1415,9 @@ async function lineasDelPedido(orderId: number) {
 // resto de este archivo, y por el mismo motivo devuelve solo lo que puede verse
 // en pantalla.
 
-export interface OnlineZone {
-  id: number;
-  name: string;
-  price: string;
+export interface OnlineTier {
+  upToKm: number;
+  price: number;
 }
 
 export interface OnlineMenu extends TotemMenu {
@@ -1426,7 +1430,14 @@ export interface OnlineMenu extends TotemMenu {
   cash: boolean;
   /** Pedido mínimo sin contar el envío. "0.00" = sin mínimo. */
   minOrder: string;
-  zones: OnlineZone[];
+  /**
+   * Desde dónde salen los envíos y cuánto cuestan por distancia. Viajan al
+   * celular para que el cliente vea el costo mientras mueve el pin; el que vale
+   * es el que se recalcula al tomar el pedido. La ubicación de la sucursal no
+   * es un secreto: es el local.
+   */
+  origin: { lat: number; lng: number } | null;
+  tiers: OnlineTier[];
 }
 
 const onlineInput = {
@@ -1474,17 +1485,24 @@ async function resolverOnline(empresaSlug: string, localSlug: string) {
     .where(eq(onlineSettings.locationId, location.id))
     .limit(1);
 
-  const zones = settings?.deliveryEnabled
-    ? await db
-        .select({ id: deliveryZones.id, name: deliveryZones.name, price: deliveryZones.price })
-        .from(deliveryZones)
-        .where(and(eq(deliveryZones.locationId, location.id), eq(deliveryZones.active, true)))
-        .orderBy(asc(deliveryZones.sort), asc(deliveryZones.name))
+  const tiers: OnlineTier[] = settings?.deliveryEnabled
+    ? (
+        await db
+          .select({ upToKm: deliveryTiers.upToKm, price: deliveryTiers.price })
+          .from(deliveryTiers)
+          .where(eq(deliveryTiers.locationId, location.id))
+          .orderBy(asc(deliveryTiers.upToKm))
+      ).map((t) => ({ upToKm: Number(t.upToKm), price: Number(t.price) }))
     : [];
+  const origin =
+    settings?.originLat != null && settings.originLng != null
+      ? { lat: Number(settings.originLat), lng: Number(settings.originLng) }
+      : null;
 
   const pickup = Boolean(settings?.pickupEnabled);
-  // Envío sin ninguna zona cargada no se puede pedir: no habría qué cobrar.
-  const delivery = Boolean(settings?.deliveryEnabled) && zones.length > 0;
+  // Sin el punto de la sucursal no hay distancia que medir, y sin tramos no hay
+  // qué cobrar: en cualquiera de los dos casos el envío no se ofrece.
+  const delivery = Boolean(settings?.deliveryEnabled) && origin !== null && tiers.length > 0;
 
   if (!settings?.enabled || (!pickup && !delivery)) {
     throw new Error("En este momento no estamos tomando pedidos online");
@@ -1502,7 +1520,8 @@ async function resolverOnline(empresaSlug: string, localSlug: string) {
     cash: settings.cashEnabled || !mercadoPago,
     mercadoPago,
     minOrder: Number(settings.minOrder),
-    zones,
+    origin,
+    tiers,
   };
 }
 
@@ -1520,7 +1539,8 @@ export const getOnlineMenu = createServerFn({ method: "GET" })
       delivery: r.delivery,
       cash: r.cash,
       minOrder: r.minOrder.toFixed(2),
-      zones: r.zones,
+      origin: r.delivery ? r.origin : null,
+      tiers: r.delivery ? r.tiers : [],
     };
   });
 
@@ -1539,8 +1559,11 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         .regex(/^[0-9+()\-\s]+$/, "El teléfono solo puede tener números")
         .refine((t) => t.replace(/\D/g, "").length >= 8, "Revisá el teléfono: le faltan números"),
       deliveryMethod: z.enum(["mostrador", "envio"]),
-      zoneId: z.number().int().optional(),
+      // El envío: la dirección que eligió o escribió, el punto que confirmó en
+      // el mapa y lo que el mapa no dice (piso, depto, sombrilla). El costo no
+      // viaja: se calcula acá con la distancia.
       address: z.string().trim().max(255).optional(),
+      details: z.string().trim().max(255).optional(),
       lat: z.number().min(-90).max(90).optional(),
       lng: z.number().min(-180).max(180).optional(),
       paymentMethod: z.enum(["efectivo", "mercadopago"]),
@@ -1559,14 +1582,31 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       throw new Error("Esta sucursal no está haciendo envíos en este momento");
     }
 
-    // La zona y su costo salen de la base, nunca del celular.
-    let zona: OnlineZone | null = null;
+    // El costo del envío sale de la distancia entre la sucursal y el punto que
+    // marcó el cliente, con los tramos guardados: nunca de lo que diga el celular.
+    let envio: DatosOnline["envio"] = null;
     if (data.deliveryMethod === "envio") {
-      zona = r.zones.find((z) => z.id === data.zoneId) ?? null;
-      if (!zona) throw new Error("Elegí a qué zona te lo llevamos");
-      if (!data.address || data.address.length < 3) {
-        throw new Error("Contanos dónde estás para que te lo lleven");
+      if (data.lat === undefined || data.lng === undefined) {
+        throw new Error("Marcá en el mapa dónde te lo llevamos");
       }
+      if (!data.address || data.address.length < 3) {
+        throw new Error("Escribí la dirección de entrega");
+      }
+      const km = distanciaKm(r.origin!, { lat: data.lat, lng: data.lng });
+      const cotizado = cotizarEnvio(r.tiers, km);
+      if (!cotizado.llega) {
+        throw new Error(
+          `No llegamos hasta ahí: estás a ${formatearDistancia(km)} y hacemos envíos hasta ${formatearDistancia(cotizado.maxKm)}`,
+        );
+      }
+      envio = {
+        fee: cotizado.precio,
+        km,
+        address: data.address,
+        details: data.details || null,
+        lat: data.lat,
+        lng: data.lng,
+      };
     }
 
     if (data.paymentMethod === "efectivo" && !r.cash) {
@@ -1578,7 +1618,6 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
     }
 
-    const esEnvio = data.deliveryMethod === "envio";
     const tomado = await tomarPedido({
       company: r.company,
       locationId: r.location.id,
@@ -1591,11 +1630,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       items: data.items,
       online: {
         phone: data.phone,
-        zoneName: zona?.name ?? null,
-        fee: zona ? Number(zona.price) : 0,
-        address: esEnvio ? (data.address ?? null) : null,
-        lat: esEnvio ? (data.lat ?? null) : null,
-        lng: esEnvio ? (data.lng ?? null) : null,
+        envio,
         paysWith: data.paysWith ?? null,
         minOrder: r.minOrder,
       },
@@ -1615,9 +1650,10 @@ export interface OnlineOrderStatus {
   acceptedAt: string | null;
   etaMinutes: number | null;
   deliveryMethod: "local" | "mostrador" | "envio";
-  deliveryZoneName: string | null;
   deliveryFee: string | null;
   deliveryAddress: string | null;
+  deliveryDetails: string | null;
+  deliveryDistanceKm: string | null;
   paymentMethod: "efectivo" | "mercadopago";
   paymentStatus: "pendiente" | "pagado" | "reembolso_pendiente";
   cashPaysWith: string | null;
@@ -1702,7 +1738,8 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       etaMinutes: o.etaMinutes,
       deliveryMethod: o.deliveryMethod,
-      deliveryZoneName: o.deliveryZoneName,
+      deliveryDetails: o.deliveryDetails,
+      deliveryDistanceKm: o.deliveryDistanceKm,
       deliveryFee: o.deliveryFee,
       deliveryAddress: o.deliveryAddress,
       paymentMethod: o.paymentMethod,

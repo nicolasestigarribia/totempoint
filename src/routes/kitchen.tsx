@@ -37,6 +37,7 @@ import {
 } from "@/lib/api/orders.functions";
 import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
+import { formatearDistancia, linkNavegacion } from "@/lib/delivery";
 import { mensajeDeError } from "@/lib/error-message";
 import {
   Dialog,
@@ -116,16 +117,18 @@ const esPorAceptar = (o: KitchenOrder) =>
   o.channel === "online" && !o.acceptedAt && o.status !== "cancelado";
 
 function entregaLabel(o: KitchenOrder): string {
-  if (o.deliveryMethod === "envio") return `Envío · ${o.deliveryZoneName ?? "sin zona"}`;
+  if (o.deliveryMethod === "envio") {
+    return o.deliveryDistanceKm
+      ? `Envío · ${formatearDistancia(Number(o.deliveryDistanceKm))}`
+      : "Envío";
+  }
   if (o.deliveryMethod === "local") return "Comer en el local";
   return o.channel === "online" ? "Retira en el local" : "Retirar en mostrador";
 }
 
-/** Link a la ubicación que compartió el cliente. No necesita ninguna clave de API. */
+/** Navegación hasta el punto que marcó el cliente. No necesita ninguna clave de API. */
 const mapaUrl = (o: KitchenOrder) =>
-  o.deliveryLat && o.deliveryLng
-    ? `https://www.google.com/maps?q=${o.deliveryLat},${o.deliveryLng}`
-    : null;
+  o.deliveryLat && o.deliveryLng ? linkNavegacion(o.deliveryLat, o.deliveryLng) : null;
 
 /**
  * Dos pitidos cortos con Web Audio, sin archivo de sonido. El navegador no deja
@@ -204,11 +207,12 @@ function DatosOnline({ o }: { o: KitchenOrder }) {
           <p className="flex items-start gap-2">
             <Bike className="mt-0.5 h-4 w-4 shrink-0 text-sky-300" />
             <span>
-              <span className="font-bold">{o.deliveryZoneName}</span>
-              {o.deliveryFee && (
-                <span className="text-muted-foreground"> · envío {formatPrice(o.deliveryFee)}</span>
-              )}
-              {o.deliveryAddress && <span className="block">{o.deliveryAddress}</span>}
+              <span className="font-bold">{o.deliveryAddress}</span>
+              {o.deliveryDetails && <span className="block">{o.deliveryDetails}</span>}
+              <span className="block text-muted-foreground">
+                {o.deliveryDistanceKm && formatearDistancia(Number(o.deliveryDistanceKm))}
+                {o.deliveryFee && ` · envío ${formatPrice(o.deliveryFee)}`}
+              </span>
             </span>
           </p>
           {mapa && (
@@ -219,7 +223,7 @@ function DatosOnline({ o }: { o: KitchenOrder }) {
               className="flex items-center gap-2 text-sky-300 underline underline-offset-4"
             >
               <MapPin className="h-4 w-4 shrink-0" />
-              Ver ubicación en el mapa
+              Cómo llegar (Google Maps)
             </a>
           )}
         </>

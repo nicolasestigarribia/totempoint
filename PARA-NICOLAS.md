@@ -77,9 +77,14 @@ bot de WhatsApp sí es otro producto; si algún día manda este link, es una int
 `totem.functions.ts`). Precios, extras, "sin cebolla", disponibilidad, numeración, stock y Mercado
 Pago son una sola función: un arreglo en un canal no puede quedar roto en el otro. No la dupliques.
 
-**El costo del envío sale de la zona guardada en la base**, nunca del celular, igual que los
-precios. El mínimo se mide sobre lo pedido *sin* el envío, y el pedido congela nombre y costo de la
-zona: borrar una zona no cambia pedidos viejos.
+**El envío funciona como PedidosYa: dirección y punto en el mapa, nunca una zona elegida.** La
+primera versión le hacía elegir al cliente una zona de una lista y se descartó: al repartidor una
+zona no le sirve. Ahora el cliente busca su dirección (o usa el GPS), confirma el punto moviendo el
+pin y agrega indicaciones. El costo sale de la distancia entre la sucursal y ese punto, con los
+tramos que carga el dueño ("hasta 2 km, $1.500"); el más largo es el alcance máximo. El servidor
+recalcula distancia y costo (`src/lib/delivery.ts`): nunca se cree lo que manda el celular. El
+mínimo se mide sobre lo pedido *sin* el envío, y el pedido congela dirección, punto, distancia y
+costo. Todo con servicios gratis y sin clave (OpenStreetMap, Photon, Leaflet).
 
 **Un pedido online espera que el local lo acepte** (`accepted_at`) antes de entrar a las columnas de
 la cocina, y `setOrderStatus` se niega a moverlo mientras tanto. Rechazar es cancelar, para que
@@ -210,7 +215,7 @@ implica que la pantalla de cocina quede siempre abierta en la máquina que tiene
 
 La etapa 1 está hecha y probada de punta a punta (envío y retiro, aceptar y rechazar). Falta:
 
-- **Imprimir los pedidos online.** El ticket ya sabe mostrar envío, zona, teléfono y vuelto
+- **Imprimir los pedidos online.** El ticket ya sabe mostrar envío, dirección, indicaciones, distancia, teléfono y vuelto
   (`src/lib/print/ticket.ts`), pero hoy imprime la tablet del tótem al terminar el pedido, y un
   pedido online no pasa por ninguna tablet. Lo natural es que imprima la comandera al aceptarlo.
 - **Abrir y cerrar el canal lo hace solo el dueño** (sección "Pedido online"). Si lo va a hacer el

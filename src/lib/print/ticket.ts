@@ -37,10 +37,12 @@ export interface TicketData {
   items: TicketItem[];
   /** Pedido online: cómo ubicar al cliente y a dónde va. */
   customerPhone?: string | null;
-  deliveryZoneName?: string | null;
   /** Costo del envío, ya incluido en el total. */
   deliveryFee?: number | null;
   deliveryAddress?: string | null;
+  /** Piso, depto, entre calles: lo que el mapa no dice. */
+  deliveryDetails?: string | null;
+  deliveryDistanceKm?: number | null;
   /** "Paga con": para que el repartidor salga con el vuelto. */
   cashPaysWith?: number | null;
   total: number;
@@ -170,11 +172,19 @@ export function buildTicket(data: TicketData): Uint8Array {
     texto("ENVIO");
     nl();
     cmd(SIZE_NORMAL);
-    texto(`Zona: ${data.deliveryZoneName ?? "-"}`);
-    nl();
-    cmd(BOLD_OFF);
     if (data.deliveryAddress) {
-      texto(`Donde: ${data.deliveryAddress}`);
+      texto(data.deliveryAddress);
+      nl();
+    }
+    cmd(BOLD_OFF);
+    if (data.deliveryDetails) {
+      texto(data.deliveryDetails);
+      nl();
+    }
+    if (data.deliveryDistanceKm) {
+      texto(
+        `A ${data.deliveryDistanceKm.toLocaleString("es-AR", { maximumFractionDigits: 1 })} km`,
+      );
       nl();
     }
   } else {

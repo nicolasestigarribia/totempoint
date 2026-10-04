@@ -45,9 +45,10 @@ export interface KitchenOrder {
   etaMinutes: number | null;
   /** Datos del pedido online: cómo ubicar al cliente y cómo le llega. */
   customerPhone: string | null;
-  deliveryZoneName: string | null;
   deliveryFee: string | null;
   deliveryAddress: string | null;
+  deliveryDetails: string | null;
+  deliveryDistanceKm: string | null;
   deliveryLat: string | null;
   deliveryLng: string | null;
   cashPaysWith: string | null;
@@ -196,9 +197,10 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       etaMinutes: o.etaMinutes,
       customerPhone: o.customerPhone,
-      deliveryZoneName: o.deliveryZoneName,
       deliveryFee: o.deliveryFee,
       deliveryAddress: o.deliveryAddress,
+      deliveryDetails: o.deliveryDetails,
+      deliveryDistanceKm: o.deliveryDistanceKm,
       deliveryLat: o.deliveryLat,
       deliveryLng: o.deliveryLng,
       cashPaysWith: o.cashPaysWith,
