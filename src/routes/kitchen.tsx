@@ -131,24 +131,43 @@ const mapaUrl = (o: KitchenOrder) =>
   o.deliveryLat && o.deliveryLng ? linkNavegacion(o.deliveryLat, o.deliveryLng) : null;
 
 /**
- * Dos pitidos cortos con Web Audio, sin archivo de sonido. El navegador no deja
- * sonar nada hasta que alguien toca la pantalla, así que el contexto se crea y
- * se destraba con el primer toque.
+ * La alarma de pedido online, con Web Audio y sin archivo de sonido.
+ *
+ * Tiene que oírse en un local con ruido, con el celular en el bolsillo o sobre
+ * la plancha. Por eso no es un pitido suave: son ondas cuadradas (llenas de
+ * armónicos, el oído las percibe mucho más fuertes que una sinusoidal al mismo
+ * volumen) en dos tonos que alternan, como una sirena corta, repetida dos
+ * veces y pasada por un compresor que la lleva al máximo sin que distorsione.
+ *
+ * El navegador no deja sonar nada hasta que alguien toca la pantalla, así que
+ * el contexto se crea y se destraba con el primer toque.
  */
 function pitar(ctx: AudioContext | null) {
   if (!ctx || ctx.state !== "running") return;
-  for (const t of [0, 0.28]) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    const inicio = ctx.currentTime + t;
-    gain.gain.setValueAtTime(0.0001, inicio);
-    gain.gain.exponentialRampToValueAtTime(0.5, inicio + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.22);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(inicio);
-    osc.stop(inicio + 0.24);
+  const compresor = ctx.createDynamicsCompressor();
+  compresor.threshold.value = -12;
+  compresor.ratio.value = 12;
+  compresor.connect(ctx.destination);
+
+  const TONOS = [988, 1319]; // si y mi agudos: cortan el ruido de una cocina
+  const DURACION = 0.16;
+  let t = ctx.currentTime;
+  for (let vuelta = 0; vuelta < 2; vuelta++) {
+    for (let i = 0; i < 6; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = TONOS[i % 2];
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.9, t + 0.01);
+      gain.gain.setValueAtTime(0.9, t + DURACION - 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + DURACION);
+      osc.connect(gain).connect(compresor);
+      osc.start(t);
+      osc.stop(t + DURACION + 0.01);
+      t += DURACION + 0.02;
+    }
+    t += 0.35;
   }
 }
 
@@ -378,6 +397,10 @@ function Kitchen() {
   useEffect(() => {
     let alive = true;
     (async () => {
+      // La sesión y los pedidos se piden a la vez: uno detrás del otro sumaban
+      // sus demoras, y la comandera tardaba el doble en mostrar algo. Si no hay
+      // sesión, los pedidos fallan solos y se va al login igual.
+      const pedidos = load();
       const user = await doMe();
       if (!user) {
         navigate({ to: "/login", replace: true });
@@ -396,7 +419,7 @@ function Kitchen() {
             canEditSection(user.permissions, "comandera"),
         );
       }
-      await load();
+      await pedidos;
       if (alive) setLoading(false);
     })();
     return () => {
@@ -901,7 +924,11 @@ function Kitchen() {
                       );
                     })}
                     {grouped[col].length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-border/60 p-6 text-center text-xs uppercase tracking-wider text-muted-foreground">
+                      // En el celular las columnas van una debajo de la otra, y un
+                      // "Sin pedidos" por cada una empujaba fuera de la
+                      // pantalla lo que sí hay que atender. El contador del
+                      // encabezado ya dice que está vacía.
+                      <div className="hidden rounded-2xl border border-dashed border-border/60 p-6 text-center text-xs uppercase tracking-wider text-muted-foreground md:block">
                         Sin pedidos
                       </div>
                     )}

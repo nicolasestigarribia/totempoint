@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Bike, Store, ShoppingBag } from "lucide-react";
 import type { TotemProduct, TotemCombo } from "@/lib/api/totem.functions";
@@ -56,6 +56,47 @@ function OnlineMenuPage() {
   );
 
   const minimo = Number(menu.minOrder);
+  // El envío más barato, para decirlo de entrada: "Envío desde $1.000".
+  const envioDesde = menu.tiers.length > 0 ? Math.min(...menu.tiers.map((t) => t.price)) : null;
+
+  // La categoría que se está viendo, marcada en la barra. En un menú largo,
+  // scrolleando con el pulgar, es la forma de saber dónde estás sin volver
+  // arriba.
+  const ids = useMemo(
+    () => [...(menu.combos.length > 0 ? ["combos"] : []), ...secciones.map((c) => `cat-${c.id}`)],
+    [menu.combos.length, secciones],
+  );
+  const [activa, setActiva] = useState<string | null>(null);
+  const barra = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Una sección cuenta como "la que se ve" cuando cruza una franja justo
+    // debajo de la barra de categorías.
+    const obs = new IntersectionObserver(
+      (entradas) => {
+        const visible = entradas.find((e) => e.isIntersecting);
+        if (visible) setActiva(visible.target.id);
+      },
+      { rootMargin: "-140px 0px -65% 0px" },
+    );
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el) obs.observe(el);
+    }
+    return () => obs.disconnect();
+  }, [ids]);
+
+  // La barra se corre sola para que la categoría marcada no quede escondida a
+  // un costado. Se mueve solo la barra, nunca la página.
+  useEffect(() => {
+    const cont = barra.current;
+    const chip = cont?.querySelector<HTMLElement>(`[data-cat="${activa}"]`);
+    if (!cont || !chip) return;
+    cont.scrollTo({
+      left: chip.offsetLeft - cont.clientWidth / 2 + chip.clientWidth / 2,
+      behavior: "smooth",
+    });
+  }, [activa]);
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -74,6 +115,8 @@ function OnlineMenuPage() {
           {menu.delivery && (
             <span className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5">
               <Bike className="h-3.5 w-3.5" /> Envío
+              {envioDesde !== null &&
+                (envioDesde > 0 ? ` desde ${formatPrice(envioDesde)}` : " gratis cerca")}
             </span>
           )}
           {menu.pickup && (
@@ -94,10 +137,21 @@ function OnlineMenuPage() {
           aria-label="Categorías"
           className="sticky top-16 z-20 mt-3 border-b border-border bg-background"
         >
-          <div className="mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 py-3">
-            {menu.combos.length > 0 && <ChipCategoria href="#combos" label="Combos" />}
+          <div
+            ref={barra}
+            className="mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 py-3"
+          >
+            {menu.combos.length > 0 && (
+              <ChipCategoria id="combos" label="Combos" activa={activa} accent={accent} />
+            )}
             {secciones.map((c) => (
-              <ChipCategoria key={c.id} href={`#cat-${c.id}`} label={c.name} />
+              <ChipCategoria
+                key={c.id}
+                id={`cat-${c.id}`}
+                label={c.name}
+                activa={activa}
+                accent={accent}
+              />
             ))}
           </div>
         </nav>
@@ -148,11 +202,33 @@ function OnlineMenuPage() {
   );
 }
 
-function ChipCategoria({ href, label }: { href: string; label: string }) {
+function ChipCategoria({
+  id,
+  label,
+  activa,
+  accent,
+}: {
+  id: string;
+  label: string;
+  activa: string | null;
+  accent: string;
+}) {
+  const esta = activa === id;
   return (
     <a
-      href={href}
-      className="shrink-0 rounded-full border border-border px-4 py-2 text-sm font-bold whitespace-nowrap transition hover:border-primary"
+      href={`#${id}`}
+      data-cat={id}
+      aria-current={esta ? "true" : undefined}
+      onClick={(e) => {
+        // Deslizar hasta la categoría en vez de saltar de golpe: en el
+        // celular el salto seco desorienta.
+        e.preventDefault();
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }}
+      className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold transition ${
+        esta ? "border-transparent text-white" : "border-border hover:border-primary"
+      }`}
+      style={esta ? { background: accent } : undefined}
     >
       {label}
     </a>

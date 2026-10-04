@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, desc, inArray, gte, lte, isNull } from "drizzle-orm";
+import { eq, and, or, desc, inArray, gte, lte, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, orderItemRemovals, orderItemExtras, locations } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
@@ -66,6 +66,14 @@ export interface KitchenOrder {
   items: KitchenOrderItem[];
 }
 
+/**
+ * Qué pedidos trae la comandera: los del último día, más los que siguen en
+ * curso aunque sean más viejos. Antes traía los últimos 200 con todos sus
+ * ítems cada 10 segundos, incluidos pedidos de días atrás que la pantalla ni
+ * muestra: en el celular de la caja, con datos móviles, eso era lento y caro.
+ */
+const VENTANA_COMANDERA_MS = 24 * 60 * 60 * 1000;
+
 /** Cuánto hacia atrás la cocina sale a buscar pagos de Mercado Pago sin confirmar. */
 const VENTANA_VERIFICACION_MS = 3 * 60 * 60 * 1000;
 /** Tope de consultas a Mercado Pago por refresco de la comandera. */
@@ -97,7 +105,15 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
     const rows = await db
       .select()
       .from(orders)
-      .where(inArray(orders.locationId, locIds))
+      .where(
+        and(
+          inArray(orders.locationId, locIds),
+          or(
+            gte(orders.createdAt, new Date(Date.now() - VENTANA_COMANDERA_MS)),
+            inArray(orders.status, ["recibido", "preparacion"]),
+          ),
+        ),
+      )
       .orderBy(desc(orders.createdAt))
       .limit(200);
 
@@ -152,39 +168,41 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
         ),
       );
 
-    // El "sin cebolla" de cada línea. Es lo primero que mira quien prepara, así
-    // que viaja con el pedido y no se pide aparte.
-    const sacados = items.length
-      ? await db
-          .select({
-            orderItemId: orderItemRemovals.orderItemId,
-            ingredientName: orderItemRemovals.ingredientName,
-          })
-          .from(orderItemRemovals)
-          .where(
-            inArray(
-              orderItemRemovals.orderItemId,
-              items.map((i) => i.id),
-            ),
-          )
-      : [];
-
-    // Y el "+carne" de cada línea, que también mira quien prepara.
-    const agregados = items.length
-      ? await db
-          .select({
-            orderItemId: orderItemExtras.orderItemId,
-            ingredientName: orderItemExtras.ingredientName,
-            quantity: orderItemExtras.quantity,
-          })
-          .from(orderItemExtras)
-          .where(
-            inArray(
-              orderItemExtras.orderItemId,
-              items.map((i) => i.id),
-            ),
-          )
-      : [];
+    // El "sin cebolla" y el "+carne" de cada línea. Es lo primero que mira quien
+    // prepara, así que viaja con el pedido y no se pide aparte. Las dos
+    // consultas van a la vez: no dependen una de la otra, y la comandera se
+    // refresca cada 10 segundos.
+    const [sacados, agregados] = await Promise.all([
+      items.length
+        ? db
+            .select({
+              orderItemId: orderItemRemovals.orderItemId,
+              ingredientName: orderItemRemovals.ingredientName,
+            })
+            .from(orderItemRemovals)
+            .where(
+              inArray(
+                orderItemRemovals.orderItemId,
+                items.map((i) => i.id),
+              ),
+            )
+        : [],
+      items.length
+        ? db
+            .select({
+              orderItemId: orderItemExtras.orderItemId,
+              ingredientName: orderItemExtras.ingredientName,
+              quantity: orderItemExtras.quantity,
+            })
+            .from(orderItemExtras)
+            .where(
+              inArray(
+                orderItemExtras.orderItemId,
+                items.map((i) => i.id),
+              ),
+            )
+        : [],
+    ]);
 
     return rows.map((o) => ({
       id: o.id,

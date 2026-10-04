@@ -180,6 +180,11 @@ function CarritoOnlinePage() {
     if (items.length === 0) return;
     if (entrega === "envio" && !destino) {
       toast.error("Buscá tu dirección o marcala en el mapa");
+      // Lo lleva hasta donde falta: el aviso solo, abajo, no dice dónde.
+      document.getElementById("bloque-direccion")?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return;
     }
     if (cotizacion && !cotizacion.llega) {
@@ -484,7 +489,7 @@ function CarritoOnlinePage() {
           )}
 
           {entrega === "envio" && menu.origin && (
-            <div className="mt-4">
+            <div id="bloque-direccion" className="mt-4 scroll-mt-24">
               <p className="mb-2 text-sm font-bold">¿A dónde te lo llevamos?</p>
               <DireccionEntrega
                 origen={menu.origin}
@@ -591,7 +596,16 @@ function CarritoOnlinePage() {
                 </>
               )}
               <div className="flex items-center justify-between pt-1">
-                <span className="font-bold">Total</span>
+                <span className="font-bold">
+                  Total
+                  {/* Sin dirección todavía no hay costo de envío: que el
+                      total no parezca el final. */}
+                  {entrega === "envio" && !cotizacion && (
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      + envío según tu dirección
+                    </span>
+                  )}
+                </span>
                 <span className="font-display text-3xl" style={{ color: accent }}>
                   {formatPrice(total)}
                 </span>
