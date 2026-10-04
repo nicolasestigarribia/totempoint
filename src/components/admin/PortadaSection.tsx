@@ -121,7 +121,7 @@ export function PortadaSection({
     setSaving(true);
     try {
       await save({ data: form });
-      toast.success("Portada actualizada");
+      toast.success("Apariencia guardada");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo guardar");
     } finally {
@@ -158,42 +158,54 @@ export function PortadaSection({
     );
   }
 
+  // La apariencia (base, letras, esquinas, acento) es de la empresa: la usan el
+  // tótem y el pedido online. La portada (plantilla, imagen, textos) es solo
+  // del tótem, así que a una empresa sin ese módulo no se le muestra.
+  const conTotem = business.totem_enabled;
+
   return (
     <div className="space-y-6">
       <div className={`flex flex-wrap items-center justify-between gap-4 p-6 ${panelClass}`}>
         <div>
-          <h2 className="text-xl font-bold">Pantalla de tu tótem</h2>
+          <h2 className="text-xl font-bold">Apariencia</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Así ven tus clientes la pantalla de inicio antes de pedir.
+            {conTotem
+              ? "Los colores y las letras de tu menú, en el tótem y en el pedido online, y la pantalla de inicio del tótem."
+              : "Los colores y las letras con que tus clientes ven tu menú en el pedido online."}
           </p>
         </div>
-        <span className="text-xs text-muted-foreground">
-          Los enlaces y QR de cada tótem están en la sección Tótems.
-        </span>
+        {conTotem && (
+          <span className="text-xs text-muted-foreground">
+            Los enlaces y QR de cada tótem están en la sección Tótems.
+          </span>
+        )}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className={`grid gap-6 ${conTotem ? "xl:grid-cols-2" : ""}`}>
         <form onSubmit={handleSubmit} className={`space-y-6 p-6 ${panelClass}`}>
+          {conTotem && (
+            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Colores y letras · tótem y pedido online
+            </h3>
+          )}
+
           <div className="space-y-2">
-            <Label>Plantilla</Label>
-            <Select
-              value={form.template}
-              onValueChange={(v) => set("template", v as TotemTemplate)}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TEMPLATES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {TEMPLATES.find((t) => t.value === form.template)?.hint}
-            </p>
+            <Label htmlFor="accent">Color de acento</Label>
+            <div className="flex gap-2">
+              <Input
+                id="accent"
+                type="color"
+                value={form.accentColor || "#e11d2a"}
+                onChange={(e) => set("accentColor", e.target.value)}
+                className="h-11 w-16 cursor-pointer p-1"
+              />
+              <Input
+                value={form.accentColor}
+                onChange={(e) => set("accentColor", e.target.value)}
+                placeholder="#e11d2a"
+                className="h-11 flex-1"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -263,127 +275,141 @@ export function PortadaSection({
             </p>
           </div>
 
-          <ImageUploadField
-            id="hero"
-            label="Imagen de portada"
-            value={form.heroImageUrl}
-            onChange={(url) => set("heroImageUrl", url)}
-          />
+          {conTotem && (
+            <>
+              <h3 className="border-t border-white/10 pt-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                Pantalla de inicio del tótem
+              </h3>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="eyebrow">Volanta</Label>
-              <Input
-                id="eyebrow"
-                value={form.eyebrow}
-                onChange={(e) => set("eyebrow", e.target.value)}
-                placeholder="Autoservicio premium"
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="title">Título</Label>
-              <Input
-                id="title"
-                value={form.title}
-                onChange={(e) => set("title", e.target.value)}
-                placeholder={business.name}
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="titleAccent">Segunda línea (en color)</Label>
-              <Input
-                id="titleAccent"
-                value={form.titleAccent}
-                onChange={(e) => set("titleAccent", e.target.value)}
-                placeholder="PEPE"
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="subtitle">Bajada</Label>
-              <Input
-                id="subtitle"
-                value={form.subtitle}
-                onChange={(e) => set("subtitle", e.target.value)}
-                placeholder="Tocá la pantalla y armá tu pedido en segundos."
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cta">Texto del botón</Label>
-              <Input
-                id="cta"
-                value={form.ctaLabel}
-                onChange={(e) => set("ctaLabel", e.target.value)}
-                required
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="accent">Color de acento</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="accent"
-                  type="color"
-                  value={form.accentColor || "#e11d2a"}
-                  onChange={(e) => set("accentColor", e.target.value)}
-                  className="h-11 w-16 cursor-pointer p-1"
-                />
-                <Input
-                  value={form.accentColor}
-                  onChange={(e) => set("accentColor", e.target.value)}
-                  placeholder="#e11d2a"
-                  className="h-11 flex-1"
-                />
+              <div className="space-y-2">
+                <Label>Plantilla</Label>
+                <Select
+                  value={form.template}
+                  onValueChange={(v) => set("template", v as TotemTemplate)}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {TEMPLATES.find((t) => t.value === form.template)?.hint}
+                </p>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="badge1">Distintivo 1</Label>
-              <Input
-                id="badge1"
-                value={form.badge1}
-                onChange={(e) => set("badge1", e.target.value)}
-                placeholder="Listo en 5 min"
-                className="h-11"
+
+              <ImageUploadField
+                id="hero"
+                label="Imagen de portada"
+                value={form.heroImageUrl}
+                onChange={(url) => set("heroImageUrl", url)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="badge2">Distintivo 2</Label>
-              <Input
-                id="badge2"
-                value={form.badge2}
-                onChange={(e) => set("badge2", e.target.value)}
-                placeholder="Pago en caja"
-                className="h-11"
-              />
-            </div>
-          </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="eyebrow">Volanta</Label>
+                  <Input
+                    id="eyebrow"
+                    value={form.eyebrow}
+                    onChange={(e) => set("eyebrow", e.target.value)}
+                    placeholder="Autoservicio premium"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="title">Título</Label>
+                  <Input
+                    id="title"
+                    value={form.title}
+                    onChange={(e) => set("title", e.target.value)}
+                    placeholder={business.name}
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="titleAccent">Segunda línea (en color)</Label>
+                  <Input
+                    id="titleAccent"
+                    value={form.titleAccent}
+                    onChange={(e) => set("titleAccent", e.target.value)}
+                    placeholder="PEPE"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="subtitle">Bajada</Label>
+                  <Input
+                    id="subtitle"
+                    value={form.subtitle}
+                    onChange={(e) => set("subtitle", e.target.value)}
+                    placeholder="Tocá la pantalla y armá tu pedido en segundos."
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cta">Texto del botón</Label>
+                  <Input
+                    id="cta"
+                    value={form.ctaLabel}
+                    onChange={(e) => set("ctaLabel", e.target.value)}
+                    required
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="badge1">Distintivo 1</Label>
+                  <Input
+                    id="badge1"
+                    value={form.badge1}
+                    onChange={(e) => set("badge1", e.target.value)}
+                    placeholder="Listo en 5 min"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="badge2">Distintivo 2</Label>
+                  <Input
+                    id="badge2"
+                    value={form.badge2}
+                    onChange={(e) => set("badge2", e.target.value)}
+                    placeholder="Pago en caja"
+                    className="h-11"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {!readOnly && (
             <Button type="submit" disabled={saving} className="h-12 gap-2 px-8 font-bold">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Guardar portada
+              Guardar
             </Button>
           )}
         </form>
 
-        <div className={`space-y-4 p-6 ${panelClass}`}>
-          <div className="flex items-center gap-2">
-            <Monitor className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-bold">Vista previa</h3>
-          </div>
-          <PreviewFrame className="rounded-2xl border border-white/10">
-            {/* Sin nav: el botón se ve pero no navega. El iframe comparte el
+        {conTotem && (
+          <div className={`space-y-4 p-6 ${panelClass}`}>
+            <div className="flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-bold">Vista previa</h3>
+            </div>
+            <PreviewFrame className="rounded-2xl border border-white/10">
+              {/* Sin nav: el botón se ve pero no navega. El iframe comparte el
                 router del panel, así que un clic acá te sacaba de la pantalla
                 que estás editando. */}
-            <TotemHome data={preview} nav={null} />
-          </PreviewFrame>
-          <p className="text-xs text-muted-foreground">
-            Los cambios se reflejan al instante, pero se aplican al tótem recién cuando guardás.
-          </p>
-        </div>
+              <TotemHome data={preview} nav={null} />
+            </PreviewFrame>
+            <p className="text-xs text-muted-foreground">
+              Los cambios se reflejan al instante, pero se aplican al tótem recién cuando guardás.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

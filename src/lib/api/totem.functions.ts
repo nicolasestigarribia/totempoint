@@ -355,12 +355,16 @@ async function resolverTotem(empresaSlug: string, localSlug: string, totemNumber
       name: companies.name,
       slug: companies.slug,
       active: companies.active,
+      totemEnabled: companies.totemEnabled,
     })
     .from(companies)
     .where(eq(companies.slug, empresaSlug))
     .limit(1);
   if (!company) throw new Error("No encontramos este comercio");
   if (!company.active) throw new Error("Este comercio no está disponible en este momento");
+  // El tótem es un módulo: una empresa que solo contrató el pedido online no
+  // tiene tablets, y una URL de tótem vieja no puede seguir tomando pedidos.
+  if (!company.totemEnabled) throw new Error("Este comercio no tiene tótem");
 
   const [location] = await db
     .select({ id: locations.id, active: locations.active })
@@ -1448,7 +1452,12 @@ const onlineInput = {
 /** La empresa y la sucursal de un link online, sin mirar si está tomando pedidos. */
 async function resolverSucursal(empresaSlug: string, localSlug: string) {
   const [company] = await db
-    .select({ id: companies.id, name: companies.name, active: companies.active })
+    .select({
+      id: companies.id,
+      name: companies.name,
+      active: companies.active,
+      onlineOrdering: companies.onlineOrdering,
+    })
     .from(companies)
     .where(eq(companies.slug, empresaSlug))
     .limit(1);
@@ -1478,6 +1487,11 @@ async function resolverSucursal(empresaSlug: string, localSlug: string) {
  */
 async function resolverOnline(empresaSlug: string, localSlug: string) {
   const { company, location } = await resolverSucursal(empresaSlug, localSlug);
+  // El pedido online es un adicional: si la empresa no lo tiene contratado, el
+  // link no toma pedidos aunque su configuración siga guardada.
+  if (!company.onlineOrdering) {
+    throw new Error("Este comercio no toma pedidos online");
+  }
 
   const [settings] = await db
     .select()

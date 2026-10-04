@@ -67,6 +67,16 @@ cuyo token reconoció el pago.
 parche de desarrollo: los avisos se pierden también en producción, y hay alguien parado frente a la
 pantalla esperando que avance.
 
+### Módulos: tótem y pedido online se venden por separado
+
+**Una empresa contrata el tótem, el pedido online o los dos**, y el superadmin los prende y apaga
+por empresa (columna "Módulos"). Todo lo que es de la empresa —menú, precios, stock, comandera,
+caja, cobros, operadores y la **apariencia** (colores, letras, esquinas)— sirve para cualquiera de
+los dos; solo lo propio de cada canal depende de su módulo (los tótems y su portada, o el link
+online). No pongas configuración compartida dentro de una sección de un canal: una empresa solo
+online tiene que poder configurarla. El servidor exige el módulo, no solo el panel. Apagar un
+módulo no borra nada.
+
 ### Pedido online
 
 Es un segundo canal de venta dentro de Totempoint, no un producto aparte: el cliente abre

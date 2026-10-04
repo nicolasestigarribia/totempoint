@@ -25,6 +25,8 @@ import {
   LogIn,
   UserPlus,
   Link2,
+  Monitor,
+  Globe,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +38,7 @@ import {
   assignBusinessOwner,
   updateBusinessSlug,
   enterBusiness,
+  setBusinessModule,
   type BusinessRow,
 } from "@/lib/api/platform.functions";
 import { FacturacionSection } from "@/components/admin/FacturacionSection";
@@ -86,6 +89,7 @@ function SuperadminPage() {
   const fetchBusinesses = useServerFn(listBusinesses);
   const create = useServerFn(createBusiness);
   const toggleActive = useServerFn(setBusinessActive);
+  const toggleModule = useServerFn(setBusinessModule);
   const updateAdmin = useServerFn(updateBusinessAdmin);
   const assignOwner = useServerFn(assignBusinessOwner);
   const changeSlug = useServerFn(updateBusinessSlug);
@@ -103,6 +107,11 @@ function SuperadminPage() {
   const [adminEmail, setAdminEmail] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  // Qué contrata la empresa nueva. El tótem viene marcado porque es lo más
+  // común; una empresa solo online lo desmarca.
+  const [conTotem, setConTotem] = useState(true);
+  const [conOnline, setConOnline] = useState(false);
+  const [cambiandoModulo, setCambiandoModulo] = useState<string | null>(null);
   const [email, setEmail] = useState("");
 
   // Empresa a la que se le está dando dueño, y empresa a la que se le está
@@ -160,12 +169,23 @@ function SuperadminPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await create({ data: { name, adminEmail, adminUsername, adminPassword } });
+      await create({
+        data: {
+          name,
+          adminEmail,
+          adminUsername,
+          adminPassword,
+          totem: conTotem,
+          online: conOnline,
+        },
+      });
       toast.success("Empresa creada");
       setName("");
       setAdminEmail("");
       setAdminUsername("");
       setAdminPassword("");
+      setConTotem(true);
+      setConOnline(false);
       setOpen(false);
       await reload();
     } catch (err: unknown) {
@@ -272,6 +292,22 @@ function SuperadminPage() {
       await reload();
     } catch {
       toast.error("No se pudo cambiar el estado");
+    }
+  };
+
+  const handleModulo = async (row: BusinessRow, modulo: "totem" | "online") => {
+    const actual = modulo === "totem" ? row.totem_enabled : row.online_ordering;
+    setCambiandoModulo(`${row.id}-${modulo}`);
+    try {
+      await toggleModule({ data: { id: row.id, modulo, enabled: !actual } });
+      toast.success(
+        `${actual ? "Quitado" : "Habilitado"}: ${modulo === "totem" ? "Tótem" : "Pedido online"} en ${row.name}`,
+      );
+      await reload();
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo cambiar el módulo"));
+    } finally {
+      setCambiandoModulo(null);
     }
   };
 
@@ -467,7 +503,37 @@ function SuperadminPage() {
                           className="h-11"
                         />
                       </div>
-                      <Button type="submit" disabled={saving} className="w-full gap-2">
+                      <div className="space-y-2">
+                        <Label>Qué contrata</Label>
+                        <label className="flex items-center gap-3 rounded-xl border border-border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={conTotem}
+                            onChange={(e) => setConTotem(e.target.checked)}
+                            className="h-4 w-4 accent-[var(--primary)]"
+                          />
+                          <Monitor className="h-4 w-4 text-muted-foreground" />
+                          Tótem de autopedido
+                        </label>
+                        <label className="flex items-center gap-3 rounded-xl border border-border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={conOnline}
+                            onChange={(e) => setConOnline(e.target.checked)}
+                            className="h-4 w-4 accent-[var(--primary)]"
+                          />
+                          <Globe className="h-4 w-4 text-muted-foreground" />
+                          Pedido online (retiro y envío)
+                        </label>
+                        {!conTotem && !conOnline && (
+                          <p className="text-xs text-destructive">Elegí al menos uno.</p>
+                        )}
+                      </div>
+                      <Button
+                        type="submit"
+                        disabled={saving || (!conTotem && !conOnline)}
+                        className="w-full gap-2"
+                      >
                         {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                         Crear
                       </Button>
@@ -482,6 +548,7 @@ function SuperadminPage() {
                     <tr>
                       <th className="px-6 py-4">Empresa</th>
                       <th className="hidden px-6 py-4 md:table-cell">Administrador</th>
+                      <th className="px-6 py-4">Módulos</th>
                       <th className="px-6 py-4">Estado</th>
                       <th className="px-6 py-4 text-right">Acción</th>
                     </tr>
@@ -489,7 +556,7 @@ function SuperadminPage() {
                   <tbody>
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">
+                        <td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">
                           Todavía no hay empresas.
                         </td>
                       </tr>
@@ -518,6 +585,44 @@ function SuperadminPage() {
                           ) : (
                             "Sin administrador"
                           )}
+                        </td>
+                        <td className="px-4 py-4 md:px-6">
+                          {/* Cada módulo se prende y se apaga por separado: se
+                              venden aparte, y una empresa puede tener uno solo. */}
+                          <div className="flex flex-col gap-1.5">
+                            {(
+                              [
+                                { id: "totem", label: "Tótem", icon: Monitor, on: b.totem_enabled },
+                                {
+                                  id: "online",
+                                  label: "Online",
+                                  icon: Globe,
+                                  on: b.online_ordering,
+                                },
+                              ] as const
+                            ).map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => handleModulo(b, m.id)}
+                                disabled={cambiandoModulo !== null}
+                                aria-pressed={m.on}
+                                title={m.on ? `Quitar ${m.label}` : `Habilitar ${m.label}`}
+                                className={`flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition ${
+                                  m.on
+                                    ? "border-primary/50 bg-primary/15 text-primary"
+                                    : "border-border text-muted-foreground line-through opacity-60 hover:opacity-100"
+                                }`}
+                              >
+                                {cambiandoModulo === `${b.id}-${m.id}` ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <m.icon className="h-3 w-3" />
+                                )}
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <span

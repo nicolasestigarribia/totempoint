@@ -24,6 +24,9 @@ export interface BusinessRow {
   name: string;
   slug: string;
   active: boolean;
+  /** Módulos contratados: el tótem del mostrador y el pedido online desde el celular. */
+  totem_enabled: boolean;
+  online_ordering: boolean;
   created_at: string;
   admin_user_id: number | null;
   admin_email: string | null;
@@ -67,6 +70,8 @@ export const listBusinesses = createServerFn({ method: "GET" })
         name: c.name,
         slug: c.slug,
         active: c.active,
+        totem_enabled: c.totemEnabled,
+        online_ordering: c.onlineOrdering,
         created_at: c.createdAt.toISOString(),
         admin_user_id: admin?.id ?? null,
         admin_email: admin?.email ?? null,
@@ -83,9 +88,16 @@ export const createBusiness = createServerFn({ method: "POST" })
       adminEmail: emailSchema,
       adminUsername: usernameSchema,
       adminPassword: passwordSchema,
+      // Qué contrata: el tótem, el pedido online, o los dos. El menú, la
+      // comandera y los cobros son de la empresa y sirven para cualquiera.
+      totem: z.boolean().default(true),
+      online: z.boolean().default(false),
     }),
   )
   .handler(async ({ data }) => {
+    if (!data.totem && !data.online) {
+      throw new Error("Elegí al menos un módulo: tótem o pedido online");
+    }
     const email = data.adminEmail.toLowerCase();
     const username = data.adminUsername.toLowerCase();
 
@@ -111,7 +123,13 @@ export const createBusiness = createServerFn({ method: "POST" })
 
     const [{ id: companyId }] = await db
       .insert(companies)
-      .values({ name: data.name.trim(), slug, active: true })
+      .values({
+        name: data.name.trim(),
+        slug,
+        active: true,
+        totemEnabled: data.totem,
+        onlineOrdering: data.online,
+      })
       .$returningId();
 
     // Primer negocio de la empresa. El nombre es solo el inicial: el dueño lo
@@ -122,7 +140,8 @@ export const createBusiness = createServerFn({ method: "POST" })
       .$returningId();
 
     // Primer tótem del local, para que la URL /t/{empresa}/{local}/1 funcione ya.
-    await db.insert(totems).values({ locationId, number: 1, active: true });
+    // Solo si contrató el tótem: a una empresa solo online no le sirve.
+    if (data.totem) await db.insert(totems).values({ locationId, number: 1, active: true });
 
     const [{ id: userId }] = await db
       .insert(users)
@@ -146,6 +165,8 @@ export const createBusiness = createServerFn({ method: "POST" })
         name: company.name,
         slug: company.slug,
         active: company.active,
+        totem_enabled: company.totemEnabled,
+        online_ordering: company.onlineOrdering,
         created_at: company.createdAt.toISOString(),
         admin_user_id: userId,
         admin_email: email,
@@ -364,6 +385,50 @@ export const setBusinessActive = createServerFn({ method: "POST" })
         .where(eq(users.companyId, data.id));
       for (const u of gente) await destroyUserSessions(u.id);
     }
+    return { ok: true };
+  });
+
+const NOMBRE_MODULO = { totem: "el tótem", online: "el pedido online" } as const;
+
+/**
+ * Prende o apaga un módulo de una empresa: el tótem o el pedido online. Se
+ * venden por separado, así que una empresa puede tener uno, el otro o los dos.
+ *
+ * Apagar no borra nada: la empresa deja de ver lo de ese módulo y sus links
+ * dejan de tomar pedidos, pero su configuración y sus pedidos quedan, y vuelven
+ * tal cual si se lo habilita de nuevo. Lo compartido —menú, comandera, cobros,
+ * apariencia— no depende de ningún módulo.
+ */
+export const setBusinessModule = createServerFn({ method: "POST" })
+  .middleware([requireSuperadmin])
+  .inputValidator(
+    z.object({ id: z.number().int(), modulo: z.enum(["totem", "online"]), enabled: z.boolean() }),
+  )
+  .handler(async ({ context, data }) => {
+    const [c] = await db
+      .select({ totem: companies.totemEnabled, online: companies.onlineOrdering })
+      .from(companies)
+      .where(eq(companies.id, data.id))
+      .limit(1);
+    if (!c) throw new Error("Esa empresa no existe");
+
+    const queda = { ...c, [data.modulo]: data.enabled };
+    if (!queda.totem && !queda.online) {
+      throw new Error("Una empresa necesita al menos un módulo. Si se va, desactivala");
+    }
+
+    await db
+      .update(companies)
+      .set(
+        data.modulo === "totem" ? { totemEnabled: data.enabled } : { onlineOrdering: data.enabled },
+      )
+      .where(eq(companies.id, data.id));
+    await registrarAuditoria(context.user as SessionUser, {
+      companyId: data.id,
+      category: "empresa",
+      action: `empresa.modulo_${data.modulo}_${data.enabled ? "habilitar" : "quitar"}`,
+      summary: `${data.enabled ? "Habilitó" : "Quitó"} ${NOMBRE_MODULO[data.modulo]} a la empresa`,
+    });
     return { ok: true };
   });
 

@@ -23,6 +23,20 @@ export const companies = mysqlTable("companies", {
   logoUrl: varchar("logo_url", { length: 500 }),
   primaryColor: varchar("primary_color", { length: 9 }).default("#000000"),
   active: boolean("active").notNull().default(true),
+  /**
+   * Módulo pedido online: el link /p/... desde el celular del cliente. Lo
+   * prende y lo apaga el superadmin, porque se vende aparte. Apagado, la empresa no ve
+   * la sección y su link no toma pedidos, pero su configuración se conserva
+   * para cuando lo vuelva a contratar.
+   */
+  onlineOrdering: boolean("online_ordering").notNull().default(false),
+  /**
+   * Módulo tótem: las tablets del mostrador (/t/...). Se vende por separado del
+   * pedido online, así que una empresa puede tener solo uno de los dos. El menú,
+   * la comandera, los cobros y la apariencia son de la empresa y no dependen de
+   * ningún módulo.
+   */
+  totemEnabled: boolean("totem_enabled").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
 });

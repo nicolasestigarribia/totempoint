@@ -35,6 +35,7 @@ import {
   ArrowLeft,
   History,
   Globe,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -117,6 +118,8 @@ interface SectionDef {
    * tendría forma de llegar.
    */
   parent?: SectionId;
+  /** Módulo que se vende aparte: la sección existe solo si la empresa lo tiene. */
+  modulo?: "totem" | "online";
 }
 
 const SECTIONS: SectionDef[] = [
@@ -135,6 +138,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Enlaces, QR y portada de cada tótem",
     group: "empresa",
     ownerOnly: true,
+    modulo: "totem",
   },
   {
     // Es del dueño, como Cobros: decide cuánto se cobra el envío y por dónde
@@ -145,13 +149,17 @@ const SECTIONS: SectionDef[] = [
     desc: "El link para que tus clientes pidan desde el celular, con retiro o envío",
     group: "empresa",
     ownerOnly: true,
+    modulo: "online",
   },
   {
-    // Se edita desde el botón "Editar portada" en la sección Tótems.
+    // Se abre desde el botón "Editar portada" en la sección Tótems. A una
+    // empresa sin tótem, la sección Tótems no le aparece y esta va directo al
+    // nav: la apariencia (colores, letras) es de la empresa y también la usa el
+    // pedido online.
     id: "portada",
-    label: "Portada",
-    icon: Monitor,
-    desc: "Pantalla de inicio de tu tótem",
+    label: "Apariencia",
+    icon: Palette,
+    desc: "Colores y letras con que tus clientes ven tu menú",
     group: "empresa",
     permission: "portada",
     parent: "totems",
@@ -244,7 +252,7 @@ const SECTIONS: SectionDef[] = [
     id: "pagos",
     label: "Cobros",
     icon: CreditCard,
-    desc: "Cómo cobra tu tótem",
+    desc: "Cómo te pagan tus clientes",
     group: "caja",
     ownerOnly: true,
   },
@@ -397,6 +405,8 @@ function AdminPage() {
 
   const isOwner = roles.includes("owner") || roles.includes("superadmin");
   const visibleSections = SECTIONS.filter((s) => {
+    if (s.modulo === "online" && !business?.online_ordering) return false;
+    if (s.modulo === "totem" && !business?.totem_enabled) return false;
     if (s.ownerOnly) return isOwner;
     if (!s.permission || isOwner) return true;
     return canViewSection(permissions, s.permission);

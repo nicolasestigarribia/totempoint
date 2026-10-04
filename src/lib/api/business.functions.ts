@@ -14,6 +14,9 @@ export interface MyBusiness {
   logo_url: string | null;
   primary_color: string | null;
   active: boolean;
+  /** Módulos contratados: el panel muestra lo de cada uno solo si lo tiene. */
+  totem_enabled: boolean;
+  online_ordering: boolean;
 }
 
 export const getMyBusiness = createServerFn({ method: "GET" })
@@ -32,6 +35,8 @@ export const getMyBusiness = createServerFn({ method: "GET" })
       logo_url: c.logoUrl,
       primary_color: c.primaryColor,
       active: c.active,
+      totem_enabled: c.totemEnabled,
+      online_ordering: c.onlineOrdering,
     };
   });
 

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { totems, locations } from "@/db/schema";
+import { totems, locations, companies } from "@/db/schema";
 import { requireCompany, requireOwner } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { registrarAuditoria } from "@/lib/audit/registrar";
@@ -54,6 +54,16 @@ export const createTotem = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<TotemRow> => {
     const user = context.user as SessionUser;
     await assertLocationAccess(user, data.locationId);
+    const [c] = await db
+      .select({ totem: companies.totemEnabled })
+      .from(companies)
+      .where(eq(companies.id, user.companyId!))
+      .limit(1);
+    if (!c?.totem) {
+      throw new Error(
+        "Tu empresa no tiene el módulo de tótem. Pedíselo a Totempoint para activarlo",
+      );
+    }
 
     // El número siguiente del local: 1, 2, 3… sin reusar huecos.
     const [{ last }] = await db

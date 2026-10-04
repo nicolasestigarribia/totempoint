@@ -47,9 +47,25 @@ export interface OnlineConfig {
   locations: OnlineLocationConfig[];
 }
 
-/** La sucursal, si es de la empresa de quien llama. */
+/**
+ * El pedido online es un adicional que habilita el superadmin. Sin él, la
+ * sección no se muestra; esto es lo que lo hace valer también en el servidor.
+ */
+async function exigirAdicional(companyId: number) {
+  const [c] = await db
+    .select({ online: companies.onlineOrdering })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  if (!c?.online) {
+    throw new Error("Tu empresa no tiene el pedido online. Pedíselo a Totempoint para activarlo");
+  }
+}
+
+/** La sucursal, si es de la empresa de quien llama y la empresa tiene el adicional. */
 async function sucursalPropia(user: SessionUser, locationId: number) {
   const companyId = companyIdOf(user);
+  await exigirAdicional(companyId);
   const [loc] = await db
     .select({ id: locations.id, name: locations.name })
     .from(locations)
@@ -65,6 +81,7 @@ export const getOnlineConfig = createServerFn({ method: "GET" })
   .middleware([requireOwner])
   .handler(async ({ context }): Promise<OnlineConfig> => {
     const companyId = companyIdOf(context.user as SessionUser);
+    await exigirAdicional(companyId);
 
     const [[company], locs, settings, tiers, [pago]] = await Promise.all([
       db

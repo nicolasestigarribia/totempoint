@@ -737,9 +737,7 @@ function Kitchen() {
         {visibles.length === 0 && porAceptar.length > 0 ? null : visibles.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-card/40 p-16 text-center">
             <h2 className="font-display text-3xl">Sin pedidos todavía</h2>
-            <p className="mt-2 text-muted-foreground">
-              Apenas entren los pedidos del tótem aparecerán acá.
-            </p>
+            <p className="mt-2 text-muted-foreground">Apenas entren pedidos aparecerán acá.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">

@@ -115,8 +115,9 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
           <div>
             <h3 className="text-lg font-bold">Cobro con Mercado Pago</h3>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              El cliente escanea un QR en la pantalla del tótem y paga desde su celular. La plata
-              entra directamente en tu cuenta de Mercado Pago: Totempoint no la toca.
+              El cliente paga desde su celular: en el tótem escaneando un QR, en el pedido online
+              directo desde el link. La plata entra en tu cuenta de Mercado Pago: Totempoint no la
+              toca.
             </p>
           </div>
           <span
@@ -167,9 +168,9 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
 
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4">
             <div>
-              <p className="font-medium">Cobrar desde el tótem</p>
+              <p className="font-medium">Cobrar con Mercado Pago</p>
               <p className="text-sm text-muted-foreground">
-                Apagado, el tótem solo ofrece pagar en efectivo.
+                Apagado, tus clientes solo pueden pagar en efectivo.
               </p>
             </div>
             <Switch checked={enabled} onCheckedChange={setEnabled} />
