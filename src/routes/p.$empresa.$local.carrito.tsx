@@ -274,7 +274,10 @@ function CarritoOnlinePage() {
       setEnviando(false);
       // Cambió algo del menú mientras armaba el pedido: se trae el menú nuevo,
       // así el carrito muestra los precios de ahora y marca lo que ya no hay.
-      if (mensaje === PRECIOS_CAMBIARON || /ya no está a la venta|Ahora no hay/.test(mensaje)) {
+      if (
+        mensaje === PRECIOS_CAMBIARON ||
+        /ya no está a la venta|Ahora no hay|No alcanza el stock|Se agotó/.test(mensaje)
+      ) {
         olvidarMenuOnline();
         void router.invalidate();
       }

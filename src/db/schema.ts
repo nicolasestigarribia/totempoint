@@ -473,6 +473,11 @@ export const artistock = mysqlTable(
       sql`ip_local - vp_local - ep_local`,
       { mode: "virtual" },
     ),
+    // Desde cuándo se controla este stock: la primera vez que alguien cargó un
+    // ingreso acá. Null = nunca se cargó, así que no frena la venta (si no, una
+    // empresa que todavía no contó su inventario no vendería nada). Con fecha,
+    // lo que llega a cero deja de ofrecerse. Ver `src/lib/stock/control.ts`.
+    controlDesde: timestamp("control_desde"),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [

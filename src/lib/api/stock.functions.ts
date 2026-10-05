@@ -20,6 +20,11 @@ export interface StockRow {
   epLocal: string;
   stockActual: string;
   minStock: string | null;
+  /**
+   * Si este stock frena la venta en esta sucursal. Arranca con el primer
+   * ingreso cargado; antes de eso se vende sin control (ver `stock/control.ts`).
+   */
+  controlado: boolean;
 }
 
 async function assertIngredientUsable(ingredientId: number, companyId: number) {
@@ -65,15 +70,13 @@ export const getLocationStock = createServerFn({ method: "GET" })
         vpLocal: artistock.vpLocal,
         epLocal: artistock.epLocal,
         stockActual: artistock.stockActual,
+        controlDesde: artistock.controlDesde,
         minStock: stockLimits.minStock,
       })
       .from(ingredients)
       .leftJoin(
         artistock,
-        and(
-          eq(artistock.ingredientId, ingredients.id),
-          eq(artistock.locationId, data.locationId),
-        ),
+        and(eq(artistock.ingredientId, ingredients.id), eq(artistock.locationId, data.locationId)),
       )
       .leftJoin(
         stockLimits,
@@ -95,22 +98,17 @@ export const getLocationStock = createServerFn({ method: "GET" })
         vpLocal: artistock.vpLocal,
         epLocal: artistock.epLocal,
         stockActual: artistock.stockActual,
+        controlDesde: artistock.controlDesde,
         minStock: stockLimits.minStock,
       })
       .from(products)
       .leftJoin(
         artistock,
-        and(
-          eq(artistock.productId, products.id),
-          eq(artistock.locationId, data.locationId),
-        ),
+        and(eq(artistock.productId, products.id), eq(artistock.locationId, data.locationId)),
       )
       .leftJoin(
         stockLimits,
-        and(
-          eq(stockLimits.productId, products.id),
-          eq(stockLimits.companyId, user.companyId),
-        ),
+        and(eq(stockLimits.productId, products.id), eq(stockLimits.companyId, user.companyId)),
       )
       .where(and(eq(products.companyId, user.companyId), eq(products.stockable, true)));
 
@@ -126,6 +124,7 @@ export const getLocationStock = createServerFn({ method: "GET" })
       epLocal: r.epLocal ?? "0.00",
       stockActual: r.stockActual ?? "0.00",
       minStock: r.minStock ?? null,
+      controlado: r.controlDesde !== null,
     }));
 
     const productStock: StockRow[] = prodRows.map((r) => ({
@@ -140,6 +139,7 @@ export const getLocationStock = createServerFn({ method: "GET" })
       epLocal: r.epLocal ?? "0.00",
       stockActual: r.stockActual ?? "0.00",
       minStock: r.minStock ?? null,
+      controlado: r.controlDesde !== null,
     }));
 
     return [...ingredientStock, ...productStock];

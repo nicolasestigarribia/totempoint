@@ -40,7 +40,14 @@ import {
   asegurarCodigosDeVenta,
   devolverVenta,
   type LineaVendida,
+  type ConsumoVenta,
 } from "@/lib/stock/venta";
+import {
+  productosAgotados,
+  faltantesDeStock,
+  StockInsuficiente,
+  mismoItem,
+} from "@/lib/stock/control";
 
 /**
  * El access token de la empresa, o null si no tiene el cobro andando.
@@ -225,14 +232,22 @@ async function combosApagadosEnElLocal(
 
   const apagados = new Set(override.map((o) => o.comboId));
 
-  const productosApagados = await productosApagadosEnElLocal(
-    locationId,
-    componentes.map((c) => ({ id: c.productId, categoryId: c.categoryId })),
-  );
+  const [productosApagados, agotados] = await Promise.all([
+    productosApagadosEnElLocal(
+      locationId,
+      componentes.map((c) => ({ id: c.productId, categoryId: c.categoryId })),
+    ),
+    productosAgotados(
+      locationId,
+      componentes.map((c) => c.productId),
+    ),
+  ]);
   for (const c of componentes) {
     // Un componente dado de baja en toda la empresa también deja el combo sin
-    // qué entregar, no sólo uno apagado en este local.
-    if (!c.activo || productosApagados.has(c.productId)) apagados.add(c.comboId);
+    // qué entregar, no sólo uno apagado en este local. Lo mismo uno agotado.
+    if (!c.activo || productosApagados.has(c.productId) || agotados.has(c.productId)) {
+      apagados.add(c.comboId);
+    }
   }
   return apagados;
 }
@@ -508,9 +523,16 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
   // sin tarjeta de categoría el cliente no llega a él, pero seguía viajando
   // en `products` y el carrito podía quedar con algo que el local no tiene.
   const categoriasVisibles = new Set(cats.map((c) => c.id));
-  const prods = prodRows.filter(
+  const habilitados = prodRows.filter(
     (p) => p.available !== false && (p.categoryId === null || categoriasVisibles.has(p.categoryId)),
   );
+  // Lo agotado en esta sucursal tampoco se ofrece: el cliente no tiene que
+  // poder elegir algo que la cocina no puede hacer.
+  const agotados = await productosAgotados(
+    locationId,
+    habilitados.map((p) => p.id),
+  );
+  const prods = habilitados.filter((p) => !agotados.has(p.id));
 
   const prodOverrides = await priceOverrides(
     locationId,
@@ -852,10 +874,12 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
 
   // El local puede tener apagado algo que la empresa sigue vendiendo. El menú
   // ya no lo muestra, pero el carrito puede ser anterior a que lo apagaran.
-  const [apagados, combosApagados] = await Promise.all([
+  const [apagados, agotados, combosApagados] = await Promise.all([
     productosApagadosEnElLocal(location.id, productRows),
+    productosAgotados(location.id, productIds),
     combosApagadosEnElLocal(location.id, comboIds),
   ]);
+  for (const id of agotados) apagados.add(id);
   if (apagados.size > 0 || combosApagados.size > 0) {
     // Con el nombre: "algo no está" obliga al cliente a adivinar qué sacar.
     const nombres = [
@@ -1033,132 +1057,165 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   // porque no pudimos calcular el inventario sería el peor de los dos errores,
   // el mismo criterio que con Mercado Pago más abajo.
   let consumo: Awaited<ReturnType<typeof calcularConsumo>> = [];
+  const lineas: LineaVendida[] = p.items.map((i, indice) => ({
+    kind: i.kind,
+    refId: i.id,
+    quantity: i.quantity,
+    removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
+    extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
+      ingredientId: x.id,
+      quantity: x.quantity,
+    })),
+  }));
   try {
     await asegurarCodigosDeVenta(company.id);
-    const lineas: LineaVendida[] = p.items.map((i, indice) => ({
-      kind: i.kind,
-      refId: i.id,
-      quantity: i.quantity,
-      removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
-      extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
-        ingredientId: x.id,
-        quantity: x.quantity,
-      })),
-    }));
     consumo = await calcularConsumo(company.id, lineas);
   } catch (error) {
     console.error("No se pudo calcular el stock de la venta:", error);
   }
 
-  const creado = await db.transaction(async (tx) => {
-    // La numeración arranca en 1 cada mañana y por local: el cliente ve un
-    // número corto y el local no arrastra los miles del mes pasado. El id
-    // interno sigue siendo el autoincremental, que nunca se repite. El tótem y
-    // el pedido online comparten la numeración: es la misma cocina.
-    //
-    // Se asigna con un contador atómico y no con MAX(order_number)+1: aquel es
-    // una lectura no bloqueante, así que dos pedidos simultáneos del mismo local
-    // leerían el mismo máximo y el segundo chocaría contra la unique key. El
-    // upsert incrementa last_number y toma un lock de fila que serializa solo
-    // los pedidos de este local y jornada; locales distintos son filas distintas
-    // y no compiten. LAST_INSERT_ID devuelve el número recién asignado en el
-    // mismo viaje. Va ANTES del insert del pedido, que pisa LAST_INSERT_ID con
-    // su propio id autoincremental.
-    await tx.execute(sql`
+  let creado: { orderId: number; orderNumber: number };
+  try {
+    creado = await db.transaction(async (tx) => {
+      // Lo agotado no se vende. Se mira acá adentro, con las filas de stock
+      // bloqueadas, para que dos pedidos no se lleven lo último a la vez: el menú
+      // ya lo había sacado, pero el carrito puede ser de antes.
+      const faltan = await faltantesDeStock(tx, location.id, consumo);
+      if (faltan.length > 0) throw new StockInsuficiente(faltan);
+
+      // La numeración arranca en 1 cada mañana y por local: el cliente ve un
+      // número corto y el local no arrastra los miles del mes pasado. El id
+      // interno sigue siendo el autoincremental, que nunca se repite. El tótem y
+      // el pedido online comparten la numeración: es la misma cocina.
+      //
+      // Se asigna con un contador atómico y no con MAX(order_number)+1: aquel es
+      // una lectura no bloqueante, así que dos pedidos simultáneos del mismo local
+      // leerían el mismo máximo y el segundo chocaría contra la unique key. El
+      // upsert incrementa last_number y toma un lock de fila que serializa solo
+      // los pedidos de este local y jornada; locales distintos son filas distintas
+      // y no compiten. LAST_INSERT_ID devuelve el número recién asignado en el
+      // mismo viaje. Va ANTES del insert del pedido, que pisa LAST_INSERT_ID con
+      // su propio id autoincremental.
+      await tx.execute(sql`
       INSERT INTO order_sequences (location_id, business_date, last_number)
       VALUES (${location.id}, ${jornada}, LAST_INSERT_ID(1))
       ON DUPLICATE KEY UPDATE last_number = LAST_INSERT_ID(last_number + 1)
     `);
-    const [filasSeq] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS n`);
-    const orderNumber = Number((filasSeq as unknown as { n: number | string }[])[0].n);
+      const [filasSeq] = await tx.execute(sql`SELECT LAST_INSERT_ID() AS n`);
+      const orderNumber = Number((filasSeq as unknown as { n: number | string }[])[0].n);
 
-    const [{ id: orderId }] = await tx
-      .insert(orders)
-      .values({
-        locationId: location.id,
-        totemId: p.totemId,
-        orderNumber,
-        channel: p.channel,
-        businessDate: jornada,
-        customerName: p.customerName.trim(),
-        deliveryMethod: p.deliveryMethod,
-        comments: p.comments?.trim() || null,
-        status: "recibido",
-        total: total.toFixed(2),
-        paymentMethod: p.paymentMethod,
-        // Nada se cobra al tomar el pedido: el efectivo se cobra en el mostrador
-        // o al entregar, y Mercado Pago lo confirma Mercado Pago.
-        paymentStatus: "pendiente",
-        ...(p.online
-          ? {
-              customerPhone: p.online.phone,
-              deliveryFee: p.online.envio?.fee.toFixed(2) ?? null,
-              deliveryAddress: p.online.envio?.address ?? null,
-              deliveryDetails: p.online.envio?.details ?? null,
-              deliveryLat: p.online.envio?.lat.toFixed(6) ?? null,
-              deliveryLng: p.online.envio?.lng.toFixed(6) ?? null,
-              deliveryDistanceKm: p.online.envio?.km.toFixed(2) ?? null,
-              cashPaysWith:
-                p.paymentMethod === "efectivo" && p.online.paysWith !== null
-                  ? p.online.paysWith.toFixed(2)
-                  : null,
-              trackingToken,
-            }
-          : {}),
-      })
-      .$returningId();
-
-    // Con ids: hacen falta para colgarles lo que el cliente sacó.
-    for (const [indice, linea] of priced.entries()) {
-      const [{ id: orderItemId }] = await tx
-        .insert(orderItems)
-        .values({ orderId, ...linea })
+      const [{ id: orderId }] = await tx
+        .insert(orders)
+        .values({
+          locationId: location.id,
+          totemId: p.totemId,
+          orderNumber,
+          channel: p.channel,
+          businessDate: jornada,
+          customerName: p.customerName.trim(),
+          deliveryMethod: p.deliveryMethod,
+          comments: p.comments?.trim() || null,
+          status: "recibido",
+          total: total.toFixed(2),
+          paymentMethod: p.paymentMethod,
+          // Nada se cobra al tomar el pedido: el efectivo se cobra en el mostrador
+          // o al entregar, y Mercado Pago lo confirma Mercado Pago.
+          paymentStatus: "pendiente",
+          ...(p.online
+            ? {
+                customerPhone: p.online.phone,
+                deliveryFee: p.online.envio?.fee.toFixed(2) ?? null,
+                deliveryAddress: p.online.envio?.address ?? null,
+                deliveryDetails: p.online.envio?.details ?? null,
+                deliveryLat: p.online.envio?.lat.toFixed(6) ?? null,
+                deliveryLng: p.online.envio?.lng.toFixed(6) ?? null,
+                deliveryDistanceKm: p.online.envio?.km.toFixed(2) ?? null,
+                cashPaysWith:
+                  p.paymentMethod === "efectivo" && p.online.paysWith !== null
+                    ? p.online.paysWith.toFixed(2)
+                    : null,
+                trackingToken,
+              }
+            : {}),
+        })
         .$returningId();
 
-      const sacados = sacadosPorLinea.get(indice) ?? [];
-      if (sacados.length > 0) {
-        await tx.insert(orderItemRemovals).values(
-          sacados.map((x) => ({
-            orderItemId,
-            ingredientId: x.id,
-            // El nombre queda congelado, como el del producto: la comanda de
-            // un pedido viejo tiene que seguir diciendo lo mismo.
-            ingredientName: x.name,
-          })),
-        );
+      // Con ids: hacen falta para colgarles lo que el cliente sacó.
+      for (const [indice, linea] of priced.entries()) {
+        const [{ id: orderItemId }] = await tx
+          .insert(orderItems)
+          .values({ orderId, ...linea })
+          .$returningId();
+
+        const sacados = sacadosPorLinea.get(indice) ?? [];
+        if (sacados.length > 0) {
+          await tx.insert(orderItemRemovals).values(
+            sacados.map((x) => ({
+              orderItemId,
+              ingredientId: x.id,
+              // El nombre queda congelado, como el del producto: la comanda de
+              // un pedido viejo tiene que seguir diciendo lo mismo.
+              ingredientName: x.name,
+            })),
+          );
+        }
+
+        const extras = extrasPorLinea.get(indice) ?? [];
+        if (extras.length > 0) {
+          await tx.insert(orderItemExtras).values(
+            extras.map((x) => ({
+              orderItemId,
+              ingredientId: x.id,
+              // Nombre y precio congelados: la comanda vieja tiene que seguir
+              // diciendo lo mismo y el cobro ya está hecho a este precio.
+              ingredientName: x.name,
+              quantity: x.quantity,
+              unitPrice: x.price,
+            })),
+          );
+        }
       }
 
-      const extras = extrasPorLinea.get(indice) ?? [];
-      if (extras.length > 0) {
-        await tx.insert(orderItemExtras).values(
-          extras.map((x) => ({
-            orderItemId,
-            ingredientId: x.id,
-            // Nombre y precio congelados: la comanda vieja tiene que seguir
-            // diciendo lo mismo y el cobro ya está hecho a este precio.
-            ingredientName: x.name,
-            quantity: x.quantity,
-            unitPrice: x.price,
-          })),
-        );
-      }
+      // El descuento va en la misma transacción que el pedido: no puede quedar
+      // un pedido sin su consumo ni un consumo sin su pedido.
+      await registrarVenta(
+        tx,
+        {
+          companyId: company.id,
+          locationId: location.id,
+          orderId,
+          orderNumber,
+        },
+        consumo,
+      );
+
+      return { orderId, orderNumber };
+    });
+  } catch (error) {
+    if (error instanceof StockInsuficiente) throw new Error(await mensajeSinStock(error.faltantes));
+    throw error;
+  }
+
+  /**
+   * Con el nombre de lo que el cliente tiene que tocar, no del ingrediente: "no
+   * alcanza el pan" no le dice qué sacar del carrito. Recalcula línea por línea,
+   * pero solo en este camino, que es el raro.
+   */
+  async function mensajeSinStock(faltantes: ConsumoVenta[]): Promise<string> {
+    const nombres = new Set<string>();
+    for (const linea of lineas) {
+      const suyo = await calcularConsumo(company.id, [linea]);
+      if (!suyo.some((c) => faltantes.some((f) => mismoItem(c, f)))) continue;
+      const fila =
+        linea.kind === "producto"
+          ? productRows.find((r) => r.id === linea.refId)
+          : comboRows.find((r) => r.id === linea.refId);
+      if (fila) nombres.add(fila.name);
     }
-
-    // El descuento va en la misma transacción que el pedido: no puede quedar
-    // un pedido sin su consumo ni un consumo sin su pedido.
-    await registrarVenta(
-      tx,
-      {
-        companyId: company.id,
-        locationId: location.id,
-        orderId,
-        orderNumber,
-      },
-      consumo,
-    );
-
-    return { orderId, orderNumber };
-  });
+    return nombres.size > 0
+      ? `No alcanza el stock para ${[...nombres].join(", ")}. Pedí menos o sacalo de tu pedido para seguir`
+      : "Se agotó algo de tu pedido. Volvé a abrir el menú y armalo de nuevo";
+  }
 
   // El pedido ya está guardado. Si es con Mercado Pago, recién ahora se pide la
   // preferencia: así, si Mercado Pago está caído, el pedido no se pierde y el

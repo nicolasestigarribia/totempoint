@@ -159,6 +159,16 @@ function OnlineMenuPage() {
       )}
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-32 pt-4">
+        {/* Todo apagado o agotado: una pantalla en blanco parece un error. */}
+        {menu.combos.length === 0 && secciones.length === 0 && (
+          <div className="mt-10 rounded-3xl border border-border bg-card/60 p-6 text-center">
+            <h2 className="font-display text-3xl">Por ahora no hay nada disponible</h2>
+            <p className="mt-2 text-muted-foreground">
+              Se nos terminó lo que teníamos para hoy. Volvé a mirar en un rato.
+            </p>
+          </div>
+        )}
+
         {menu.combos.length > 0 && (
           <section id="combos" className="scroll-mt-32 pb-6">
             <h2 className="mb-3 font-display text-3xl">Combos</h2>
