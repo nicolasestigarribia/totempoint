@@ -2020,3 +2020,21 @@ export const changeOnlineOrderPayment = createServerFn({ method: "POST" })
     if (filasTocadas(r) === 0) throw new Error(NO_SE_PUEDE_CAMBIAR);
     return { pagarEn: pref.initPoint };
   });
+
+/**
+ * El link corto del pedido online: /{alias} lleva a /p/{empresa}/{sucursal}.
+ * Público como el resto del canal; solo devuelve las dos partes de la URL.
+ */
+export const resolveOnlineAlias = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ alias: z.string().trim().toLowerCase().min(1).max(40) }))
+  .handler(async ({ data }): Promise<{ empresa: string; local: string }> => {
+    const [row] = await db
+      .select({ empresa: companies.slug, local: locations.slug })
+      .from(onlineSettings)
+      .innerJoin(locations, eq(locations.id, onlineSettings.locationId))
+      .innerJoin(companies, eq(companies.id, locations.companyId))
+      .where(eq(onlineSettings.alias, data.alias))
+      .limit(1);
+    if (!row) throw new Error("No encontramos ese link. Revisá que esté bien escrito");
+    return row;
+  });

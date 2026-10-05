@@ -709,9 +709,19 @@ export const onlineSettings = mysqlTable(
      */
     originLat: decimal("origin_lat", { precision: 9, scale: 6 }),
     originLng: decimal("origin_lng", { precision: 9, scale: 6 }),
+    /**
+     * Link corto del pedido online: /{alias}, en vez de /p/{empresa}/{sucursal}.
+     * Es lo que se pega en WhatsApp, en el perfil o en un QR, así que tiene que
+     * ser fácil de dictar. Único en toda la plataforma, porque va directo
+     * después del dominio.
+     */
+    alias: varchar("alias", { length: 40 }),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
-  (t) => [unique("online_settings_location_uq").on(t.locationId)],
+  (t) => [
+    unique("online_settings_location_uq").on(t.locationId),
+    unique("online_settings_alias_uq").on(t.alias),
+  ],
 );
 
 /**
