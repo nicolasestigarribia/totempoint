@@ -386,7 +386,9 @@ function LinkOnline({
               <Input
                 id="alias"
                 value={nuevoAlias}
-                onChange={(e) => setNuevoAlias(e.target.value.toLowerCase().replace(/s+/g, "-"))}
+                // Los espacios pasan a guiones mientras se escribe: "primo rosas"
+                // queda "primo-rosas", que es como va a funcionar el link.
+                onChange={(e) => setNuevoAlias(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
                 placeholder="primorosas"
                 maxLength={40}
                 className="h-10 w-44"
