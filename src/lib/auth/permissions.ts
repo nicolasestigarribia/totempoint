@@ -25,7 +25,9 @@ export type PermissionLevel = "ver" | "editar";
 export type PermissionMap = Partial<Record<PanelSection, PermissionLevel>>;
 
 export const SECTION_LABEL: Record<PanelSection, string> = {
-  portada: "Portada del tótem",
+  // La sección se llama Apariencia: colores y letras del menú, para el tótem y
+  // el pedido online, y la portada del tótem si la empresa lo tiene.
+  portada: "Apariencia",
   categorias: "Categorías",
   productos: "Productos",
   combos: "Combos",
