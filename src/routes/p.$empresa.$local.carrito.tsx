@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Minus,
@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { createOnlineOrder, type TotemProduct } from "@/lib/api/totem.functions";
-import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
+import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
+import { getOnlineMenuCached, onlineCartKey, olvidarMenuOnline } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
 import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
@@ -120,6 +121,7 @@ function CarritoOnlinePage() {
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const accent = menu.accentColor || "var(--primary)";
   const navigate = useNavigate();
+  const router = useRouter();
   const placeOrder = useServerFn(createOnlineOrder);
 
   const items = useCartForSlug(cartKey);
@@ -133,6 +135,15 @@ function CarritoOnlinePage() {
     () => new Map(menu.products.map((p) => [p.id, p])),
     [menu.products],
   );
+  // Lo que quedó en el carrito pero ya no está en el menú: el dueño lo apagó o
+  // lo sacó mientras el cliente compraba (el carrito vive en el celular). Se
+  // marca en la lista y no deja enviar hasta sacarlo, en vez de descubrirlo
+  // recién con un error al final.
+  const combosIds = useMemo(() => new Set(menu.combos.map((c) => c.id)), [menu.combos]);
+  const noDisponible = (i: { kind: string; refId: number }) =>
+    i.kind === "producto" ? !productosPorId.has(i.refId) : !combosIds.has(i.refId);
+  const hayNoDisponibles = items.some(noDisponible);
+
   const [editando, setEditando] = useState<{
     clave: string;
     producto: TotemProduct;
@@ -178,6 +189,11 @@ function CarritoOnlinePage() {
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
+    if (hayNoDisponibles) {
+      toast.error("Hay cosas en tu pedido que ya no están a la venta: sacalas para seguir");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     if (entrega === "envio" && !destino) {
       toast.error("Buscá tu dirección o marcala en el mapa");
       // Lo lleva hasta donde falta: el aviso solo, abajo, no dice dónde.
@@ -231,6 +247,7 @@ function CarritoOnlinePage() {
             removedIngredientIds: i.removed.map((r) => r.id),
             extras: i.extras.map((x) => ({ id: x.id, quantity: x.quantity })),
           })),
+          totalEsperado: total,
         },
       });
       guardarUltimo({ sucursal: cartKey, token: r.trackingToken, hecho: Date.now() });
@@ -252,8 +269,15 @@ function CarritoOnlinePage() {
         replace: true,
       });
     } catch (err) {
-      toast.error(mensajeDeError(err, "No se pudo enviar el pedido"));
+      const mensaje = mensajeDeError(err, "No se pudo enviar el pedido");
+      toast.error(mensaje, { duration: 8000 });
       setEnviando(false);
+      // Cambió algo del menú mientras armaba el pedido: se trae el menú nuevo,
+      // así el carrito muestra los precios de ahora y marca lo que ya no hay.
+      if (mensaje === PRECIOS_CAMBIARON || /ya no está a la venta|Ahora no hay/.test(mensaje)) {
+        olvidarMenuOnline();
+        void router.invalidate();
+      }
     }
   };
 
@@ -366,11 +390,26 @@ function CarritoOnlinePage() {
             const clave = itemKey(i.kind, i.refId, i.removed, i.extras);
             const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
             const editable = !!prod && (prod.removables.length > 0 || prod.extras.length > 0);
+            const agotado = noDisponible(i);
             return (
-              <li key={clave} className="rounded-2xl border border-border bg-card/40 p-3">
+              <li
+                key={clave}
+                className={`rounded-2xl border bg-card/40 p-3 ${
+                  agotado ? "border-destructive/60" : "border-border"
+                }`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-bold leading-tight">{i.name}</p>
+                    <p
+                      className={`font-bold leading-tight ${agotado ? "line-through opacity-60" : ""}`}
+                    >
+                      {i.name}
+                    </p>
+                    {agotado && (
+                      <p className="text-sm font-bold text-destructive">
+                        Ya no está a la venta: sacalo para seguir
+                      </p>
+                    )}
                     {i.removed.length > 0 && (
                       <p className="text-sm text-amber-400">
                         {i.removed.map((r) => `sin ${r.name}`).join(", ")}
@@ -402,6 +441,7 @@ function CarritoOnlinePage() {
                   <button
                     type="button"
                     aria-label="Agregar uno"
+                    disabled={i.quantity >= MAX_POR_LINEA}
                     onClick={() =>
                       add(cartKey, {
                         kind: i.kind,
@@ -413,7 +453,7 @@ function CarritoOnlinePage() {
                         extras: i.extras,
                       })
                     }
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border disabled:opacity-40"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -618,7 +658,7 @@ function CarritoOnlinePage() {
             </div>
             <button
               type="submit"
-              disabled={enviando || faltaParaMinimo > 0}
+              disabled={enviando || faltaParaMinimo > 0 || hayNoDisponibles}
               className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-lg font-bold text-white disabled:opacity-50"
               style={{ background: accent }}
             >

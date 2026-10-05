@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Bike, Store, ShoppingBag } from "lucide-react";
 import type { TotemProduct, TotemCombo } from "@/lib/api/totem.functions";
+import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
@@ -297,8 +298,9 @@ function Cantidad({
       <button
         type="button"
         onClick={onAgregar}
+        disabled={enCarrito >= MAX_POR_LINEA}
         aria-label={`Agregar otro ${nombre}`}
-        className="flex h-8 w-8 items-center justify-center rounded-lg active:scale-95"
+        className="flex h-8 w-8 items-center justify-center rounded-lg active:scale-95 disabled:opacity-40"
       >
         <Plus className="h-4 w-4" />
       </button>

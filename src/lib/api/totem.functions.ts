@@ -32,6 +32,7 @@ import {
   type ItemPreferencia,
 } from "@/lib/payments/mercadopago";
 import { acreditarPedido } from "@/lib/payments/acreditar";
+import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
 import { distanciaKm, cotizarEnvio, formatearDistancia } from "@/lib/delivery";
 import {
   calcularConsumo,
@@ -675,7 +676,11 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
 const lineaPedido = z.object({
   kind: z.enum(["producto", "combo"]),
   id: z.number().int(),
-  quantity: z.number().int().min(1).max(50),
+  quantity: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_POR_LINEA, `Podés pedir hasta ${MAX_POR_LINEA} de cada cosa`),
   // Los ingredientes que el cliente sacó de esta línea. Se valida abajo
   // contra la receta: el cliente no elige qué se puede sacar.
   removedIngredientIds: z.array(z.number().int()).max(30).optional(),
@@ -749,6 +754,12 @@ interface PedidoATomar {
   comments?: string;
   items: LineaPedido[];
   online?: DatosOnline;
+  /**
+   * El total que le mostró el celular al cliente. Si no coincide con el que se
+   * calcula acá (cambió un precio mientras armaba el pedido), se le avisa en vez
+   * de cobrarle un monto que no vio.
+   */
+  totalEsperado?: number;
   /** Ruta (sin origen) a la que vuelve el cliente después de pagar con Mercado Pago. */
   volverA: (pedido: { orderId: number; trackingToken: string | null }) => string;
 }
@@ -813,7 +824,30 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
     : [];
 
   if (productRows.length !== productIds.length || comboRows.length !== comboIds.length) {
-    throw new Error("Algo de tu pedido ya no está disponible");
+    // Se desactivó o se borró mientras el cliente compraba. Se buscan los
+    // nombres sin filtrar por activo, para decirle qué sacar en vez de "algo".
+    const faltanProductos = productIds.filter((id) => !productRows.some((r) => r.id === id));
+    const faltanCombos = comboIds.filter((id) => !comboRows.some((r) => r.id === id));
+    const [prodNombres, comboNombres] = await Promise.all([
+      faltanProductos.length
+        ? db
+            .select({ name: products.name })
+            .from(products)
+            .where(and(eq(products.companyId, company.id), inArray(products.id, faltanProductos)))
+        : [],
+      faltanCombos.length
+        ? db
+            .select({ name: combos.name })
+            .from(combos)
+            .where(and(eq(combos.companyId, company.id), inArray(combos.id, faltanCombos)))
+        : [],
+    ]);
+    const nombres = [...prodNombres, ...comboNombres].map((n) => n.name);
+    throw new Error(
+      nombres.length > 0
+        ? `Ahora no hay ${nombres.join(", ")}. Sacalo de tu pedido para seguir`
+        : "Algo de tu pedido ya no está a la venta. Volvé a abrir el menú y armalo de nuevo",
+    );
   }
 
   // El local puede tener apagado algo que la empresa sigue vendiendo. El menú
@@ -823,7 +857,12 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
     combosApagadosEnElLocal(location.id, comboIds),
   ]);
   if (apagados.size > 0 || combosApagados.size > 0) {
-    throw new Error("Algo de tu pedido ya no está disponible");
+    // Con el nombre: "algo no está" obliga al cliente a adivinar qué sacar.
+    const nombres = [
+      ...productRows.filter((r) => apagados.has(r.id)).map((r) => r.name),
+      ...comboRows.filter((r) => combosApagados.has(r.id)).map((r) => r.name),
+    ];
+    throw new Error(`Ahora no hay ${nombres.join(", ")}. Sacalo de tu pedido para seguir`);
   }
 
   // Lo que el cliente sacó se valida contra la receta, no se cree. El cliente
@@ -977,6 +1016,10 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         `Con $${p.online.paysWith.toLocaleString("es-AR")} no alcanza: el total es $${total.toLocaleString("es-AR")}`,
       );
     }
+  }
+
+  if (p.totalEsperado !== undefined && Math.abs(total - p.totalEsperado) > 0.5) {
+    throw new Error(PRECIOS_CAMBIARON);
   }
 
   const jornada = diaDeHoy();
@@ -1133,18 +1176,42 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       items.push({ title: "Envío", quantity: 1, unitPrice: envio });
     }
 
-    const pref = await crearPreferencia({
-      accessToken: token,
-      items,
-      externalReference: String(creado.orderId),
-      backUrl: `${origenPublico()}${p.volverA({ orderId: creado.orderId, trackingToken })}`,
-      notificationUrl: urlDeAviso(),
-      negocio: company.name,
-      numeroPedido: creado.orderNumber,
-      // El online sin pagar se cancela solo: el link vence con él. En el tótem
-      // el cliente está parado enfrente y el local lo cobra igual en la caja.
-      venceEnMinutos: p.channel === "online" ? VENCE_PAGO_ONLINE_MIN : undefined,
-    });
+    let pref: Awaited<ReturnType<typeof crearPreferencia>>;
+    try {
+      pref = await crearPreferencia({
+        accessToken: token,
+        items,
+        externalReference: String(creado.orderId),
+        backUrl: `${origenPublico()}${p.volverA({ orderId: creado.orderId, trackingToken })}`,
+        notificationUrl: urlDeAviso(),
+        negocio: company.name,
+        numeroPedido: creado.orderNumber,
+        // El online sin pagar se cancela solo: el link vence con él. En el tótem
+        // el cliente está parado enfrente y el local lo cobra igual en la caja.
+        venceEnMinutos: p.channel === "online" ? VENCE_PAGO_ONLINE_MIN : undefined,
+      });
+    } catch (error) {
+      // En el tótem el pedido queda y el mostrador lo cobra en efectivo. Online,
+      // no: nadie está enfrente, el pedido no llega a la cocina hasta que se
+      // pague, y quedaría escondido con el stock apartado. Se cancela ya, el
+      // stock vuelve, y el cliente sabe que su pedido no salió.
+      if (p.channel === "online") {
+        console.error(`Mercado Pago no generó el cobro del pedido ${creado.orderId}:`, error);
+        await db
+          .update(orders)
+          .set({ status: "cancelado", cancelledAt: new Date(), cancelledBy: null })
+          .where(eq(orders.id, creado.orderId));
+        try {
+          await devolverVenta(creado.orderId);
+        } catch (e) {
+          console.error(`No se pudo devolver el stock del pedido ${creado.orderId}:`, e);
+        }
+        throw new Error(
+          "No pudimos generar el cobro con Mercado Pago y tu pedido no se envió. Probá de nuevo en un rato o elegí pagar en efectivo",
+        );
+      }
+      throw error;
+    }
 
     await db.update(orders).set({ mpPreferenceId: pref.id }).where(eq(orders.id, creado.orderId));
 
@@ -1588,6 +1655,8 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       paysWith: z.number().positive().max(100_000_000).optional(),
       comments: z.string().trim().max(500).optional(),
       items: z.array(lineaPedido).min(1),
+      /** El total que vio el cliente, para no cobrarle uno distinto. */
+      totalEsperado: z.number().nonnegative().optional(),
     }),
   )
   .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
@@ -1652,6 +1721,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         paysWith: data.paysWith ?? null,
         minOrder: r.minOrder,
       },
+      totalEsperado: data.totalEsperado,
       volverA: ({ trackingToken }) => `/p/${data.empresa}/${data.local}/pedido/${trackingToken}`,
     });
 

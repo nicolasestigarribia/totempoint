@@ -112,6 +112,13 @@ cancela justo cuando el local acepta, gana el que llega primero. Antes de cancel
 Mercado Pago a efectivo se le pregunta a Mercado Pago si el pago entró recién: si entró, queda para
 devolver. Un pedido que canceló el cliente tiene `cancelled_by` vacío.
 
+**El celular manda el total que le mostró al cliente (`totalEsperado`).** Si el servidor calcula
+otro —alguien cambió un precio mientras el cliente armaba el pedido— no lo toma: devuelve
+`PRECIOS_CAMBIARON` (`src/lib/pedido-reglas.ts`), el carrito recarga el menú y el cliente ve el
+total nuevo antes de volver a enviar. Nadie paga un precio que no vio. Lo mismo con algo que se
+apagó: el error nombra el producto y la línea queda marcada para sacarla. El tope de 50 unidades
+por línea también vive en ese módulo, porque lo usan el carrito y el servidor.
+
 **El seguimiento del cliente se abre con `tracking_token`, nunca con el id.** El id es correlativo:
 con él cualquiera recorre pedidos ajenos y ve nombre, teléfono y dirección.
 
@@ -244,6 +251,11 @@ La etapa 1 está hecha y probada de punta a punta (envío y retiro, aceptar y re
   de la caja, hay que volverlo un permiso delegable — y extender `user_permissions.section`.
 - **Horario del canal** ("cerrado, abrimos a las 19") y estado "en camino" para el envío.
 - **El bot de WhatsApp** contestando con el link y avisando los cambios de estado.
+- **El stock no frena la venta.** Un producto en cero se sigue vendiendo (el stock queda negativo);
+  lo único que lo saca del menú es apagarlo. Si un cliente quiere que se corte solo, es una decisión
+  de producto, no un bug.
+- **Mercado Pago no está probado con una cobranza real** del lado online: se probó con credenciales
+  de prueba. Antes de que un cliente lo use, hacer un pago chico de verdad con su token `APP_USR-`.
 
 ### Decisión pendiente del dueño del producto
 
