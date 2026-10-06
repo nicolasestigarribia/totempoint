@@ -12,6 +12,7 @@ import {
   Banknote,
   Smartphone,
   ShoppingBag,
+  ImageOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createOnlineOrder, type TotemProduct } from "@/lib/api/totem.functions";
@@ -416,7 +417,18 @@ function CarritoOnlinePage() {
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                  {i.photoUrl ? (
+                    <img
+                      src={i.photoUrl}
+                      alt=""
+                      className={`h-14 w-14 shrink-0 rounded-xl object-cover ${agotado ? "opacity-50" : ""}`}
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted">
+                      <ImageOff className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
                     <p
                       className={`font-bold leading-tight ${agotado ? "line-through opacity-60" : ""}`}
                     >
