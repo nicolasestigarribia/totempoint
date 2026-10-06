@@ -6,6 +6,15 @@ qué **no** hay que tocar, por qué, y qué **sí** falta hacer.
 Leelo entero antes de escribir código. `CLAUDE.md` tiene el detalle de la arquitectura; esto es
 lo que se rompe si no lo sabés.
 
+> **Desde el 6/10/2026 hay dos bases, y tenés que cambiar tu `.env.local`.** En el mismo MySQL
+> de Railway están `totempoint_test` (para probar) y `railway` (producción, con los pedidos reales
+> de PrimoRosas). Hasta ese día había una sola y todo lo que probábamos en local quedaba en la base
+> real. En tu `.env.local`, cambiá el final de `DATABASE_URL` de `/railway` a `/totempoint_test`.
+> Para correr algo contra producción a propósito (una migración, por ejemplo), copiá la URL vieja
+> a un `.env.produccion.local` y usá `bun --env-file=.env.produccion.local run src/db/<script>.ts`;
+> el script avisa cuando está tocando producción. Las migraciones se corren dos veces: primero en
+> test, después en producción.
+
 ---
 
 ## Parte 1 — Reglas que no se cambian
