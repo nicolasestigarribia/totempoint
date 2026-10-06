@@ -612,6 +612,13 @@ export const orders = mysqlTable(
      * alguien del local lo acepte (`acceptedAt`) antes de ir a la cocina.
      */
     channel: mysqlEnum("channel", ["totem", "online"]).notNull().default("totem"),
+    /**
+     * Cliente registrado al que pertenece el pedido (perfil global por teléfono).
+     * Nullable: el tótem no registra, y el online solo liga si el cliente aceptó
+     * guardar sus datos. El nombre/teléfono del pedido quedan igual en sus
+     * propias columnas, congelados, aunque después el cliente cambie su perfil.
+     */
+    customerId: int("customer_id"),
     customerName: varchar("customer_name", { length: 120 }).notNull(),
     /** "envio" es solo del canal online: el tótem ofrece comer acá o retirar. */
     deliveryMethod: mysqlEnum("delivery_method", ["local", "mostrador", "envio"]).notNull(),
@@ -688,12 +695,36 @@ export const orders = mysqlTable(
   (t) => [
     index("orders_location_idx").on(t.locationId),
     index("orders_totem_idx").on(t.totemId),
+    index("orders_customer_idx").on(t.customerId),
     // El número se repite todos los días, así que la unicidad es por jornada.
     // Sigue siendo la red de seguridad: el número se asigna con order_sequences,
     // pero esta unique key garantiza que dos pedidos nunca compartan número.
     unique("orders_location_date_number_uq").on(t.locationId, t.businessDate, t.orderNumber),
     unique("orders_tracking_token_uq").on(t.trackingToken),
   ],
+);
+
+/**
+ * Clientes del pedido online. Es un perfil **global** de la plataforma, no de
+ * una empresa: la identidad es el teléfono, así el mismo cliente sirve en
+ * cualquier comercio de Totempoint. No tiene contraseña ni login —se "registra"
+ * completando sus datos en el checkout, con su consentimiento—; sirve para que
+ * cada dueño arme su base de clientes (quién le compró sale de `orders`).
+ *
+ * El teléfono se guarda normalizado (solo dígitos) para que sea una llave
+ * estable: el mismo número escrito con espacios o guiones no duplica el cliente.
+ */
+export const customers = mysqlTable(
+  "customers",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    phone: varchar("phone", { length: 40 }).notNull(),
+    name: varchar("name", { length: 120 }).notNull(),
+    email: varchar("email", { length: 255 }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [unique("customers_phone_uq").on(t.phone)],
 );
 
 /**

@@ -60,6 +60,7 @@ const CLAVE_CLIENTE = "pedido-online-cliente";
 interface DatosGuardados {
   nombre?: string;
   telefono?: string;
+  email?: string;
   /** La última dirección de entrega, con su punto en el mapa. */
   destino?: Destino;
 }
@@ -158,6 +159,10 @@ function CarritoOnlinePage() {
   const [anterior, setAnterior] = useState<Destino | null>(null);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [email, setEmail] = useState("");
+  // Registro del cliente: por defecto guarda sus datos (perfil por teléfono),
+  // con la opción de no hacerlo.
+  const [guardarDatos, setGuardarDatos] = useState(true);
   const [pago, setPago] = useState<Pago>(menu.mercadoPago ? "mercadopago" : "efectivo");
   const [pagaCon, setPagaCon] = useState("");
   const [comentarios, setComentarios] = useState("");
@@ -172,6 +177,7 @@ function CarritoOnlinePage() {
     const d = leerCliente();
     if (d.nombre) setNombre(d.nombre);
     if (d.telefono) setTelefono(d.telefono);
+    if (d.email) setEmail(d.email);
     if (d.destino) setAnterior(d.destino);
     setUltimo(leerUltimo(cartKey));
   }, [cartKey]);
@@ -237,6 +243,7 @@ function CarritoOnlinePage() {
     guardarCliente({
       nombre: nombre.trim(),
       telefono: telefono.trim(),
+      email: email.trim() || undefined,
       destino: entrega === "envio" && destino ? destino : leerCliente().destino,
     });
     try {
@@ -255,6 +262,8 @@ function CarritoOnlinePage() {
           paymentMethod: pago,
           paysWith: pago === "efectivo" ? pagaConNumero : undefined,
           comments: comentarios.trim() || undefined,
+          email: email.trim() || undefined,
+          guardarDatos,
           items: items.map((i) => ({
             kind: i.kind,
             id: i.refId,
@@ -595,6 +604,25 @@ function CarritoOnlinePage() {
               placeholder="Tu teléfono (por si hay que llamarte)"
               className="h-12 w-full rounded-xl border border-border bg-card/40 px-4 outline-none focus:border-primary"
             />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              inputMode="email"
+              maxLength={255}
+              autoComplete="email"
+              placeholder="Tu email (opcional)"
+              className="h-12 w-full rounded-xl border border-border bg-card/40 px-4 outline-none focus:border-primary"
+            />
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={guardarDatos}
+                onChange={(e) => setGuardarDatos(e.target.checked)}
+                className="h-4 w-4 accent-[var(--primary)]"
+              />
+              Guardar mis datos para la próxima
+            </label>
           </div>
         </Bloque>
 
