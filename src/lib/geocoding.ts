@@ -49,8 +49,24 @@ export async function nuevaSesion(): Promise<SesionBusqueda> {
 }
 
 /**
- * Sugerencias para lo que el cliente va escribiendo, sesgadas hacia la sucursal
- * para que "Avellano" dé la de Cariló y no otra provincia. Solo Argentina.
+ * Hasta dónde se buscan direcciones alrededor de la sucursal. El envío llega a
+ * pocos kilómetros; esto solo tiene que cubrir la ciudad y las vecinas.
+ */
+const RADIO_BUSQUEDA_KM = 30;
+
+/** Un cuadrado de `km` de lado a cada lado del punto, para Google. */
+function zonaAlrededor(p: Punto, km: number): google.maps.LatLngBoundsLiteral {
+  const dLat = km / 111.32;
+  const dLng = km / (111.32 * Math.cos((p.lat * Math.PI) / 180));
+  return { north: p.lat + dLat, south: p.lat - dLat, east: p.lng + dLng, west: p.lng - dLng };
+}
+
+/**
+ * Sugerencias para lo que el cliente va escribiendo, solo en la zona de la
+ * sucursal. Con `location` + `radius` Google apenas las ordenaba: "cerezo 140"
+ * sugería también Jujuy, Santa Cruz y Córdoba, y un cliente apurado podía tocar
+ * una de esas. `locationRestriction` las deja afuera. Sin sucursal (el dueño
+ * marcando el origen por primera vez) se busca en toda Argentina.
  */
 export async function buscarDirecciones(
   texto: string,
@@ -69,10 +85,7 @@ export async function buscarDirecciones(
     componentRestrictions: { country: "ar" },
     sessionToken: sesion,
   };
-  if (cerca) {
-    request.location = new google.maps.LatLng(cerca.lat, cerca.lng);
-    request.radius = 40_000; // 40 km: el envío llega a pocos km, no a otra ciudad.
-  }
+  if (cerca) request.locationRestriction = zonaAlrededor(cerca, RADIO_BUSQUEDA_KM);
 
   const predicciones = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve) => {
     service.getPlacePredictions(request, (res, status) => {
