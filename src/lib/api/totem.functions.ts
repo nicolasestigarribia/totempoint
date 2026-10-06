@@ -1217,8 +1217,8 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       if (fila) nombres.add(fila.name);
     }
     return nombres.size > 0
-      ? `No alcanza el stock para ${[...nombres].join(", ")}. Pedí menos o sacalo de tu pedido para seguir`
-      : "Se agotó algo de tu pedido. Volvé a abrir el menú y armalo de nuevo";
+      ? `Stock insuficiente de ${[...nombres].join(", ")}. Probá con menos productos o cambialo por otro.`
+      : "Stock insuficiente. Probá con menos productos o cambialo por otro.";
   }
 
   // El pedido ya está guardado. Si es con Mercado Pago, recién ahora se pide la
