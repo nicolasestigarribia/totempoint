@@ -24,6 +24,7 @@ import {
   paymentSettings,
   onlineSettings,
   deliveryTiers,
+  customers,
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
 import {
@@ -766,6 +767,8 @@ interface DatosOnline {
   paysWith: number | null;
   /** Mínimo de la sucursal, sobre lo pedido y sin el envío. */
   minOrder: number;
+  /** Cliente registrado al que se liga el pedido (null si no quiso guardar datos). */
+  customerId: number | null;
 }
 
 interface PedidoATomar {
@@ -1126,6 +1129,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
           paymentStatus: "pendiente",
           ...(p.online
             ? {
+                customerId: p.online.customerId,
                 customerPhone: p.online.phone,
                 deliveryFee: p.online.envio?.fee.toFixed(2) ?? null,
                 deliveryAddress: p.online.envio?.address ?? null,
@@ -1690,6 +1694,42 @@ export const getOnlineMenu = createServerFn({ method: "GET" })
     };
   });
 
+/**
+ * Registra o actualiza el cliente (perfil global por teléfono), solo si aceptó
+ * guardar sus datos. Devuelve su id para ligar el pedido, o null si no se
+ * registra. El teléfono se normaliza a dígitos: es la llave y no puede duplicar
+ * por cómo lo escribió. Un mail vacío no pisa el que el cliente ya tenía.
+ *
+ * No va dentro de la transacción del pedido: el perfil es independiente, y si el
+ * pedido fallara después, que el cliente haya quedado registrado no molesta.
+ */
+async function registrarCliente(
+  name: string,
+  phone: string,
+  opts: { email?: string; guardar: boolean },
+): Promise<number | null> {
+  if (!opts.guardar) return null;
+  const telnorm = phone.replace(/\D/g, "");
+  if (telnorm.length < 8) return null;
+  const nombre = name.trim();
+  const email = opts.email?.trim() || null;
+  try {
+    await db
+      .insert(customers)
+      .values({ phone: telnorm, name: nombre, email })
+      .onDuplicateKeyUpdate({ set: email ? { name: nombre, email } : { name: nombre } });
+    const [c] = await db
+      .select({ id: customers.id })
+      .from(customers)
+      .where(eq(customers.phone, telnorm))
+      .limit(1);
+    return c?.id ?? null;
+  } catch {
+    // Registrar al cliente nunca puede voltear un pedido: si falla, se toma igual.
+    return null;
+  }
+}
+
 export const createOnlineOrder = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -1722,6 +1762,10 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       items: z.array(lineaPedido).min(1),
       /** El total que vio el cliente, para no cobrarle uno distinto. */
       totalEsperado: z.number().nonnegative().optional(),
+      // Registro del cliente (perfil global por teléfono, sin contraseña). El
+      // mail es opcional; se guarda solo si el cliente aceptó guardar sus datos.
+      email: z.string().trim().max(255).email("Revisá el email").optional().or(z.literal("")),
+      guardarDatos: z.boolean().optional(),
     }),
   )
   .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
@@ -1774,6 +1818,15 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
     }
 
+    // Registro del cliente (perfil global por teléfono), solo si aceptó guardar
+    // sus datos. El teléfono se normaliza a dígitos para que sea una llave
+    // estable. Si ya existe, se actualiza el nombre y —si lo dio— el mail; un
+    // mail vacío no pisa el que ya tenía.
+    const customerId = await registrarCliente(data.customerName, data.phone, {
+      email: data.email,
+      guardar: data.guardarDatos ?? false,
+    });
+
     const tomado = await tomarPedido({
       company: r.company,
       locationId: r.location.id,
@@ -1789,6 +1842,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         envio,
         paysWith: data.paysWith ?? null,
         minOrder: r.minOrder,
+        customerId,
       },
       totalEsperado: data.totalEsperado,
       volverA: ({ trackingToken }) => `/p/${data.empresa}/${data.local}/pedido/${trackingToken}`,
