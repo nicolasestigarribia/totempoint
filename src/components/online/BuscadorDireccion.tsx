@@ -33,10 +33,11 @@ export function BuscadorDireccion({
       elegido.current = false;
       return;
     }
-    if (texto.trim().length < 3) {
-      setSugerencias([]);
-      return;
-    }
+    // Lo sugerido para el texto anterior se saca apenas cambia: si no, mientras
+    // se busca "cerezo 140" seguía a la vista "Cerezo, Cariló", sin la altura,
+    // y parecía que no la encontraba.
+    setSugerencias([]);
+    if (texto.trim().length < 3) return;
     const control = new AbortController();
     const id = setTimeout(async () => {
       setBuscando(true);
@@ -48,12 +49,14 @@ export function BuscadorDireccion({
         // Cancelada porque siguió escribiendo, o sin conexión: no es un error
         // que haya que mostrar, siempre puede marcar el punto a mano.
       } finally {
-        setBuscando(false);
+        // Una búsqueda cancelada no apaga el "buscando" de la que la reemplazó.
+        if (!control.signal.aborted) setBuscando(false);
       }
     }, 400);
     return () => {
       clearTimeout(id);
       control.abort();
+      setBuscando(false);
     };
   }, [texto, cerca]);
 
@@ -99,6 +102,11 @@ export function BuscadorDireccion({
         {buscando && (
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
+        {buscando && sugerencias.length === 0 && (
+          <p className="absolute inset-x-0 top-full z-[1000] mt-1 rounded-xl border border-border bg-background px-3 py-3 text-sm text-muted-foreground shadow-lg">
+            Buscando la dirección…
+          </p>
+        )}
         {abierto && sugerencias.length > 0 && (
           <ul className="absolute inset-x-0 top-full z-[1000] mt-1 max-h-72 overflow-y-auto rounded-xl border border-border bg-background shadow-lg">
             {sugerencias.map((s) => (
@@ -111,9 +119,9 @@ export function BuscadorDireccion({
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>
                     {s.label}
-                    {s.aproximada && (
+                    {s.aproximada && /\d/.test(s.label) && (
                       <span className="block text-xs text-muted-foreground">
-                        La altura la marcás vos en el mapa
+                        El repartidor se guía por esta dirección
                       </span>
                     )}
                   </span>

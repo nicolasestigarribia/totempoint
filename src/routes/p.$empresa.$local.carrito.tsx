@@ -194,6 +194,13 @@ function CarritoOnlinePage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    // Eligió solo la calle y no escribió la altura ni movió el pin: el
+    // repartidor no tendría a qué puerta ir.
+    if (entrega === "envio" && destino?.aproximada && !/\d/.test(destino.address)) {
+      toast.error("Falta la altura: escribila en la dirección o mové el pin hasta tu puerta");
+      document.getElementById("direccion")?.focus();
+      return;
+    }
     if (entrega === "envio" && !destino) {
       toast.error("Buscá tu dirección o marcala en el mapa");
       // Lo lleva hasta donde falta: el aviso solo, abajo, no dice dónde.
@@ -237,6 +244,7 @@ function CarritoOnlinePage() {
           details: entrega === "envio" ? destino?.details || undefined : undefined,
           lat: entrega === "envio" ? destino?.lat : undefined,
           lng: entrega === "envio" ? destino?.lng : undefined,
+          aproximada: entrega === "envio" ? (destino?.aproximada ?? false) : undefined,
           paymentMethod: pago,
           paysWith: pago === "efectivo" ? pagaConNumero : undefined,
           comments: comentarios.trim() || undefined,

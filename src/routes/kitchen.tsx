@@ -37,7 +37,7 @@ import {
 } from "@/lib/api/orders.functions";
 import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
-import { formatearDistancia, linkNavegacion } from "@/lib/delivery";
+import { formatearDistancia, linkNavegacion, linkNavegacionADireccion } from "@/lib/delivery";
 import { mensajeDeError } from "@/lib/error-message";
 import {
   Dialog,
@@ -133,9 +133,17 @@ function entregaLabel(o: KitchenOrder): string {
   return o.channel === "online" ? "Retira en el local" : "Retirar en mostrador";
 }
 
-/** Navegación hasta el punto que marcó el cliente. No necesita ninguna clave de API. */
+/**
+ * Navegación hasta el punto que marcó el cliente. No necesita ninguna clave de
+ * API. Si el punto es solo la calle (el mapa no tenía la altura), se navega por
+ * la dirección escrita: al punto, el repartidor llegaría a la cuadra equivocada.
+ */
 const mapaUrl = (o: KitchenOrder) =>
-  o.deliveryLat && o.deliveryLng ? linkNavegacion(o.deliveryLat, o.deliveryLng) : null;
+  o.deliveryApprox && o.deliveryAddress
+    ? linkNavegacionADireccion(o.deliveryAddress)
+    : o.deliveryLat && o.deliveryLng
+      ? linkNavegacion(o.deliveryLat, o.deliveryLng)
+      : null;
 
 /**
  * La alarma de pedido online, con Web Audio y sin archivo de sonido.

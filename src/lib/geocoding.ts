@@ -60,10 +60,36 @@ function armarLabel(p: PhotonFeature["properties"]): string {
 
 function aLugar(f: PhotonFeature): Lugar {
   const [lng, lat] = f.geometry.coordinates;
-  return { lat, lng, label: armarLabel(f.properties) };
+  // Una calle sola es un punto cualquiera de la calle, no una puerta.
+  return {
+    lat,
+    lng,
+    label: armarLabel(f.properties),
+    aproximada: f.properties.type === "street",
+  };
 }
 
+/**
+ * Lo ya consultado en esta visita. Photon tarda varios segundos, y mientras
+ * el cliente escribe y borra se repiten las mismas búsquedas ("cerezo" y
+ * después "cerezo 140" piden "cerezo" dos veces).
+ */
+const yaBuscado = new Map<string, PhotonFeature[]>();
+
 async function consultar(
+  q: string,
+  cerca: Punto | null,
+  signal?: AbortSignal,
+): Promise<PhotonFeature[]> {
+  const clave = `${q.toLowerCase()}|${cerca?.lat},${cerca?.lng}`;
+  const guardado = yaBuscado.get(clave);
+  if (guardado) return guardado;
+  const resultado = await consultarPhoton(q, cerca, signal);
+  yaBuscado.set(clave, resultado);
+  return resultado;
+}
+
+async function consultarPhoton(
   q: string,
   cerca: Punto | null,
   signal?: AbortSignal,
@@ -147,7 +173,17 @@ export async function buscarDirecciones(
   const q = texto.trim();
   if (q.length < 3) return [];
 
-  const encontradas = await consultar(q, cerca, signal);
+  // "Cerezo 542", "Cerezo 542, Cariló": la altura es el número suelto. Si la
+  // hay, la calle sola se busca a la vez que el texto entero y no después:
+  // Photon tarda varios segundos por consulta, y en serie eran el doble.
+  const altura = q.match(/(?:^|\s)(\d{1,5})(?=\s*(?:,|$))/)?.[1];
+  const calle = altura
+    ? q.replace(altura, " ").replace(/\s+/g, " ").replace(/\s+,/g, ",").trim()
+    : "";
+  const [encontradas, deLaCalle] = await Promise.all([
+    consultar(q, cerca, signal),
+    calle.length >= 3 ? consultar(calle, cerca, signal) : Promise.resolve([]),
+  ]);
   const exactas = sinRepetir(encontradas.map(aLugar));
 
   const cruce = q.match(/^(.+?)\s+(?:y|e|esq\.?|esquina)\s+([^,]+)/i);
@@ -156,15 +192,11 @@ export async function buscarDirecciones(
     return esquina ? [esquina] : [];
   }
 
-  // "Cerezo 542", "Cerezo 542, Cariló": la altura es el número suelto.
-  const altura = q.match(/(?:^|\s)(\d{1,5})(?=\s*(?:,|$))/)?.[1];
   if (!altura || encontradas.some((f) => f.properties.housenumber === altura)) {
     return exactas.slice(0, 6);
   }
 
-  const calle = q.replace(altura, " ").replace(/\s+/g, " ").replace(/\s+,/g, ",").trim();
-  if (calle.length < 3) return exactas.slice(0, 6);
-  const calles = (await consultar(calle, cerca, signal))
+  const calles = deLaCalle
     .filter((f) => f.properties.type === "street")
     .map((f): Lugar => {
       const [lng, lat] = f.geometry.coordinates;

@@ -61,3 +61,13 @@ export function formatearDistancia(km: number): string {
 export function linkNavegacion(lat: number | string, lng: number | string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }
+
+/**
+ * Navegación hasta una dirección escrita, para cuando el punto del mapa es
+ * solo la calle. Google Maps la busca con sus propios datos, que sí tienen la
+ * numeración que le falta a OpenStreetMap, y el link no necesita clave de API.
+ */
+export function linkNavegacionADireccion(direccion: string): string {
+  const destino = /argentina/i.test(direccion) ? direccion : `${direccion}, Argentina`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destino)}`;
+}

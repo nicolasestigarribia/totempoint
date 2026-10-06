@@ -635,6 +635,13 @@ export const orders = mysqlTable(
      */
     deliveryLat: decimal("delivery_lat", { precision: 9, scale: 6 }),
     deliveryLng: decimal("delivery_lng", { precision: 9, scale: 6 }),
+    /**
+     * El mapa no tenía la altura (en Cariló, OpenStreetMap tiene las calles sin
+     * numeración) y el cliente no movió el pin: el punto es algún lugar de la
+     * calle. Entonces el repartidor navega por la dirección escrita y no por el
+     * punto, que lo dejaría en la cuadra equivocada.
+     */
+    deliveryApprox: boolean("delivery_approx").notNull().default(false),
     /** Distancia en línea recta desde la sucursal, congelada como el costo. */
     deliveryDistanceKm: decimal("delivery_distance_km", { precision: 6, scale: 2 }),
     /** "Pago con $20.000": para que el repartidor salga con el vuelto. */

@@ -19,6 +19,12 @@ export interface Destino extends Punto {
   address: string;
   /** Piso, depto, entre calles, "sombrilla roja". */
   details: string;
+  /**
+   * El mapa no tenía la altura y el pin quedó en algún lugar de la calle. El
+   * cliente no tiene que corregirlo: el repartidor navega por la dirección
+   * escrita. Si mueve el pin, deja de serlo.
+   */
+  aproximada?: boolean;
 }
 
 /**
@@ -47,10 +53,6 @@ export function DireccionEntrega({
   // Si mueve el pin se busca qué dirección es, pero sin pisar lo que el
   // cliente ya escribió a mano: su texto vale más que el del mapa.
   const [escritaAMano, setEscritaAMano] = useState(false);
-  // Se encontró la calle pero no la altura: el pin está en algún punto de la
-  // calle y hay que pedirle al cliente, con todas las letras, que lo lleve
-  // hasta su puerta. Si no, el repartidor va a la mitad de la cuadra.
-  const [aproximada, setAproximada] = useState(false);
   const consulta = useRef<AbortController | null>(null);
   const destinoRef = useRef(destino);
   destinoRef.current = destino;
@@ -58,9 +60,14 @@ export function DireccionEntrega({
   useEffect(() => () => consulta.current?.abort(), []);
 
   const moverPin = (p: Punto) => {
-    setAproximada(false);
     const actual = destinoRef.current;
-    onCambiar({ address: actual?.address ?? "", details: actual?.details ?? "", ...p });
+    // Lo puso él en su puerta: desde ahora el punto vale más que la dirección.
+    onCambiar({
+      address: actual?.address ?? "",
+      details: actual?.details ?? "",
+      ...p,
+      aproximada: false,
+    });
     if (escritaAMano) return;
     consulta.current?.abort();
     const control = new AbortController();
@@ -84,7 +91,6 @@ export function DireccionEntrega({
           type="button"
           onClick={() => {
             setEscritaAMano(true);
-            setAproximada(false);
             onCambiar(anterior);
           }}
           className="flex w-full items-start gap-3 rounded-xl border border-border p-3 text-left"
@@ -107,8 +113,13 @@ export function DireccionEntrega({
           // Con la altura escrita por el cliente, mover el pin no la pisa con
           // lo que diga el mapa, que no la conoce.
           setEscritaAMano(l.aproximada ?? false);
-          setAproximada(l.aproximada ?? false);
-          onCambiar({ lat: l.lat, lng: l.lng, address: l.label, details: destino?.details ?? "" });
+          onCambiar({
+            lat: l.lat,
+            lng: l.lng,
+            address: l.label,
+            details: destino?.details ?? "",
+            aproximada: l.aproximada ?? false,
+          });
         }}
       />
 
@@ -121,11 +132,17 @@ export function DireccionEntrega({
             alcanceKm={alcance}
             color={accent.startsWith("#") ? accent : "#e11d48"}
           />
-          {aproximada ? (
+          {destino.aproximada && !/\d/.test(destino.address) ? (
             <p className="flex items-start gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-              Encontramos la calle pero no la altura. Mové el pin, o tocá el mapa, hasta tu puerta
-              para que el repartidor llegue bien.
+              Falta la altura: escribila en la dirección (por ejemplo, Cerezo 140) o mové el pin
+              hasta tu puerta.
+            </p>
+          ) : destino.aproximada ? (
+            <p className="flex items-start gap-1.5 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              El mapa no tiene la altura, así que el repartidor se va a guiar por la dirección que
+              escribiste. Si querés, igual podés mover el pin hasta tu puerta.
             </p>
           ) : (
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">

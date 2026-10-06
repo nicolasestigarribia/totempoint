@@ -759,6 +759,8 @@ interface DatosOnline {
     details: string | null;
     lat: number;
     lng: number;
+    /** El punto es solo la calle: el repartidor se guía por la dirección. */
+    aproximada: boolean;
   } | null;
   paysWith: number | null;
   /** Mínimo de la sucursal, sobre lo pedido y sin el envío. */
@@ -1129,6 +1131,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
                 deliveryDetails: p.online.envio?.details ?? null,
                 deliveryLat: p.online.envio?.lat.toFixed(6) ?? null,
                 deliveryLng: p.online.envio?.lng.toFixed(6) ?? null,
+                deliveryApprox: p.online.envio?.aproximada ?? false,
                 deliveryDistanceKm: p.online.envio?.km.toFixed(2) ?? null,
                 cashPaysWith:
                   p.paymentMethod === "efectivo" && p.online.paysWith !== null
@@ -1708,6 +1711,10 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       details: z.string().trim().max(255).optional(),
       lat: z.number().min(-90).max(90).optional(),
       lng: z.number().min(-180).max(180).optional(),
+      // El celular avisa que el punto es solo la calle (no estaba la altura en
+      // el mapa). No se puede verificar, pero tampoco hace daño: lo único que
+      // cambia es que el repartidor navega por la dirección escrita.
+      aproximada: z.boolean().optional(),
       paymentMethod: z.enum(["efectivo", "mercadopago"]),
       paysWith: z.number().positive().max(100_000_000).optional(),
       comments: z.string().trim().max(500).optional(),
@@ -1750,6 +1757,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         details: data.details || null,
         lat: data.lat,
         lng: data.lng,
+        aproximada: data.aproximada ?? false,
       };
     }
 
