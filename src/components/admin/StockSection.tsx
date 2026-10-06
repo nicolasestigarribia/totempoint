@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -450,8 +451,21 @@ export function StockSection({ panelClass }: { panelClass: string }) {
           Stock = ingresos − ventas − egresos. Ventas se cargan solas al vender; registrá ingresos y
           egresos.
         </p>
+        <Button
+          variant="outline"
+          className="ml-auto gap-2"
+          onClick={() => locationId !== null && void reload(locationId)}
+          disabled={locationId === null || loadingData}
+        >
+          {loadingData ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          Refrescar
+        </Button>
         {!readOnly && (
-          <Button className="ml-auto gap-2" onClick={openNewMovement}>
+          <Button className="gap-2" onClick={openNewMovement}>
             <Plus className="h-4 w-4" />
             Nuevo movimiento
           </Button>
