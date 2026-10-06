@@ -13,6 +13,7 @@ export function OnlineHeader({
   sucursal,
   logoUrl,
   volver,
+  minimoLabel,
 }: {
   empresa: string;
   local: string;
@@ -21,6 +22,8 @@ export function OnlineHeader({
   logoUrl: string | null;
   /** Con texto, muestra la flecha para volver al menú. */
   volver?: string;
+  /** "Mínimo $10.000": se muestra a la derecha de la marca. */
+  minimoLabel?: string;
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">
@@ -42,6 +45,11 @@ export function OnlineHeader({
           <p className="truncate font-display text-xl leading-tight">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{sucursal}</p>
         </div>
+        {minimoLabel && (
+          <span className="ml-auto shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {minimoLabel}
+          </span>
+        )}
       </div>
     </header>
   );

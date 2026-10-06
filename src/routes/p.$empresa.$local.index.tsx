@@ -105,19 +105,8 @@ function OnlineMenuPage() {
         name={menu.name}
         sucursal={menu.locationName}
         logoUrl={menu.logoUrl}
+        minimoLabel={minimo > 0 ? `Mínimo ${formatPrice(minimo)}` : undefined}
       />
-
-      {/* El monto mínimo, antes de que el cliente arme nada: enterarse en el
-          último paso de que no llega al mínimo es la peor forma de enterarse. */}
-      {minimo > 0 && (
-        <div className="mx-auto w-full max-w-2xl px-4 pt-4">
-          <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wider">
-            <span className="rounded-full border border-border px-3 py-1.5 text-muted-foreground">
-              Mínimo {formatPrice(minimo)}
-            </span>
-          </div>
-        </div>
-      )}
 
       {(secciones.length > 1 || menu.combos.length > 0) && (
         <nav
