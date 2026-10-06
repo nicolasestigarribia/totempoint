@@ -269,6 +269,29 @@ async function main() {
   await db.transaction(async (tx) => {
     const ex = (q: ReturnType<typeof sql>) => tx.execute(q);
 
+    // 0. Con --borrar-pedidos, también los pedidos y movimientos de prueba:
+    // la empresa arranca a vender de verdad con el historial, la recaudación y
+    // el stock en cero. La auditoría no se toca nunca.
+    if (process.argv.includes("--borrar-pedidos")) {
+      const enSucursales = sql`location_id IN (${sql.join(locIds, sql`, `)})`;
+      await ex(
+        sql`DELETE r FROM order_item_removals r JOIN order_items i ON i.id = r.order_item_id JOIN orders o ON o.id = i.order_id WHERE o.${enSucursales}`,
+      );
+      await ex(
+        sql`DELETE e FROM order_item_extras e JOIN order_items i ON i.id = e.order_item_id JOIN orders o ON o.id = i.order_id WHERE o.${enSucursales}`,
+      );
+      await ex(
+        sql`DELETE i FROM order_items i JOIN orders o ON o.id = i.order_id WHERE o.${enSucursales}`,
+      );
+      const [r] = await ex(sql`DELETE FROM orders WHERE ${enSucursales}`);
+      await ex(sql`DELETE FROM order_sequences WHERE ${enSucursales}`);
+      await ex(sql`DELETE FROM movements WHERE company_id = ${companyId}`);
+      await ex(sql`DELETE FROM artistock WHERE company_id = ${companyId}`);
+      console.log(
+        `Borrados ${(r as unknown as { affectedRows: number }).affectedRows} pedidos con sus líneas, y los movimientos de stock y caja.`,
+      );
+    }
+
     // 1. El catálogo anterior, con todo lo que cuelga de él.
     await ex(sql`DELETE FROM location_prices WHERE location_id IN (${sql.join(locIds, sql`, `)})`);
     await ex(
