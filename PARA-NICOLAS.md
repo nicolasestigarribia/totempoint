@@ -91,10 +91,17 @@ Pago son una sola función: un arreglo en un canal no puede quedar roto en el ot
 primera versión le hacía elegir al cliente una zona de una lista y se descartó: al repartidor una
 zona no le sirve. Ahora el cliente busca su dirección (o usa el GPS), confirma el punto moviendo el
 pin y agrega indicaciones. El costo sale de la distancia entre la sucursal y ese punto, con los
-tramos que carga el dueño ("hasta 2 km, $1.500"); el más largo es el alcance máximo. El servidor
-recalcula distancia y costo (`src/lib/delivery.ts`): nunca se cree lo que manda el celular. El
-mínimo se mide sobre lo pedido _sin_ el envío, y el pedido congela dirección, punto, distancia y
-costo. Todo con servicios gratis y sin clave (OpenStreetMap, Photon, Leaflet).
+tramos que carga el dueño ("hasta 2 km, $1.500"); el más largo es el alcance máximo. En el celular
+el costo se muestra con la distancia en línea recta mientras mueve el pin; al tomar el pedido el
+servidor lo recalcula con la distancia real de manejo (Google Distance Matrix) y cae a la línea
+recta si Google no responde. Nunca se cree lo que manda el celular. El mínimo se mide sobre lo
+pedido _sin_ el envío, y el pedido congela dirección, punto, distancia y costo.
+
+El mapa y el buscador de direcciones usan **Google Maps** (Places, Maps, Geocoding, Distance
+Matrix). Necesita una API key de Google con billing (tarjeta): `GOOGLE_MAPS_KEY` en el `.env` (la de
+navegador, restringida por referrer) y opcional `GOOGLE_MAPS_SERVER_KEY` para el cálculo de
+distancia del servidor. Esto cambió la regla vieja de "nada que pida tarjeta" (que sigue para el
+almacenamiento de imágenes, en MySQL): el mapa es la excepción elegida.
 
 **Un pedido online espera que el local lo acepte** (`accepted_at`) antes de entrar a las columnas de
 la cocina, y `setOrderStatus` se niega a moverlo mientras tanto. Rechazar es cancelar, para que

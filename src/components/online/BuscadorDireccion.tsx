@@ -1,12 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, LocateFixed, MapPin, Search } from "lucide-react";
 import type { Punto } from "@/lib/delivery";
-import { buscarDirecciones, direccionDe, type Lugar } from "@/lib/geocoding";
+import {
+  buscarDirecciones,
+  detalleDePlace,
+  direccionDe,
+  nuevaSesion,
+  type Lugar,
+  type Prediccion,
+  type SesionBusqueda,
+} from "@/lib/geocoding";
 
 /**
  * Buscar una dirección escribiéndola, o tomar la ubicación del celular. Las
  * sugerencias aparecen mientras se escribe, como en PedidosYa, y priorizan lo
  * que está cerca de la sucursal.
+ *
+ * El autocompletado solo trae texto; las coordenadas se piden al elegir una
+ * sugerencia (Place Details). Un token de sesión agrupa el tipeo con ese detalle
+ * para que Google lo cobre como una sola búsqueda.
  */
 export function BuscadorDireccion({
   cerca,
@@ -20,36 +32,36 @@ export function BuscadorDireccion({
   inputClassName?: string;
 }) {
   const [texto, setTexto] = useState("");
-  const [sugerencias, setSugerencias] = useState<Lugar[]>([]);
+  const [sugerencias, setSugerencias] = useState<Prediccion[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [gps, setGps] = useState<"nada" | "buscando" | "error">("nada");
+  const [errorDetalle, setErrorDetalle] = useState(false);
   const elegido = useRef(false);
+  const sesion = useRef<SesionBusqueda | null>(null);
 
   // Se espera a que deje de escribir: una consulta por tecla sería abusar de
-  // un servicio que nos dan gratis.
+  // un servicio que se paga por request.
   useEffect(() => {
     if (elegido.current) {
       elegido.current = false;
       return;
     }
-    // Lo sugerido para el texto anterior se saca apenas cambia: si no, mientras
-    // se busca "cerezo 140" seguía a la vista "Cerezo, Cariló", sin la altura,
-    // y parecía que no la encontraba.
     setSugerencias([]);
     if (texto.trim().length < 3) return;
     const control = new AbortController();
     const id = setTimeout(async () => {
       setBuscando(true);
       try {
-        const r = await buscarDirecciones(texto, cerca, control.signal);
+        if (!sesion.current) sesion.current = await nuevaSesion();
+        const r = await buscarDirecciones(texto, cerca, sesion.current, control.signal);
+        if (control.signal.aborted) return;
         setSugerencias(r);
         setAbierto(true);
       } catch {
         // Cancelada porque siguió escribiendo, o sin conexión: no es un error
         // que haya que mostrar, siempre puede marcar el punto a mano.
       } finally {
-        // Una búsqueda cancelada no apaga el "buscando" de la que la reemplazó.
         if (!control.signal.aborted) setBuscando(false);
       }
     }, 400);
@@ -60,12 +72,25 @@ export function BuscadorDireccion({
     };
   }, [texto, cerca]);
 
-  const elegir = (l: Lugar) => {
+  const elegir = async (p: Prediccion) => {
     elegido.current = true;
-    setTexto(l.label);
+    setTexto(p.label);
     setSugerencias([]);
     setAbierto(false);
-    onElegir(l);
+    setErrorDetalle(false);
+    setBuscando(true);
+    try {
+      const lugar = await detalleDePlace(p.placeId, sesion.current ?? undefined);
+      // La sesión se cierra con el detalle: la próxima búsqueda abre otra.
+      sesion.current = null;
+      if (!lugar) {
+        setErrorDetalle(true);
+        return;
+      }
+      onElegir(lugar);
+    } finally {
+      setBuscando(false);
+    }
   };
 
   const usarGps = () => {
@@ -79,7 +104,11 @@ export function BuscadorDireccion({
         const punto = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const label = (await direccionDe(punto)) ?? "Mi ubicación";
         setGps("nada");
-        elegir({ ...punto, label });
+        elegido.current = true;
+        setTexto(label);
+        setSugerencias([]);
+        setAbierto(false);
+        onElegir({ ...punto, label });
       },
       () => setGps("error"),
       { enableHighAccuracy: true, timeout: 15_000 },
@@ -102,27 +131,20 @@ export function BuscadorDireccion({
         {buscando && (
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
-        {buscando && sugerencias.length === 0 && (
-          <p className="absolute inset-x-0 top-full z-[1000] mt-1 rounded-xl border border-border bg-background px-3 py-3 text-sm text-muted-foreground shadow-lg">
-            Buscando la dirección…
-          </p>
-        )}
         {abierto && sugerencias.length > 0 && (
           <ul className="absolute inset-x-0 top-full z-[1000] mt-1 max-h-72 overflow-y-auto rounded-xl border border-border bg-background shadow-lg">
             {sugerencias.map((s) => (
-              <li key={`${s.lat},${s.lng},${s.label}`}>
+              <li key={s.placeId}>
                 <button
                   type="button"
-                  onClick={() => elegir(s)}
+                  onClick={() => void elegir(s)}
                   className="flex w-full items-start gap-2 px-3 py-3 text-left text-sm hover:bg-muted"
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>
                     {s.label}
-                    {s.aproximada && /\d/.test(s.label) && (
-                      <span className="block text-xs text-muted-foreground">
-                        El repartidor se guía por esta dirección
-                      </span>
+                    {s.secundaria && (
+                      <span className="block text-xs text-muted-foreground">{s.secundaria}</span>
                     )}
                   </span>
                 </button>
@@ -131,6 +153,12 @@ export function BuscadorDireccion({
           </ul>
         )}
       </div>
+
+      {errorDetalle && (
+        <p className="text-sm text-amber-400">
+          No pudimos ubicar esa dirección. Elegí otra o tocá el mapa donde estás.
+        </p>
+      )}
 
       <button
         type="button"

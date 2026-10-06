@@ -34,6 +34,7 @@ import {
 import { acreditarPedido } from "@/lib/payments/acreditar";
 import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
 import { distanciaKm, cotizarEnvio, formatearDistancia } from "@/lib/delivery";
+import { distanciaPorRutaKm } from "@/lib/maps/distance-server";
 import {
   calcularConsumo,
   registrarVenta,
@@ -1743,7 +1744,10 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       if (!data.address || data.address.length < 3) {
         throw new Error("Escribí la dirección de entrega");
       }
-      const km = distanciaKm(r.origin!, { lat: data.lat, lng: data.lng });
+      // Distancia por ruta real (Google); si Google no responde, línea recta,
+      // para no perder la venta (misma regla que Mercado Pago).
+      const destino = { lat: data.lat, lng: data.lng };
+      const km = (await distanciaPorRutaKm(r.origin!, destino)) ?? distanciaKm(r.origin!, destino);
       const cotizado = cotizarEnvio(r.tiers, km);
       if (!cotizado.llega) {
         throw new Error(
