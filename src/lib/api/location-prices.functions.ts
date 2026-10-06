@@ -226,7 +226,7 @@ export const setLocationPrice = createServerFn({ method: "POST" })
       locationId: z.number().int(),
       itemType: z.enum(["product", "combo"]),
       itemId: z.number().int(),
-      price: z.number().nonnegative().nullable(), // null = vuelve al precio base
+      price: z.number().nonnegative().finite().max(100_000_000).nullable(), // null = vuelve al precio base
     }),
   )
   .handler(async ({ context, data }) => {
@@ -269,7 +269,7 @@ export const bulkAdjustPrices = createServerFn({ method: "POST" })
       itemType: z.enum(["product", "combo"]),
       itemIds: z.array(z.number().int()).min(1),
       mode: z.enum(["percent", "unit"]),
-      value: z.number(),
+      value: z.number().finite(),
     }),
   )
   .handler(async ({ context, data }) => {
@@ -279,6 +279,11 @@ export const bulkAdjustPrices = createServerFn({ method: "POST" })
 
     if (data.mode === "unit" && data.value < 0) {
       throw new Error("El precio no puede ser negativo");
+    }
+    // El porcentaje puede ser negativo (descuento) pero acotado: un +99999%
+    // dispararía todos los precios de la empresa de un saque.
+    if (data.mode === "percent" && (data.value < -100 || data.value > 1000)) {
+      throw new Error("El porcentaje debe estar entre -100 y 1000");
     }
 
     const table = data.itemType === "product" ? products : combos;

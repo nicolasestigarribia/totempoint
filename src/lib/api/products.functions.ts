@@ -42,11 +42,11 @@ export interface ProductRow {
 
 const ingredientInput = z.object({
   ingredientId: z.number().int(),
-  quantity: z.number().nullable().optional(),
+  quantity: z.number().positive().finite().nullable().optional(),
   removable: z.boolean().optional(),
   extraAllowed: z.boolean().optional(),
-  extraPrice: z.number().nullable().optional(),
-  extraMax: z.number().int().nullable().optional(),
+  extraPrice: z.number().nonnegative().finite().nullable().optional(),
+  extraMax: z.number().int().positive().nullable().optional(),
 });
 
 // Valida que la categoría (si viene) pertenezca a la empresa del user.
@@ -272,14 +272,14 @@ export const createProduct = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(1).max(120),
       description: z.string().optional(),
-      price: z.union([z.number(), z.string()]),
+      price: z.coerce.number().nonnegative().finite().max(100_000_000),
       categoryId: z.number().int().nullable().optional(),
       photoUrl: z.string().max(500).optional(),
       sort: z.number().int().optional(),
       stockable: z.boolean().optional(),
       customizable: z.boolean().optional(),
       unit: z.string().trim().max(20).optional(),
-      unitsPerBulk: z.number().positive().optional(),
+      unitsPerBulk: z.number().positive().finite().optional(),
       ingredients: z.array(ingredientInput).optional(),
     }),
   )
@@ -343,7 +343,7 @@ export const updateProduct = createServerFn({ method: "POST" })
       id: z.number().int(),
       name: z.string().trim().min(1).max(120),
       description: z.string().optional(),
-      price: z.union([z.number(), z.string()]),
+      price: z.coerce.number().nonnegative().finite().max(100_000_000),
       categoryId: z.number().int().nullable().optional(),
       photoUrl: z.string().max(500).optional(),
       active: z.boolean(),
@@ -351,7 +351,7 @@ export const updateProduct = createServerFn({ method: "POST" })
       stockable: z.boolean().optional(),
       customizable: z.boolean().optional(),
       unit: z.string().trim().max(20).optional(),
-      unitsPerBulk: z.number().positive().optional(),
+      unitsPerBulk: z.number().positive().finite().optional(),
       ingredients: z.array(ingredientInput).optional(),
     }),
   )

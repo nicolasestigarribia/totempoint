@@ -158,6 +158,10 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
       toast.error("El precio es requerido");
       return;
     }
+    if (priceValue < 0) {
+      toast.error("El precio no puede ser negativo");
+      return;
+    }
 
     const productsPayload = draftProducts.map((d) => {
       const parsed = Number.parseInt(d.quantity, 10);
@@ -387,7 +391,9 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                 <Input
                   id="combo-price"
                   type="number"
+                  min={0}
                   step="0.01"
+                  inputMode="decimal"
                   value={price}
                   placeholder="0.00"
                   onChange={(e) => setPrice(e.target.value)}

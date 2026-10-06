@@ -230,6 +230,10 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       toast.error("El precio es requerido");
       return;
     }
+    if (priceValue < 0) {
+      toast.error("El precio no puede ser negativo");
+      return;
+    }
 
     // Producto de reventa (stockable) no tiene receta: su stock es propio.
     const ingredientsPayload = stockable
@@ -243,11 +247,12 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
           const emParsed = em === "" ? null : Number.parseInt(em, 10);
           return {
             ingredientId: d.ingredientId,
-            quantity: parsed === null || Number.isNaN(parsed) ? null : parsed,
+            quantity: parsed === null || Number.isNaN(parsed) || parsed <= 0 ? null : parsed,
             removable: d.removable,
             extraAllowed: d.extraAllowed,
-            extraPrice: epParsed === null || Number.isNaN(epParsed) ? null : epParsed,
-            extraMax: emParsed === null || Number.isNaN(emParsed) ? null : emParsed,
+            extraPrice:
+              epParsed === null || Number.isNaN(epParsed) || epParsed < 0 ? null : epParsed,
+            extraMax: emParsed === null || Number.isNaN(emParsed) || emParsed < 1 ? null : emParsed,
           };
         });
 
@@ -509,7 +514,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                 <Input
                   id="product-price"
                   type="number"
+                  min={0}
                   step="0.01"
+                  inputMode="decimal"
                   value={price}
                   placeholder="0.00"
                   onChange={(e) => setPrice(e.target.value)}
@@ -697,7 +704,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                               {d.unit ? (
                                 <Input
                                   type="number"
+                                  min={0}
                                   step="0.01"
+                                  inputMode="decimal"
                                   value={d.quantity}
                                   placeholder="Cant."
                                   className="h-9 w-24"
@@ -741,7 +750,9 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                                   <>
                                     <Input
                                       type="number"
+                                      min={0}
                                       step="0.01"
+                                      inputMode="decimal"
                                       value={d.extraPrice}
                                       placeholder="Precio extra"
                                       className="h-9 w-28"
@@ -753,6 +764,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                                       type="number"
                                       step="1"
                                       min="1"
+                                      inputMode="numeric"
                                       value={d.extraMax}
                                       placeholder="Máx."
                                       className="h-9 w-20"

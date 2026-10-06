@@ -154,7 +154,7 @@ function SucursalOnline({
           pickupEnabled: pickup,
           deliveryEnabled: delivery,
           cashEnabled: cash,
-          minOrder: Number(minOrder) || 0,
+          minOrder: Math.max(0, Number(minOrder) || 0),
         },
       });
       toast.success("Listo, quedó guardado");
@@ -408,10 +408,20 @@ function EnviosPorDistancia({
   const agregar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!km || precio === "") return;
+    const kmN = Number(km);
+    const precioN = Number(precio);
+    if (!(kmN > 0)) {
+      toast.error("Los km tienen que ser mayores a 0");
+      return;
+    }
+    if (Number.isNaN(precioN) || precioN < 0) {
+      toast.error("El costo de envío no puede ser negativo");
+      return;
+    }
     setAgregando(true);
     try {
       await save({
-        data: { locationId: loc.locationId, upToKm: Number(km), price: Number(precio) },
+        data: { locationId: loc.locationId, upToKm: kmN, price: precioN },
       });
       setKm("");
       setPrecio("");
@@ -546,10 +556,20 @@ function FilaTramo({
   const cambio = Number(km) !== tramo.upToKm || Number(precio) !== tramo.price;
 
   const guardar = async () => {
+    const kmN = Number(km);
+    const precioN = Number(precio) || 0;
+    if (!(kmN > 0)) {
+      toast.error("Los km tienen que ser mayores a 0");
+      return;
+    }
+    if (precioN < 0) {
+      toast.error("El costo de envío no puede ser negativo");
+      return;
+    }
     setOcupado(true);
     try {
       await save({
-        data: { locationId, id: tramo.id, upToKm: Number(km), price: Number(precio) || 0 },
+        data: { locationId, id: tramo.id, upToKm: kmN, price: precioN },
       });
       await onChange();
     } catch (err) {

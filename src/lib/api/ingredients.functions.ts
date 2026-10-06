@@ -67,8 +67,8 @@ export const createIngredient = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(1).max(120),
       unit: z.string().trim().max(20).optional(),
-      unitsPerBulk: z.number().positive().optional(),
-      cost: z.number().nonnegative().nullable().optional(),
+      unitsPerBulk: z.number().positive().finite().optional(),
+      cost: z.number().nonnegative().finite().max(100_000_000).nullable().optional(),
       categoryId: z.number().int().nullable().optional(),
     }),
   )
@@ -116,8 +116,8 @@ export const updateIngredient = createServerFn({ method: "POST" })
       id: z.number().int(),
       name: z.string().trim().min(1).max(120),
       unit: z.string().trim().max(20).optional(),
-      unitsPerBulk: z.number().positive().optional(),
-      cost: z.number().nonnegative().nullable().optional(),
+      unitsPerBulk: z.number().positive().finite().optional(),
+      cost: z.number().nonnegative().finite().max(100_000_000).nullable().optional(),
       categoryId: z.number().int().nullable().optional(),
     }),
   )

@@ -72,9 +72,16 @@ export const itemKey = (
   return clave;
 };
 
+// Colapsa NaN/Infinity a un fallback: un precio o cantidad corrupta (dato viejo
+// migrado, string no numérico) no debe contaminar el total con "$NaN".
+const num = (x: unknown, fallback = 0): number => {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 /** Precio unitario de una línea: base + lo que suman sus extras. */
 export const precioLinea = (i: TotemCartItem) =>
-  Number(i.price) + i.extras.reduce((s, e) => s + Number(e.price) * e.quantity, 0);
+  num(i.price) + i.extras.reduce((s, e) => s + num(e.price) * num(e.quantity), 0);
 
 interface CartState {
   slug: string | null;
@@ -227,11 +234,11 @@ export const useTotemCart = create<CartState>()(
           slug: viejo?.slug ?? null,
           items: (viejo?.items ?? []).map((i) => ({
             kind: (i.kind as TotemCartKind) ?? "producto",
-            refId: Number(i.refId ?? i.productId ?? 0),
+            refId: num(i.refId ?? i.productId ?? 0),
             name: String(i.name ?? ""),
             price: String(i.price ?? "0"),
             photoUrl: (i.photoUrl as string | null) ?? null,
-            quantity: Number(i.quantity ?? 1),
+            quantity: Math.max(1, Math.round(num(i.quantity, 1))),
             // Los carritos de antes no tenían personalización: van sin nada
             // sacado ni agregado, que es justo lo que el cliente había pedido.
             removed: (i.removed as TotemCartRemoval[]) ?? [],
@@ -250,7 +257,7 @@ export const cartCount = (items: TotemCartItem[]) => items.reduce((t, i) => t + 
 
 export const formatPrice = (value: number | string) => {
   const n = typeof value === "string" ? Number(value) : value;
-  return Number.isNaN(n) ? String(value) : `$${n.toLocaleString("es-AR")}`;
+  return Number.isFinite(n) ? `$${n.toLocaleString("es-AR")}` : String(value);
 };
 
 // Sólo cuenta los ítems del negocio actual: evita mostrar el carrito de otro

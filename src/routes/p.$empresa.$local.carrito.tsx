@@ -196,11 +196,17 @@ function CarritoOnlinePage() {
       return;
     }
     const pagaConNumero = pagaCon ? Number(pagaCon) : undefined;
-    if (pago === "efectivo" && pagaConNumero !== undefined && pagaConNumero < total) {
-      toast.error(
-        `Con ${formatPrice(pagaConNumero)} no alcanza: el total es ${formatPrice(total)}`,
-      );
-      return;
+    if (pago === "efectivo" && pagaConNumero !== undefined) {
+      if (Number.isNaN(pagaConNumero)) {
+        toast.error("Poné un número válido en «¿con cuánto pagás?»");
+        return;
+      }
+      if (pagaConNumero < total) {
+        toast.error(
+          `Con ${formatPrice(pagaConNumero)} no alcanza: el total es ${formatPrice(total)}`,
+        );
+        return;
+      }
     }
 
     setEnviando(true);

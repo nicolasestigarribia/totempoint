@@ -213,7 +213,7 @@ export const setStockLimit = createServerFn({ method: "POST" })
     z.object({
       ingredientId: z.number().int().nullable().optional(),
       productId: z.number().int().nullable().optional(),
-      minStock: z.number().min(0),
+      minStock: z.number().min(0).finite().max(100_000_000),
     }),
   )
   .handler(async ({ context, data }) => {

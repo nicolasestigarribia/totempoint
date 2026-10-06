@@ -172,7 +172,7 @@ export const createCombo = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(1).max(120),
       description: z.string().optional(),
-      price: z.union([z.number(), z.string()]),
+      price: z.coerce.number().nonnegative().finite().max(100_000_000),
       photoUrl: z.string().max(500).optional(),
       sort: z.number().int().optional(),
       products: z.array(productInput).optional(),
@@ -223,7 +223,7 @@ export const updateCombo = createServerFn({ method: "POST" })
       id: z.number().int(),
       name: z.string().trim().min(1).max(120),
       description: z.string().optional(),
-      price: z.union([z.number(), z.string()]),
+      price: z.coerce.number().nonnegative().finite().max(100_000_000),
       photoUrl: z.string().max(500).optional(),
       active: z.boolean(),
       sort: z.number().int().optional(),

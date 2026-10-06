@@ -59,6 +59,19 @@ export function AccionesPedido({
   };
 
   const confirmarPago = async () => {
+    const pagaConNumero = otroPago === "efectivo" && pagaCon ? Number(pagaCon) : undefined;
+    if (pagaConNumero !== undefined) {
+      if (Number.isNaN(pagaConNumero)) {
+        toast.error("Poné un número válido en «¿con cuánto pagás?»");
+        return;
+      }
+      if (pagaConNumero < Number(pedido.total)) {
+        toast.error(
+          `Con ${formatPrice(pagaConNumero)} no alcanza: el total es ${formatPrice(pedido.total)}`,
+        );
+        return;
+      }
+    }
     setOcupado(true);
     try {
       const r = await cambiarPago({
@@ -67,7 +80,7 @@ export function AccionesPedido({
           local,
           token,
           paymentMethod: otroPago,
-          paysWith: otroPago === "efectivo" && pagaCon ? Number(pagaCon) : undefined,
+          paysWith: pagaConNumero,
         },
       });
       if (r.pagarEn) {

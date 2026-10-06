@@ -46,13 +46,18 @@ export type Cotizacion =
 /** El costo del envío a esa distancia, o que no llega si pasa el último tramo. */
 export function cotizarEnvio(tramos: TramoEnvio[], km: number): Cotizacion {
   const ordenados = [...tramos].sort((a, b) => a.upToKm - b.upToKm);
+  const maxKm = ordenados.at(-1)?.upToKm ?? 0;
+  // Un km NaN/Infinity (distancia mal calculada) no debe caer silenciosamente
+  // en un tramo ni dar un "no llega" engañoso: se trata como fuera de alcance.
+  if (!Number.isFinite(km) || km < 0) return { llega: false, km, maxKm };
   const tramo = ordenados.find((t) => km <= t.upToKm);
-  if (!tramo) return { llega: false, km, maxKm: ordenados.at(-1)?.upToKm ?? 0 };
+  if (!tramo) return { llega: false, km, maxKm };
   return { llega: true, km, precio: tramo.price };
 }
 
 /** "1,3 km" / "800 m": como se lo decimos al cliente y al repartidor. */
 export function formatearDistancia(km: number): string {
+  if (!Number.isFinite(km) || km < 0) return "—";
   if (km < 1) return `${Math.max(100, Math.round((km * 1000) / 100) * 100)} m`;
   return `${km.toLocaleString("es-AR", { maximumFractionDigits: 1 })} km`;
 }

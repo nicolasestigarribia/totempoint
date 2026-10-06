@@ -124,7 +124,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
       const bulk = Number(unitsPerBulk);
       const bulkVal = Number.isNaN(bulk) || bulk <= 0 ? 1 : bulk;
       const costNum = Number(cost);
-      const costVal = cost.trim() === "" || Number.isNaN(costNum) ? null : costNum;
+      const costVal = cost.trim() === "" || Number.isNaN(costNum) || costNum < 0 ? null : costNum;
       const catId = categoryId === "none" ? null : Number(categoryId);
       if (editing) {
         await doUpdate({
@@ -412,6 +412,7 @@ export function IngredientesSection({ panelClass }: { panelClass: string }) {
                 type="number"
                 step="0.01"
                 min="0"
+                inputMode="decimal"
                 value={cost}
                 onChange={(e) => setCost(e.target.value)}
                 placeholder="Opcional"

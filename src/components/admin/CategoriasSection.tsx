@@ -91,7 +91,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
       return;
     }
     const sortValue = Number.parseInt(sort, 10);
-    const safeSort = Number.isNaN(sortValue) ? 0 : sortValue;
+    const safeSort = Number.isNaN(sortValue) || sortValue < 0 ? 0 : sortValue;
 
     setSaving(true);
     try {
@@ -300,6 +300,9 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
               <Input
                 id="category-sort"
                 type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
               />

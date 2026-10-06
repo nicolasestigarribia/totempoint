@@ -89,7 +89,7 @@ export const createMovement = createServerFn({ method: "POST" })
       actionCode: z.string().trim().min(1).max(40),
       ingredientId: z.number().int().nullable().optional(),
       productId: z.number().int().nullable().optional(),
-      quantity: z.number().positive(),
+      quantity: z.number().positive().finite().max(100_000_000),
       detail: z.string().trim().max(255).optional().nullable(),
     }),
   )
