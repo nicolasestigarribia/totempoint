@@ -536,6 +536,11 @@ function Kitchen() {
     setAhora(Date.now());
   };
 
+  const limpiarColumna = (lista: KitchenOrder[]) => {
+    for (const o of lista) limpiadosRef.current.add(o.id);
+    setAhora(Date.now());
+  };
+
   // Cancelar no pasa por acá: tiene su propia función porque además decide qué
   // hacer con la plata ya cobrada.
   const changeStatus = async (
@@ -696,7 +701,7 @@ function Kitchen() {
               title="Sacar todos los pedidos de la vista (se recuperan al recargar)"
             >
               <Eraser className="h-4 w-4" />
-              Limpiar
+              Limpiar todo
             </button>
           </div>
         </div>
@@ -838,6 +843,18 @@ function Kitchen() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Cancelar todos
+                        </button>
+                      )}
+                      {grouped[col].length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => limpiarColumna(grouped[col])}
+                          aria-label={`Limpiar ${statusMeta[col].label}`}
+                          title="Sacar estos pedidos de la vista (se recuperan al recargar)"
+                          className="flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-foreground"
+                        >
+                          <Eraser className="h-3.5 w-3.5" />
+                          Limpiar
                         </button>
                       )}
                       <span className="rounded-full bg-secondary px-3 py-0.5 text-sm font-extrabold">
