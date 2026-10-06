@@ -330,6 +330,11 @@ export interface TotemProduct {
    * diferencia de sacar, el extra cuesta (su `price`) y tiene tope (`max`).
    */
   extras: TotemExtra[];
+  /**
+   * El pan: "ambos" si el cliente elige blanco o negro al pedirlo; "blanco" o
+   * "negro" si se hace solo en ese (se muestra, no se elige); null si no aplica.
+   */
+  pan: "blanco" | "negro" | "ambos" | null;
 }
 
 export interface TotemComboItem {
@@ -506,6 +511,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
         price: products.price,
         photoUrl: products.photoUrl,
         customizable: products.customizable,
+        pan: products.pan,
         available: locationProducts.available,
       })
       .from(products)
@@ -596,6 +602,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
     photoUrl: p.photoUrl,
     price: prodOverrides.get(p.id) ?? p.price,
     categoryId: p.categoryId ?? UNCATEGORIZED,
+    pan: p.pan,
     removables: p.customizable
       ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
       : [],
@@ -705,6 +712,9 @@ const lineaPedido = z.object({
     .int()
     .min(1)
     .max(MAX_POR_LINEA, `Podés pedir hasta ${MAX_POR_LINEA} de cada cosa`),
+  // El pan que eligió, solo en los productos que se hacen en blanco o negro.
+  // En los demás se ignora: manda lo que diga el producto.
+  pan: z.enum(["blanco", "negro"]).optional(),
   // Los ingredientes que el cliente sacó de esta línea. Se valida abajo
   // contra la receta: el cliente no elige qué se puede sacar.
   removedIngredientIds: z.array(z.number().int()).max(30).optional(),
@@ -827,6 +837,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
           price: products.price,
           categoryId: products.categoryId,
           customizable: products.customizable,
+          pan: products.pan,
         })
         .from(products)
         .where(
@@ -1012,6 +1023,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         productName: combo.name,
         unitPrice: comboOverrides.get(combo.id) ?? combo.price,
         quantity: item.quantity,
+        pan: null,
       };
     }
     const product = productRows.find((r) => r.id === item.id)!;
@@ -1025,6 +1037,9 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       productName: product.name,
       unitPrice: (base + extrasCost).toFixed(2),
       quantity: item.quantity,
+      // Si se hace en los dos, el que eligió (blanco si un carrito viejo no
+      // lo mandó); si se hace en uno solo, ese, diga lo que diga el celular.
+      pan: product.pan === "ambos" ? (item.pan ?? "blanco") : product.pan,
     };
   });
 
@@ -1371,6 +1386,8 @@ export interface TotemTicket {
     removed: string[];
     /** Lo que agregó ("+2 carne"), con cantidad. */
     extras: { name: string; quantity: number }[];
+    /** El pan con que se hace ("blanco" / "negro"); null si no tiene. */
+    pan: string | null;
   }[];
   /** Impresora asignada a este tótem en el panel; la MAC no es secreta. */
   printerMac: string | null;
@@ -1510,6 +1527,7 @@ async function lineasDelPedido(orderId: number) {
       name: orderItems.productName,
       quantity: orderItems.quantity,
       unitPrice: orderItems.unitPrice,
+      pan: orderItems.pan,
     })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
@@ -1545,6 +1563,7 @@ async function lineasDelPedido(orderId: number) {
     extras: extraRows
       .filter((e) => e.orderItemId === it.id)
       .map((e) => ({ name: e.name, quantity: e.quantity })),
+    pan: it.pan,
   }));
 }
 

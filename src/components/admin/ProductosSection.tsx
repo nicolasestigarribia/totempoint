@@ -70,6 +70,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   const [active, setActive] = useState(true);
   const [stockable, setStockable] = useState(false);
   const [customizable, setCustomizable] = useState(false);
+  const [pan, setPan] = useState<"blanco" | "negro" | "ambos" | null>(null);
   const [unit, setUnit] = useState("");
   const [unitsPerBulk, setUnitsPerBulk] = useState("1");
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
@@ -132,6 +133,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setActive(true);
     setStockable(false);
     setCustomizable(false);
+    setPan(null);
     setUnit("");
     setUnitsPerBulk("1");
     setDraftIngredients([]);
@@ -149,6 +151,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setActive(row.active);
     setStockable(row.stockable);
     setCustomizable(row.customizable);
+    setPan(row.pan);
     setUnit(row.unit ?? "");
     setUnitsPerBulk(row.unitsPerBulk ?? "1");
     setDraftIngredients(
@@ -278,6 +281,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             sort: editing.sort,
             stockable,
             customizable,
+            pan,
             unit: unitVal,
             unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
@@ -294,6 +298,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             photoUrl: trimmedPhoto || undefined,
             stockable,
             customizable,
+            pan,
             unit: unitVal,
             unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
@@ -553,6 +558,30 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                   />
                 </div>
               )}
+              <div className="flex items-center justify-between gap-3 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
+                <div>
+                  <Label htmlFor="product-pan">Pan</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Con "Blanco o negro" el cliente elige al pedirlo y la comanda lo muestra.
+                  </p>
+                </div>
+                <Select
+                  value={pan ?? "none"}
+                  onValueChange={(v) =>
+                    setPan(v === "none" ? null : (v as "blanco" | "negro" | "ambos"))
+                  }
+                >
+                  <SelectTrigger id="product-pan" className="h-9 w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No aplica</SelectItem>
+                    <SelectItem value="blanco">Solo blanco</SelectItem>
+                    <SelectItem value="negro">Solo negro</SelectItem>
+                    <SelectItem value="ambos">Blanco o negro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {stockable && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">

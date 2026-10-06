@@ -23,6 +23,9 @@ export interface TotemCartExtra {
   quantity: number;
 }
 
+/** El pan que eligió el cliente, en los productos que se hacen en blanco o negro. */
+export type Pan = "blanco" | "negro";
+
 export interface TotemCartItem {
   kind: TotemCartKind;
   /** Id del producto o del combo, según kind. */
@@ -41,6 +44,11 @@ export interface TotemCartItem {
    * extra cuesta, así que suma al precio de la línea.
    */
   extras: TotemCartExtra[];
+  /**
+   * El pan elegido, solo en los productos que se hacen en los dos (`pan:
+   * "ambos"` en el menú). Sin pan es un producto que no tiene esa elección.
+   */
+  pan?: Pan;
 }
 
 /**
@@ -57,6 +65,7 @@ export const itemKey = (
   refId: number,
   removed: TotemCartRemoval[] = [],
   extras: TotemCartExtra[] = [],
+  pan?: Pan,
 ) => {
   const sacados = removed
     .map((r) => r.id)
@@ -69,8 +78,14 @@ export const itemKey = (
   let clave = `${kind}-${refId}`;
   if (sacados) clave += `-sin${sacados}`;
   if (agregados) clave += `-mas${agregados}`;
+  // Uno en pan blanco y otro en negro son dos líneas, como con o sin tomate.
+  if (pan) clave += `-pan${pan}`;
   return clave;
 };
+
+/** La clave de una línea ya armada. */
+export const claveDe = (i: Pick<TotemCartItem, "kind" | "refId" | "removed" | "extras" | "pan">) =>
+  itemKey(i.kind, i.refId, i.removed, i.extras, i.pan);
 
 // Colapsa NaN/Infinity a un fallback: un precio o cantidad corrupta (dato viejo
 // migrado, string no numérico) no debe contaminar el total con "$NaN".
@@ -88,9 +103,10 @@ interface CartState {
   items: TotemCartItem[];
   add: (
     slug: string,
-    item: Omit<TotemCartItem, "quantity" | "removed" | "extras"> & {
+    item: Omit<TotemCartItem, "quantity" | "removed" | "extras" | "pan"> & {
       removed?: TotemCartRemoval[];
       extras?: TotemCartExtra[];
+      pan?: Pan;
     },
   ) => void;
   /** Se sacan por clave, no por id: hay que decir cuál de las variantes. */
@@ -140,54 +156,38 @@ export const useTotemCart = create<CartState>()(
           const items = s.slug === slug ? s.items : [];
           const removed = item.removed ?? [];
           const extras = item.extras ?? [];
-          const clave = itemKey(item.kind, item.refId, removed, extras);
-          const found = items.find((i) => itemKey(i.kind, i.refId, i.removed, i.extras) === clave);
+          const clave = itemKey(item.kind, item.refId, removed, extras, item.pan);
+          const found = items.find((i) => claveDe(i) === clave);
           return {
             slug,
             items: found
-              ? items.map((i) =>
-                  itemKey(i.kind, i.refId, i.removed, i.extras) === clave
-                    ? { ...i, quantity: i.quantity + 1 }
-                    : i,
-                )
+              ? items.map((i) => (claveDe(i) === clave ? { ...i, quantity: i.quantity + 1 } : i))
               : [...items, { ...item, removed, extras, quantity: 1 }],
           };
         }),
       removeOne: (clave) =>
         set((s) => ({
           items: s.items
-            .map((i) =>
-              itemKey(i.kind, i.refId, i.removed, i.extras) === clave
-                ? { ...i, quantity: i.quantity - 1 }
-                : i,
-            )
+            .map((i) => (claveDe(i) === clave ? { ...i, quantity: i.quantity - 1 } : i))
             .filter((i) => i.quantity > 0),
         })),
       removeAll: (clave) =>
         set((s) => ({
-          items: s.items.filter((i) => itemKey(i.kind, i.refId, i.removed, i.extras) !== clave),
+          items: s.items.filter((i) => claveDe(i) !== clave),
         })),
       setLineChanges: (slug, claveVieja, removed, extras) =>
         set((s) => {
           if (s.slug !== slug) return s;
-          const linea = s.items.find(
-            (i) => itemKey(i.kind, i.refId, i.removed, i.extras) === claveVieja,
-          );
+          const linea = s.items.find((i) => claveDe(i) === claveVieja);
           if (!linea) return s;
-          const nuevaClave = itemKey(linea.kind, linea.refId, removed, extras);
+          const nuevaClave = itemKey(linea.kind, linea.refId, removed, extras, linea.pan);
           if (nuevaClave === claveVieja) return s;
-          const resto = s.items.filter(
-            (i) => itemKey(i.kind, i.refId, i.removed, i.extras) !== claveVieja,
-          );
-          const existente = resto.find(
-            (i) => itemKey(i.kind, i.refId, i.removed, i.extras) === nuevaClave,
-          );
+          const resto = s.items.filter((i) => claveDe(i) !== claveVieja);
+          const existente = resto.find((i) => claveDe(i) === nuevaClave);
           return {
             items: existente
               ? resto.map((i) =>
-                  itemKey(i.kind, i.refId, i.removed, i.extras) === nuevaClave
-                    ? { ...i, quantity: i.quantity + linea.quantity }
-                    : i,
+                  claveDe(i) === nuevaClave ? { ...i, quantity: i.quantity + linea.quantity } : i,
                 )
               : [...resto, { ...linea, removed, extras }],
           };
@@ -213,7 +213,12 @@ export const useTotemCart = create<CartState>()(
               extrasCambio = true;
               return { ...e, price: nuevo };
             });
-            if (i.price === v.price && i.name === v.name && i.photoUrl === v.photoUrl && !extrasCambio)
+            if (
+              i.price === v.price &&
+              i.name === v.name &&
+              i.photoUrl === v.photoUrl &&
+              !extrasCambio
+            )
               return i;
             cambio = true;
             return { ...i, price: v.price, name: v.name, photoUrl: v.photoUrl, extras };
@@ -243,6 +248,7 @@ export const useTotemCart = create<CartState>()(
             // sacado ni agregado, que es justo lo que el cliente había pedido.
             removed: (i.removed as TotemCartRemoval[]) ?? [],
             extras: (i.extras as TotemCartExtra[]) ?? [],
+            pan: (i.pan as Pan | undefined) ?? undefined,
           })),
         };
       },

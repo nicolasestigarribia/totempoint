@@ -123,6 +123,9 @@ function SeguimientoPage() {
               <li key={idx} className="flex justify-between gap-3">
                 <span>
                   {i.quantity}× {i.name}
+                  {i.pan && (
+                    <span className="block text-xs text-muted-foreground">Pan {i.pan}</span>
+                  )}
                   {i.removed.length > 0 && (
                     <span className="block text-xs text-amber-400">
                       {i.removed.map((r) => `sin ${r}`).join(", ")}

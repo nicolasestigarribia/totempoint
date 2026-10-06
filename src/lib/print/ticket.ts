@@ -24,6 +24,8 @@ export interface TicketItem {
   removed?: string[];
   /** Lo que agregó ("+2 carne"), con cantidad. */
   extras?: { name: string; quantity: number }[];
+  /** El pan con que se hace ("blanco" / "negro"). */
+  pan?: string | null;
 }
 
 export interface TicketData {
@@ -208,6 +210,10 @@ export function buildTicket(data: TicketData): Uint8Array {
     const der = formatearPrecio(it.unitPrice * it.quantity);
     texto(lineaDoble(izq, der, ancho));
     nl();
+    if (it.pan) {
+      texto(`   pan ${it.pan}`);
+      nl();
+    }
     for (const r of it.removed ?? []) {
       texto(`   sin ${r}`);
       nl();

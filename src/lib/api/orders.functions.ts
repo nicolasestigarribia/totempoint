@@ -26,6 +26,8 @@ export interface KitchenOrderItem {
   removed: string[];
   /** Lo que pidió de más ("+2 carne"), con la cantidad. */
   extras: { name: string; quantity: number }[];
+  /** El pan con que se hace ("blanco" / "negro"); null si no tiene. */
+  pan: string | null;
 }
 
 export interface KitchenOrder {
@@ -324,6 +326,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
           extras: agregados
             .filter((e) => e.orderItemId === i.id)
             .map((e) => ({ name: e.ingredientName, quantity: e.quantity })),
+          pan: i.pan,
         })),
     }));
   });

@@ -31,7 +31,7 @@ import {
   cartTotal,
   precioLinea,
   formatPrice,
-  itemKey,
+  claveDe,
 } from "@/lib/totem-cart";
 import { mensajeDeError } from "@/lib/error-message";
 
@@ -270,6 +270,7 @@ function CarritoOnlinePage() {
             quantity: i.quantity,
             removedIngredientIds: i.removed.map((r) => r.id),
             extras: i.extras.map((x) => ({ id: x.id, quantity: x.quantity })),
+            pan: i.pan,
           })),
           totalEsperado: total,
         },
@@ -414,7 +415,7 @@ function CarritoOnlinePage() {
 
         <ul className="mt-4 space-y-3">
           {items.map((i) => {
-            const clave = itemKey(i.kind, i.refId, i.removed, i.extras);
+            const clave = claveDe(i);
             const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
             const editable = !!prod && (prod.removables.length > 0 || prod.extras.length > 0);
             const agotado = noDisponible(i);
@@ -448,6 +449,7 @@ function CarritoOnlinePage() {
                       Ya no está a la venta: sacalo para seguir
                     </p>
                   )}
+                  {i.pan && <p className="text-sm text-muted-foreground">Pan {i.pan}</p>}
                   {i.removed.length > 0 && (
                     <p className="text-sm text-amber-400">
                       {i.removed.map((r) => `sin ${r.name}`).join(", ")}

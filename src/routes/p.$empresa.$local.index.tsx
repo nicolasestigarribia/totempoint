@@ -6,6 +6,7 @@ import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
+import { ElegirPan } from "@/components/totem/ElegirPan";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import {
   useTotemCart,
@@ -15,6 +16,8 @@ import {
   cartCount,
   formatPrice,
   itemKey,
+  claveDe,
+  type Pan,
 } from "@/lib/totem-cart";
 
 export const Route = createFileRoute("/p/$empresa/$local/")({
@@ -304,12 +307,13 @@ function FilaProducto({
 }) {
   const add = useTotemCart((s) => s.add);
   const items = useCartForSlug(cartKey);
+  // En los que se hacen en blanco o negro, el − / + maneja el pan marcado.
+  const [panElegido, setPanElegido] = useState<Pan>("blanco");
+  const pan = p.pan === "ambos" ? panElegido : undefined;
   // El − / + maneja la versión sin cambios; las personalizadas se editan en
   // "Tu pedido", donde se ven una por una.
-  const clave = itemKey("producto", p.id);
-  const enCarrito = items.find(
-    (i) => itemKey(i.kind, i.refId, i.removed, i.extras) === clave,
-  )?.quantity;
+  const clave = itemKey("producto", p.id, [], [], pan);
+  const enCarrito = items.find((i) => claveDe(i) === clave)?.quantity;
   const personalizable = p.removables.length > 0 || p.extras.length > 0;
 
   return (
@@ -325,6 +329,9 @@ function FilaProducto({
             Le podés sacar o agregar cosas desde tu pedido
           </p>
         )}
+        <div className="mt-1.5">
+          <ElegirPan pan={p.pan} elegido={panElegido} onElegir={setPanElegido} accent={accent} />
+        </div>
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <span className="font-display text-xl" style={{ color: accent }}>
             {formatPrice(p.price)}
@@ -341,6 +348,7 @@ function FilaProducto({
                 name: p.name,
                 price: p.price,
                 photoUrl: p.photoUrl,
+                pan,
               })
             }
           />
@@ -362,9 +370,7 @@ function FilaCombo({
   const add = useTotemCart((s) => s.add);
   const items = useCartForSlug(cartKey);
   const clave = itemKey("combo", c.id);
-  const enCarrito = items.find(
-    (i) => itemKey(i.kind, i.refId, i.removed, i.extras) === clave,
-  )?.quantity;
+  const enCarrito = items.find((i) => claveDe(i) === clave)?.quantity;
 
   return (
     <article className="flex gap-3 rounded-2xl border border-border bg-card/40 p-3">

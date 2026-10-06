@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { ImageOff, Plus, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { type TotemProduct } from "@/lib/api/totem.functions";
@@ -12,7 +12,9 @@ import {
   useRepriceCart,
   formatPrice,
   itemKey,
+  type Pan,
 } from "@/lib/totem-cart";
+import { ElegirPan } from "@/components/totem/ElegirPan";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -54,6 +56,11 @@ function MenuCategoryPage() {
   const scrollCarrusel = (dir: number) =>
     carruselRef.current?.scrollBy({ left: dir * 320, behavior: "smooth" });
 
+  // El pan marcado en cada tarjeta, en los que se hacen en blanco o negro.
+  const [panes, setPanes] = useState<Record<number, Pan>>({});
+  const panDe = (p: TotemProduct): Pan | undefined =>
+    p.pan === "ambos" ? (panes[p.id] ?? "blanco") : undefined;
+
   // Desde el menú siempre se agrega el producto tal cual: sacar ingredientes se
   // hace después, con el botón de editar del carrito. El − / + de la tarjeta
   // maneja la versión sin cambios; las personalizadas se ven una por una en el
@@ -66,6 +73,7 @@ function MenuCategoryPage() {
       price: p.price,
       photoUrl: p.photoUrl,
       removed: [],
+      pan: panDe(p),
     });
 
   return (
@@ -191,13 +199,15 @@ function MenuCategoryPage() {
 
         <div className={`grid gap-5 ${gridColsFor(items.length)}`}>
           {items.map((p, i) => {
-            // Todas las variantes del producto, con cambios y sin cambios.
+            const pan = panDe(p);
+            // Todas las variantes del producto, con cambios y sin cambios. Si
+            // se elige pan, las del pan marcado: el − / + maneja ese.
             const inCart = cart
-              .filter((i) => i.kind === "producto" && i.refId === p.id)
+              .filter((i) => i.kind === "producto" && i.refId === p.id && (!pan || i.pan === pan))
               .reduce((n, i) => n + i.quantity, 0);
             // El − / + de la tarjeta maneja la versión sin cambios; las
             // personalizadas se editan en el carrito, donde se ven separadas.
-            const claveSinCambios = itemKey("producto", p.id);
+            const claveSinCambios = itemKey("producto", p.id, [], [], pan);
             return (
               <article
                 key={p.id}
@@ -228,6 +238,13 @@ function MenuCategoryPage() {
                   {p.description && (
                     <p className="text-sm text-muted-foreground">{p.description}</p>
                   )}
+                  <ElegirPan
+                    pan={p.pan}
+                    elegido={panes[p.id] ?? "blanco"}
+                    onElegir={(nuevo) => setPanes((ps) => ({ ...ps, [p.id]: nuevo }))}
+                    accent={accent ?? "var(--primary)"}
+                    grande
+                  />
                   <div className="mt-auto flex items-center justify-between gap-3 pt-3">
                     <span className="font-display text-3xl" style={{ color: accent }}>
                       {formatPrice(p.price)}

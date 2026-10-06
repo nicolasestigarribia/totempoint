@@ -35,6 +35,8 @@ export interface ProductRow {
   stockable: boolean;
   /** Si el tótem ofrece sacarle ingredientes. Lo decide el dueño por producto. */
   customizable: boolean;
+  /** Pan del sándwich: fijo ("blanco"/"negro"), a elección ("ambos") o null. */
+  pan: "blanco" | "negro" | "ambos" | null;
   unit: string | null;
   unitsPerBulk: string;
   ingredients: ProductIngredientRow[];
@@ -152,6 +154,7 @@ async function loadProductRow(productId: number, companyId: number): Promise<Pro
       sort: products.sort,
       stockable: products.stockable,
       customizable: products.customizable,
+      pan: products.pan,
       unit: products.unit,
       unitsPerBulk: products.unitsPerBulk,
     })
@@ -212,6 +215,7 @@ export const listProducts = createServerFn({ method: "GET" })
         sort: products.sort,
         stockable: products.stockable,
         customizable: products.customizable,
+        pan: products.pan,
         unit: products.unit,
         unitsPerBulk: products.unitsPerBulk,
       })
@@ -278,6 +282,7 @@ export const createProduct = createServerFn({ method: "POST" })
       sort: z.number().int().optional(),
       stockable: z.boolean().optional(),
       customizable: z.boolean().optional(),
+      pan: z.enum(["blanco", "negro", "ambos"]).nullable().optional(),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().finite().optional(),
       ingredients: z.array(ingredientInput).optional(),
@@ -314,6 +319,7 @@ export const createProduct = createServerFn({ method: "POST" })
         // Un producto de reventa no tiene receta, así que no hay nada que
         // sacarle: el interruptor no puede quedar encendido en ese caso.
         customizable: stockable ? false : (data.customizable ?? false),
+        pan: data.pan ?? null,
         unit,
         unitsPerBulk,
       })
@@ -350,6 +356,7 @@ export const updateProduct = createServerFn({ method: "POST" })
       sort: z.number().int().optional(),
       stockable: z.boolean().optional(),
       customizable: z.boolean().optional(),
+      pan: z.enum(["blanco", "negro", "ambos"]).nullable().optional(),
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().finite().optional(),
       ingredients: z.array(ingredientInput).optional(),
@@ -382,6 +389,8 @@ export const updateProduct = createServerFn({ method: "POST" })
         sort: data.sort ?? 0,
         stockable: data.stockable ?? false,
         customizable: data.stockable ? false : (data.customizable ?? false),
+        // Si no viene, no se toca: un llamado que no conoce el pan no lo borra.
+        ...(data.pan !== undefined ? { pan: data.pan } : {}),
         unit: data.unit?.trim() ? data.unit.trim() : null,
         unitsPerBulk: String(data.unitsPerBulk ?? 1),
       })

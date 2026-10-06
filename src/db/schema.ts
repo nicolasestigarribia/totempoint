@@ -301,6 +301,10 @@ export const products = mysqlTable(
     // la opción; encendido, sólo se pueden sacar los ingredientes marcados
     // como `removable` en `product_ingredients`.
     customizable: boolean("customizable").notNull().default(false),
+    // El pan, en las casas de sándwiches de miga: "blanco" o "negro" si se hace
+    // solo en uno (se informa, no se elige), "ambos" si el cliente elige al
+    // pedirlo. Null = el producto no tiene pan que elegir (una bebida).
+    pan: mysqlEnum("pan", ["blanco", "negro", "ambos"]),
     // Unidad y unidades por bulto: sólo aplican a productos stockable (reventa).
     unit: varchar("unit", { length: 20 }),
     unitsPerBulk: decimal("units_per_bulk", { precision: 10, scale: 2 }).notNull().default("1"),
@@ -815,6 +819,9 @@ export const orderItems = mysqlTable(
     productName: varchar("product_name", { length: 120 }).notNull(),
     unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
     quantity: int("quantity").notNull(),
+    // El pan con que se hace esta línea, congelado como el nombre: el que eligió
+    // el cliente, o el único en que se hace el producto. Null si no tiene pan.
+    pan: mysqlEnum("pan", ["blanco", "negro"]),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
 );

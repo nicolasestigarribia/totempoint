@@ -13,7 +13,7 @@ import {
   cartTotal,
   precioLinea,
   formatPrice,
-  itemKey,
+  claveDe,
 } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
@@ -99,7 +99,7 @@ function CarritoPage() {
               {items.map((i) => {
                 // La clave distingue las variantes: "sin cebolla" es otra
                 // línea, y los botones tienen que tocar la suya.
-                const clave = itemKey(i.kind, i.refId, i.removed, i.extras);
+                const clave = claveDe(i);
                 const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
                 const editable = !!prod && (prod.removables.length > 0 || prod.extras.length > 0);
                 return (
@@ -126,6 +126,11 @@ function CarritoPage() {
 
                     <div className="min-w-[160px] flex-1">
                       <h2 className="font-display text-2xl leading-tight">{i.name}</h2>
+                      {i.pan && (
+                        <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                          Pan {i.pan}
+                        </p>
+                      )}
                       {i.removed.length > 0 && (
                         // Lo que se sacó va acá y no en el nombre: el cliente
                         // tiene que poder revisarlo antes de confirmar, que es

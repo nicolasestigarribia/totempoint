@@ -199,6 +199,13 @@ function LineasPedido({ items }: { items: KitchenOrder["items"] }) {
               <span className="font-bold text-gold">{i.quantity}×</span> {i.productName}
             </span>
           </span>
+          {/* El pan, para el que arma la bandeja: un blanco por un negro es
+              un sándwich equivocado. */}
+          {i.pan && (
+            <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-sky-300">
+              Pan {i.pan}
+            </span>
+          )}
           {/* Lo que hay que sacar va debajo del producto y resaltado:
               equivocarse acá significa rehacer el plato, así que no puede
               parecer un detalle del renglón. */}
