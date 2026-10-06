@@ -109,7 +109,14 @@ export function BuscadorDireccion({
                   className="flex w-full items-start gap-2 px-3 py-3 text-left text-sm hover:bg-muted"
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  {s.label}
+                  <span>
+                    {s.label}
+                    {s.aproximada && (
+                      <span className="block text-xs text-muted-foreground">
+                        La altura la marcás vos en el mapa
+                      </span>
+                    )}
+                  </span>
                 </button>
               </li>
             ))}
