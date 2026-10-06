@@ -542,8 +542,8 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                       El cliente puede sacarle ingredientes
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      En el tótem aparece &quot;¿le sacamos algo?&quot; con los ingredientes que
-                      marques abajo. No cambia el precio.
+                      En su pedido, el cliente puede sacarle los ingredientes que marques abajo (no
+                      cambia el precio) o agregar los que tengan precio extra.
                     </p>
                   </div>
                   <Switch

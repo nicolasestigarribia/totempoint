@@ -23,7 +23,7 @@
  * borran del bundle del cliente, así que una función común que toque la base
  * exportada desde ahí arrastraría drizzle y el driver de MySQL al navegador.
  */
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   products,
@@ -290,6 +290,7 @@ export async function devolverVenta(orderId: number): Promise<void> {
       ingredientId: movements.ingredientId,
       productId: movements.productId,
       amount: movements.amount,
+      movementId: movements.id,
     })
     .from(movements)
     .where(and(eq(movements.orderId, orderId), eq(movements.actionCode, CODIGO_VENTA)));
@@ -329,6 +330,18 @@ export async function devolverVenta(orderId: number): Promise<void> {
           v.ingredientId !== null
             ? eq(artistock.ingredientId, v.ingredientId)
             : eq(artistock.productId, v.productId!),
+          // Una venta anterior a que se empezara a controlar este stock no se
+          // contó contra el conteo inicial, así que tampoco se devuelve: si no,
+          // cancelar un pedido viejo inflaría el inventario recién contado.
+          // La fecha se compara en MySQL: pasarla por un Date de JS la expone a
+          // la zona horaria de la conexión.
+          or(
+            isNull(artistock.controlDesde),
+            lte(
+              artistock.controlDesde,
+              sql`(SELECT created_at FROM movements WHERE id = ${v.movementId})`,
+            ),
+          ),
         ),
       );
   }

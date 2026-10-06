@@ -22,6 +22,7 @@ import {
   getOnlineConfig,
   saveOnlineSettings,
   saveDeliveryOrigin,
+  saveOnlineAlias,
   saveDeliveryTier,
   deleteDeliveryTier,
   type OnlineConfig,
@@ -207,7 +208,14 @@ function SucursalOnline({
         </div>
       </div>
 
-      <LinkOnline empresa={companySlug} local={loc.locationSlug} panelClass={panelClass} />
+      <LinkOnline
+        empresa={companySlug}
+        local={loc.locationSlug}
+        locationId={loc.locationId}
+        alias={loc.alias}
+        panelClass={panelClass}
+        onChange={onChange}
+      />
 
       <div className={`space-y-4 p-6 ${panelClass}`}>
         <h4 className="font-bold">Cómo lo entregan y cómo lo cobran</h4>
@@ -296,18 +304,43 @@ function Opcion({
 function LinkOnline({
   empresa,
   local,
+  locationId,
+  alias,
   panelClass,
+  onChange,
 }: {
   empresa: string;
   local: string;
+  locationId: number;
+  alias: string | null;
   panelClass: string;
+  onChange: () => Promise<void>;
 }) {
+  const saveAlias = useServerFn(saveOnlineAlias);
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
+  const [nuevoAlias, setNuevoAlias] = useState(alias ?? "");
+  const [guardando, setGuardando] = useState(false);
   useEffect(() => setOrigin(window.location.origin), []);
 
-  const path = `/p/${empresa}/${local}`;
+  // Con link corto se comparte ese, que es el que se puede dictar; el largo
+  // sigue andando igual para quien ya lo tenga.
+  const path = alias ? `/${alias}` : `/p/${empresa}/${local}`;
   const url = origin ? `${origin}${path}` : path;
+  const aliasCambiado = nuevoAlias.trim().toLowerCase() !== (alias ?? "");
+
+  const guardarAlias = async () => {
+    setGuardando(true);
+    try {
+      const r = await saveAlias({ data: { locationId, alias: nuevoAlias.trim() || null } });
+      toast.success(r.alias ? "Link corto guardado" : "Link corto quitado");
+      await onChange();
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo guardar el link corto"));
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   const copy = async () => {
     try {
@@ -345,6 +378,35 @@ function LinkOnline({
               <ExternalLink className="h-4 w-4" />
               Abrir
             </a>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="alias">Link corto</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">{origin}/</span>
+              <Input
+                id="alias"
+                value={nuevoAlias}
+                // Los espacios pasan a guiones mientras se escribe: "primo rosas"
+                // queda "primo-rosas", que es como va a funcionar el link.
+                onChange={(e) => setNuevoAlias(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
+                placeholder="primorosas"
+                maxLength={40}
+                className="h-10 w-44"
+              />
+              {aliasCambiado && (
+                <Button size="sm" onClick={guardarAlias} disabled={guardando} className="gap-1">
+                  {guardando ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Guardar
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Fácil de dictar y de poner en un QR o en una servilleta. Letras, números y guiones.
+            </p>
           </div>
           <p className="flex items-start gap-2 text-sm text-muted-foreground">
             <MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />

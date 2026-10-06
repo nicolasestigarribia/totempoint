@@ -51,6 +51,8 @@ export interface KitchenOrder {
   deliveryDistanceKm: string | null;
   deliveryLat: string | null;
   deliveryLng: string | null;
+  /** El punto es solo la calle: navegar por la dirección escrita. */
+  deliveryApprox: boolean;
   cashPaysWith: string | null;
   status: OrderStatus;
   total: string;
@@ -301,6 +303,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       deliveryDistanceKm: o.deliveryDistanceKm,
       deliveryLat: o.deliveryLat,
       deliveryLng: o.deliveryLng,
+      deliveryApprox: o.deliveryApprox,
       cashPaysWith: o.cashPaysWith,
       status: o.status,
       total: o.total,

@@ -417,7 +417,13 @@ function AdminPage() {
   // La comandera vive dentro del grupo Empresa (debajo de Tótems). Un encargado
   // con permiso de Comandera pero sin ninguna sección de Empresa dejaría ese
   // grupo vacío, así que en ese caso el enlace cae suelto más abajo.
-  const empresaVisible = visibleSections.some((s) => enNav(s) && s.group === "empresa");
+  // La comandera no es una sección: es un link que va debajo de la sección de
+  // un canal. Debajo de Tótems, o de Pedido online si la empresa no tiene
+  // tótem. Antes iba siempre debajo de Tótems, y una empresa solo online se
+  // quedaba sin forma de llegar a la comandera para aceptar sus pedidos.
+  const anclaComandera = visibleSections.find(
+    (s) => enNav(s) && (s.id === "totems" || s.id === "online"),
+  )?.id;
   const current = SECTIONS.find((s) => s.id === section)!;
   const firstVisible = visibleSections.find(enNav)?.id;
   const volverA =
@@ -578,11 +584,12 @@ function AdminPage() {
                       </button>
                       {/*
                         La comandera no es una sección del panel sino otra
-                        pantalla (/kitchen). Va debajo de Tótems dentro de
-                        Empresa; sin este enlace, a quien le habilitan
-                        "Comandera" no le queda forma de llegar.
+                        pantalla (/kitchen). Va debajo del primer canal que
+                        se vea (Tótems o Pedido online); sin este enlace, a
+                        quien le habilitan "Comandera" no le queda forma de
+                        llegar.
                       */}
-                      {s.id === "totems" && puedeVerComandera && (
+                      {s.id === anclaComandera && puedeVerComandera && (
                         <a
                           href="/kitchen"
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
@@ -606,8 +613,9 @@ function AdminPage() {
             Mi cuenta
           </a>
         </div>
-        {/* Fallback: quien ve Comandera pero no tiene grupo Empresa (encargado). */}
-        {puedeVerComandera && !empresaVisible && (
+        {/* Fallback: quien ve Comandera pero no ve ninguna sección de canal
+            (un encargado, por ejemplo). */}
+        {puedeVerComandera && !anclaComandera && (
           <div className="px-3 pb-1">
             <a
               href="/kitchen"

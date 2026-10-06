@@ -133,7 +133,9 @@ export const createMovement = createServerFn({ method: "POST" })
     let productId: number | null = null;
     if (def.type === "stock") {
       if (data.ingredientId && data.productId) {
-        throw new Error("El movimiento de stock debe ser de un ingrediente o un producto, no ambos");
+        throw new Error(
+          "El movimiento de stock debe ser de un ingrediente o un producto, no ambos",
+        );
       }
       if (data.ingredientId) {
         await assertIngredientUsable(data.ingredientId, user.companyId);
@@ -163,6 +165,14 @@ export const createMovement = createServerFn({ method: "POST" })
     });
 
     // Solo stock actualiza el acumulador artistock (por ingrediente o por producto).
+    //
+    // El primer ingreso de un ítem en esta sucursal es su conteo inicial: desde
+    // ahí se controla (`control_desde`) y lo agotado deja de venderse. Las
+    // ventas y egresos de antes no se cuentan contra ese conteo —el que carga
+    // "llegaron 24 latas" espera ver 24, no 24 menos lo que se vendió cuando
+    // nadie llevaba la cuenta—, así que esos acumulados arrancan de cero. Los
+    // movimientos viejos siguen en el libro. MySQL asigna de izquierda a
+    // derecha: `control_desde` va última para que los IF lean el valor previo.
     if (def.type === "stock" && (ingredientId !== null || productId !== null)) {
       await db
         .insert(artistock)
@@ -173,10 +183,16 @@ export const createMovement = createServerFn({ method: "POST" })
           locationId: data.locationId,
           ipLocal: isIngreso ? qty : "0",
           epLocal: isIngreso ? "0" : qty,
+          controlDesde: isIngreso ? sql`NOW()` : null,
         })
         .onDuplicateKeyUpdate({
           set: isIngreso
-            ? { ipLocal: sql`${artistock.ipLocal} + ${qty}` }
+            ? {
+                ipLocal: sql`IF(${artistock.controlDesde} IS NULL, ${qty}, ${artistock.ipLocal} + ${qty})`,
+                vpLocal: sql`IF(${artistock.controlDesde} IS NULL, 0, ${artistock.vpLocal})`,
+                epLocal: sql`IF(${artistock.controlDesde} IS NULL, 0, ${artistock.epLocal})`,
+                controlDesde: sql`COALESCE(${artistock.controlDesde}, NOW())`,
+              }
             : { epLocal: sql`${artistock.epLocal} + ${qty}` },
         });
     }

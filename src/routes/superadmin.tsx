@@ -266,7 +266,7 @@ function SuperadminPage() {
     setSavingSlug(true);
     try {
       await changeSlug({ data: { companyId: slugRow.id, slug: slugValue } });
-      toast.success("Dirección del tótem actualizada");
+      toast.success("Dirección actualizada");
       setSlugRow(null);
       await reload();
     } catch (err: unknown) {
@@ -746,7 +746,7 @@ function SuperadminPage() {
       <Dialog open={slugRow !== null} onOpenChange={(o) => !o && setSlugRow(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Dirección del tótem — {slugRow?.name}</DialogTitle>
+            <DialogTitle>Dirección de la empresa — {slugRow?.name}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSlug} className="space-y-4">
             <div className="space-y-2">
@@ -773,11 +773,15 @@ function SuperadminPage() {
                   className="h-11"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Minúsculas, números y guiones.</p>
+              <p className="text-xs text-muted-foreground">
+                Minúsculas, números y guiones. Va en los links del tótem (/t/…) y del pedido online
+                (/p/…). El link corto del pedido online no cambia.
+              </p>
             </div>
             <p className="text-sm text-amber-400">
-              Si la cambiás, el enlace anterior deja de funcionar y hay que volver a cargar la
-              dirección en la tablet. Los QR ya impresos quedan sin uso.
+              Si la cambiás, los links anteriores dejan de funcionar: hay que volver a cargar la
+              dirección en las tablets, y los QR ya impresos quedan sin uso (salvo los del link
+              corto).
             </p>
             <Button type="submit" disabled={savingSlug} className="w-full gap-2">
               {savingSlug && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -93,7 +93,7 @@ zona no le sirve. Ahora el cliente busca su dirección (o usa el GPS), confirma 
 pin y agrega indicaciones. El costo sale de la distancia entre la sucursal y ese punto, con los
 tramos que carga el dueño ("hasta 2 km, $1.500"); el más largo es el alcance máximo. El servidor
 recalcula distancia y costo (`src/lib/delivery.ts`): nunca se cree lo que manda el celular. El
-mínimo se mide sobre lo pedido *sin* el envío, y el pedido congela dirección, punto, distancia y
+mínimo se mide sobre lo pedido _sin_ el envío, y el pedido congela dirección, punto, distancia y
 costo. Todo con servicios gratis y sin clave (OpenStreetMap, Photon, Leaflet).
 
 **Un pedido online espera que el local lo acepte** (`accepted_at`) antes de entrar a las columnas de
@@ -112,6 +112,13 @@ cancela justo cuando el local acepta, gana el que llega primero. Antes de cancel
 Mercado Pago a efectivo se le pregunta a Mercado Pago si el pago entró recién: si entró, queda para
 devolver. Un pedido que canceló el cliente tiene `cancelled_by` vacío.
 
+**El celular manda el total que le mostró al cliente (`totalEsperado`).** Si el servidor calcula
+otro —alguien cambió un precio mientras el cliente armaba el pedido— no lo toma: devuelve
+`PRECIOS_CAMBIARON` (`src/lib/pedido-reglas.ts`), el carrito recarga el menú y el cliente ve el
+total nuevo antes de volver a enviar. Nadie paga un precio que no vio. Lo mismo con algo que se
+apagó: el error nombra el producto y la línea queda marcada para sacarla. El tope de 50 unidades
+por línea también vive en ese módulo, porque lo usan el carrito y el servidor.
+
 **El seguimiento del cliente se abre con `tracking_token`, nunca con el id.** El id es correlativo:
 con él cualquiera recorre pedidos ajenos y ve nombre, teléfono y dirección.
 
@@ -119,7 +126,7 @@ con él cualquiera recorre pedidos ajenos y ve nombre, teléfono y dirección.
 
 **Toda mutación verifica el permiso, no solo la empresa.** `requireCompany` responde "¿sos de esta
 empresa?", jamás "¿te dejaron hacer esto?". Ya pasó dos veces que faltara: un encargado con Stock en
-*solo ver* podía cargar movimientos, y cualquiera podía avanzar pedidos en la comandera. Usá
+_solo ver_ podía cargar movimientos, y cualquiera podía avanzar pedidos en la comandera. Usá
 `requireEdit(seccion)` o un `canEdit` explícito.
 
 **La comandera no se rige solo por la matriz de permisos.** El rol `kitchen` existe para trabajar
@@ -208,6 +215,17 @@ tomar el pedido**, y cancelar devuelve exactamente lo que ese pedido había saca
 propios movimientos, no recalcula la receta, que pudo cambiar). Una línea de receta sin cantidad no
 descuenta nada: inventar un número ahí ensucia el inventario sin que nadie se entere.
 
+**Lo agotado no se vende** (`src/lib/stock/control.ts`). Un producto de reventa sin stock, o uno
+elaborado al que no le alcanza algún ingrediente de la receta, desaparece del menú del tótem y del
+online (y con él los combos que lo llevan). El pedido lo vuelve a mirar dentro de su transacción con
+las filas de stock bloqueadas, así que dos clientes no se llevan la última unidad a la vez.
+**Solo cuenta lo que alguien cargó**: un ítem se controla desde su primer ingreso en esa sucursal
+(`artistock.control_desde`). Sin eso, una empresa que todavía no contó su inventario —PrimoRosas,
+por ejemplo— no vendería nada, porque las ventas ya la dejaron en negativo. Ese primer ingreso es el
+conteo inicial: las ventas y egresos de antes no se restan, y cancelar un pedido de antes no
+devuelve nada. En Stock, lo que no se controla dice "Sin controlar". Un ingrediente quitable que se
+agota también saca el producto, aunque se pudiera hacer sin él.
+
 ### Tickets impresos — lo nuevo
 
 Tienen que salir **dos tickets en papel**, distintos entre sí.
@@ -244,6 +262,8 @@ La etapa 1 está hecha y probada de punta a punta (envío y retiro, aceptar y re
   de la caja, hay que volverlo un permiso delegable — y extender `user_permissions.section`.
 - **Horario del canal** ("cerrado, abrimos a las 19") y estado "en camino" para el envío.
 - **El bot de WhatsApp** contestando con el link y avisando los cambios de estado.
+- **Mercado Pago no está probado con una cobranza real** del lado online: se probó con credenciales
+  de prueba. Antes de que un cliente lo use, hacer un pago chico de verdad con su token `APP_USR-`.
 
 ### Decisión pendiente del dueño del producto
 

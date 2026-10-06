@@ -420,7 +420,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Sucursales asignados</Label>
+              <Label>Sucursales asignadas</Label>
               {locations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {loading

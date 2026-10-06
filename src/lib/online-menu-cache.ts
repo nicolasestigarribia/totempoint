@@ -27,3 +27,11 @@ export function getOnlineMenuCached(empresa: string, local: string): Promise<Onl
 
 /** Clave del carrito del pedido online: separada de la de cualquier tótem. */
 export const onlineCartKey = (empresa: string, local: string) => `online:${empresa}/${local}`;
+
+/**
+ * Olvida el menú guardado: cuando el servidor avisa que los precios cambiaron,
+ * el próximo pedido del menú tiene que traer los nuevos y no los de hace un rato.
+ */
+export function olvidarMenuOnline(): void {
+  cache.clear();
+}

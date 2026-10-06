@@ -10,8 +10,9 @@ export function slugify(name: string): string {
     .slice(0, 50);
 }
 
-// Nombres que no pueden ser slug de empresa porque chocan con rutas del sistema
-// (/admin, /login, etc.). El slug de empresa va como primer segmento de la URL.
+// Nombres que no pueden ser slug de empresa ni link corto de pedido online,
+// porque chocan con rutas del sistema (/admin, /login, etc.). Los dos van como
+// primer segmento de la URL: el link corto es literalmente /{alias}.
 export const RESERVED_SLUGS = [
   "admin",
   "login",
@@ -21,6 +22,10 @@ export const RESERVED_SLUGS = [
   "t",
   "totem",
   "img",
+  "p",
+  "cuenta",
+  "bienvenida",
+  "assets",
 ] as const;
 
 export function isReservedSlug(slug: string): boolean {

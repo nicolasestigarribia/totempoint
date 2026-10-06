@@ -40,6 +40,8 @@ export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
 /** Cada cuánto se vuelve a preguntar. Más seguido mientras se espera un pago. */
 const REFRESCO_PAGO_MS = 4_000;
 const REFRESCO_MS = 15_000;
+/** Pasado este tiempo sin que el local lo acepte, se le avisa al cliente. */
+const DEMORA_CONFIRMACION_MS = 10 * 60 * 1000;
 
 const horaDe = (d: Date) => d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 
@@ -247,13 +249,24 @@ function Estado({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string 
   }
 
   if (!pedido.acceptedAt) {
+    // Si nadie lo confirma en un rato (la comandera cerrada, un pico de
+    // trabajo), el cliente no puede quedarse mirando un círculo que gira sin
+    // saber qué hacer: se le dice y se le dan las dos salidas.
+    const tarda = Date.now() - new Date(pedido.createdAt).getTime() > DEMORA_CONFIRMACION_MS;
     return (
       <Tarjeta
         icono={<Loader2 className="h-12 w-12 animate-spin" style={{ color: accent }} />}
         titulo="Esperando que el local lo confirme"
       >
-        Ya les llegó. En cuanto lo acepten te decimos para cuándo lo tenés. No hace falta que
-        recargues la página.
+        {tarda ? (
+          <p className="text-amber-400">
+            Está tardando más de lo normal en confirmarse.
+            {pedido.locationPhone ? " Podés llamar al local" : " Podés esperar un poco más"}
+            {pedido.puedeModificar ? " o cancelarlo desde acá abajo." : "."}
+          </p>
+        ) : (
+          "Ya les llegó. En cuanto lo acepten te decimos para cuándo lo tenés. No hace falta que recargues la página."
+        )}
       </Tarjeta>
     );
   }

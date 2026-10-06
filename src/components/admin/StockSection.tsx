@@ -37,9 +37,25 @@ import {
 import { createMovement, listActionCodes } from "@/lib/api/movements.functions";
 
 function isLow(r: StockRow): boolean {
-  if (r.minStock === null) return false;
+  if (!r.controlado || r.minStock === null) return false;
   const min = Number(r.minStock);
   return min > 0 && Number(r.stockActual) <= min;
+}
+
+/**
+ * Lo que cambia con el primer ingreso de un ítem: deja de venderse sin límite.
+ * Se avisa antes de registrarlo, porque no es lo que uno espera de "cargar una
+ * compra" y lo que se vendió antes no se descuenta de ese número.
+ */
+function AvisoPrimerIngreso({ row, ingreso }: { row: StockRow; ingreso: boolean }) {
+  if (row.controlado) return null;
+  return (
+    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+      {ingreso
+        ? "Es el primer ingreso de esto en esta sucursal: el stock arranca en la cantidad que cargues. Desde ahí se descuenta con cada venta y, cuando se acaba, deja de ofrecerse en el tótem y en el pedido online."
+        : "Esto todavía no se controla en esta sucursal y se vende sin límite. Para que el stock cuente, cargá primero un ingreso con lo que hay."}
+    </p>
+  );
 }
 
 // Clave única por fila: ingredientes y productos pueden compartir id numérico.
@@ -319,11 +335,28 @@ export function StockSection({ panelClass }: { panelClass: string }) {
       header: "Stock actual",
       sortable: true,
       sortAccessor: (r) => Number(r.stockActual),
-      cell: (r) => (
-        <span className={`font-semibold ${isLow(r) ? "text-amber-400" : "text-foreground"}`}>
-          {r.stockActual}
-        </span>
-      ),
+      // Sin un ingreso cargado el número no es un conteo (son solo las ventas
+      // en negativo) y no frena nada: se dice eso en vez de mostrarlo.
+      cell: (r) =>
+        !r.controlado ? (
+          <span
+            className="text-xs text-muted-foreground"
+            title="Todavía no se cargó stock de esto en esta sucursal, así que se vende sin límite. El primer ingreso que cargues es el stock con el que arranca."
+          >
+            Sin controlar
+          </span>
+        ) : Number(r.stockActual) <= 0 ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="font-semibold text-destructive">{r.stockActual}</span>
+            <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold uppercase text-destructive">
+              Agotado
+            </span>
+          </span>
+        ) : (
+          <span className={`font-semibold ${isLow(r) ? "text-amber-400" : "text-foreground"}`}>
+            {r.stockActual}
+          </span>
+        ),
     },
     {
       key: "min",
@@ -505,9 +538,14 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                   : "Stock actual"}
               </span>
               <span className="font-semibold">
-                {movMode === "bulto" ? "" : `${movTarget?.stockActual} ${movTarget?.unit ?? ""}`}
+                {movMode === "bulto"
+                  ? ""
+                  : movTarget && !movTarget.controlado
+                    ? "Sin controlar"
+                    : `${movTarget?.stockActual} ${movTarget?.unit ?? ""}`}
               </span>
             </div>
+            {movTarget && <AvisoPrimerIngreso row={movTarget} ingreso={movType === "ingreso"} />}
             <div className="space-y-2">
               <Label>Motivo</Label>
               <Select value={movCode} onValueChange={setMovCode}>
@@ -709,6 +747,13 @@ export function StockSection({ panelClass }: { panelClass: string }) {
                 )}
               </div>
             </div>
+
+            {nmSelected && (
+              <AvisoPrimerIngreso
+                row={nmSelected}
+                ingreso={codes.find((c) => c.code === nmCode)?.direction === "ingreso"}
+              />
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="nm-detail">Detalle (opcional)</Label>

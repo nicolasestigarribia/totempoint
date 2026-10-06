@@ -11,6 +11,7 @@ import { setActingCompany, clearActingCompany, destroyUserSessions } from "@/lib
 import type { SessionUser } from "@/lib/auth/session";
 import { slugify, isReservedSlug } from "@/lib/slug";
 import { registrarAuditoria } from "@/lib/audit/registrar";
+import { cargarMotivosBase } from "@/lib/stock/motivos-base";
 
 const usernameSchema = z
   .string()
@@ -131,6 +132,10 @@ export const createBusiness = createServerFn({ method: "POST" })
         onlineOrdering: data.online,
       })
       .$returningId();
+
+    // Los motivos de movimiento con que arranca: sin ellos el dueño no puede
+    // cargar ni su stock inicial.
+    await cargarMotivosBase(companyId);
 
     // Primer negocio de la empresa. El nombre es solo el inicial: el dueño lo
     // cambia desde Negocios (por ejemplo, "PrimoRosas Cariló").

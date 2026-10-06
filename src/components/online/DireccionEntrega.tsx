@@ -19,6 +19,12 @@ export interface Destino extends Punto {
   address: string;
   /** Piso, depto, entre calles, "sombrilla roja". */
   details: string;
+  /**
+   * El mapa no tenía la altura y el pin quedó en algún lugar de la calle. El
+   * cliente no tiene que corregirlo: el repartidor navega por la dirección
+   * escrita. Si mueve el pin, deja de serlo.
+   */
+  aproximada?: boolean;
 }
 
 /**
@@ -55,7 +61,13 @@ export function DireccionEntrega({
 
   const moverPin = (p: Punto) => {
     const actual = destinoRef.current;
-    onCambiar({ address: actual?.address ?? "", details: actual?.details ?? "", ...p });
+    // Lo puso él en su puerta: desde ahora el punto vale más que la dirección.
+    onCambiar({
+      address: actual?.address ?? "",
+      details: actual?.details ?? "",
+      ...p,
+      aproximada: false,
+    });
     if (escritaAMano) return;
     consulta.current?.abort();
     const control = new AbortController();
@@ -98,8 +110,16 @@ export function DireccionEntrega({
         cerca={origen}
         placeholder={destino ? "Buscar otra dirección" : "Calle y altura, o esquina"}
         onElegir={(l) => {
-          setEscritaAMano(false);
-          onCambiar({ lat: l.lat, lng: l.lng, address: l.label, details: destino?.details ?? "" });
+          // Con la altura escrita por el cliente, mover el pin no la pisa con
+          // lo que diga el mapa, que no la conoce.
+          setEscritaAMano(l.aproximada ?? false);
+          onCambiar({
+            lat: l.lat,
+            lng: l.lng,
+            address: l.label,
+            details: destino?.details ?? "",
+            aproximada: l.aproximada ?? false,
+          });
         }}
       />
 
@@ -112,10 +132,24 @@ export function DireccionEntrega({
             alcanceKm={alcance}
             color={accent.startsWith("#") ? accent : "#e11d48"}
           />
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" />
-            Mové el pin, o tocá el mapa, hasta la puerta exacta.
-          </p>
+          {destino.aproximada && !/\d/.test(destino.address) ? (
+            <p className="flex items-start gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              Falta la altura: escribila en la dirección (por ejemplo, Cerezo 140) o mové el pin
+              hasta tu puerta.
+            </p>
+          ) : destino.aproximada ? (
+            <p className="flex items-start gap-1.5 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              El mapa no tiene la altura, así que el repartidor se va a guiar por la dirección que
+              escribiste. Si querés, igual podés mover el pin hasta tu puerta.
+            </p>
+          ) : (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5" />
+              Mové el pin, o tocá el mapa, hasta la puerta exacta.
+            </p>
+          )}
 
           {cotizacion &&
             (cotizacion.llega ? (

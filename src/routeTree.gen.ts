@@ -15,6 +15,7 @@ import { Route as KitchenRouteImport } from './routes/kitchen'
 import { Route as CuentaRouteImport } from './routes/cuenta'
 import { Route as BienvenidaRouteImport } from './routes/bienvenida'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AliasRouteImport } from './routes/$alias'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PEmpresaLocalIndexRouteImport } from './routes/p.$empresa.$local.index'
 import { Route as PEmpresaLocalCarritoRouteImport } from './routes/p.$empresa.$local.carrito'
@@ -56,6 +57,11 @@ const BienvenidaRoute = BienvenidaRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AliasRoute = AliasRouteImport.update({
+  id: '/$alias',
+  path: '/$alias',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -129,6 +135,7 @@ const TEmpresaLocalTotemListoOrderIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$alias': typeof AliasRoute
   '/admin': typeof AdminRoute
   '/bienvenida': typeof BienvenidaRoute
   '/cuenta': typeof CuentaRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$alias': typeof AliasRoute
   '/admin': typeof AdminRoute
   '/bienvenida': typeof BienvenidaRoute
   '/cuenta': typeof CuentaRoute
@@ -170,6 +178,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$alias': typeof AliasRoute
   '/admin': typeof AdminRoute
   '/bienvenida': typeof BienvenidaRoute
   '/cuenta': typeof CuentaRoute
@@ -192,6 +201,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$alias'
     | '/admin'
     | '/bienvenida'
     | '/cuenta'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$alias'
     | '/admin'
     | '/bienvenida'
     | '/cuenta'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/$alias'
     | '/admin'
     | '/bienvenida'
     | '/cuenta'
@@ -253,6 +265,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AliasRoute: typeof AliasRoute
   AdminRoute: typeof AdminRoute
   BienvenidaRoute: typeof BienvenidaRoute
   CuentaRoute: typeof CuentaRoute
@@ -314,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$alias': {
+      id: '/$alias'
+      path: '/$alias'
+      fullPath: '/$alias'
+      preLoaderRoute: typeof AliasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -405,6 +425,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AliasRoute: AliasRoute,
   AdminRoute: AdminRoute,
   BienvenidaRoute: BienvenidaRoute,
   CuentaRoute: CuentaRoute,

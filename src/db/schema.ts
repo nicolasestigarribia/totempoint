@@ -473,6 +473,11 @@ export const artistock = mysqlTable(
       sql`ip_local - vp_local - ep_local`,
       { mode: "virtual" },
     ),
+    // Desde cuándo se controla este stock: la primera vez que alguien cargó un
+    // ingreso acá. Null = nunca se cargó, así que no frena la venta (si no, una
+    // empresa que todavía no contó su inventario no vendería nada). Con fecha,
+    // lo que llega a cero deja de ofrecerse. Ver `src/lib/stock/control.ts`.
+    controlDesde: timestamp("control_desde"),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [
@@ -630,6 +635,13 @@ export const orders = mysqlTable(
      */
     deliveryLat: decimal("delivery_lat", { precision: 9, scale: 6 }),
     deliveryLng: decimal("delivery_lng", { precision: 9, scale: 6 }),
+    /**
+     * El mapa no tenía la altura (en Cariló, OpenStreetMap tiene las calles sin
+     * numeración) y el cliente no movió el pin: el punto es algún lugar de la
+     * calle. Entonces el repartidor navega por la dirección escrita y no por el
+     * punto, que lo dejaría en la cuadra equivocada.
+     */
+    deliveryApprox: boolean("delivery_approx").notNull().default(false),
     /** Distancia en línea recta desde la sucursal, congelada como el costo. */
     deliveryDistanceKm: decimal("delivery_distance_km", { precision: 6, scale: 2 }),
     /** "Pago con $20.000": para que el repartidor salga con el vuelto. */
@@ -709,9 +721,19 @@ export const onlineSettings = mysqlTable(
      */
     originLat: decimal("origin_lat", { precision: 9, scale: 6 }),
     originLng: decimal("origin_lng", { precision: 9, scale: 6 }),
+    /**
+     * Link corto del pedido online: /{alias}, en vez de /p/{empresa}/{sucursal}.
+     * Es lo que se pega en WhatsApp, en el perfil o en un QR, así que tiene que
+     * ser fácil de dictar. Único en toda la plataforma, porque va directo
+     * después del dominio.
+     */
+    alias: varchar("alias", { length: 40 }),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
-  (t) => [unique("online_settings_location_uq").on(t.locationId)],
+  (t) => [
+    unique("online_settings_location_uq").on(t.locationId),
+    unique("online_settings_alias_uq").on(t.alias),
+  ],
 );
 
 /**

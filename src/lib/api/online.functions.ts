@@ -7,6 +7,7 @@ import { requireOwner } from "@/lib/auth/middleware";
 import { companyIdOf } from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
+import { isReservedSlug } from "@/lib/slug";
 
 /**
  * Configuración del pedido online de cada sucursal: si toma pedidos, si hace
@@ -35,6 +36,8 @@ export interface OnlineLocationConfig {
   deliveryEnabled: boolean;
   cashEnabled: boolean;
   minOrder: string;
+  /** Link corto: /{alias}. Null si no eligió uno. */
+  alias: string | null;
   /** Desde dónde salen los envíos. Null hasta que el dueño lo marca en el mapa. */
   origin: { lat: number; lng: number } | null;
   tiers: OnlineTierView[];
@@ -129,6 +132,7 @@ export const getOnlineConfig = createServerFn({ method: "GET" })
           deliveryEnabled: s?.deliveryEnabled ?? false,
           cashEnabled: s?.cashEnabled ?? true,
           minOrder: s?.minOrder ?? "0.00",
+          alias: s?.alias ?? null,
           origin:
             s?.originLat != null && s.originLng != null
               ? { lat: Number(s.originLat), lng: Number(s.originLng) }
@@ -289,4 +293,45 @@ export const deleteDeliveryTier = createServerFn({ method: "POST" })
       summary: `Borró el tramo de envío hasta ${km(Number(tramo.upToKm))} de ${loc.name} (${pesosAuditoria(tramo.price)})`,
     });
     return { ok: true };
+  });
+
+/**
+ * El link corto del pedido online de una sucursal: /{alias}. Lo elige el dueño
+ * y es único en toda la plataforma, porque va directo después del dominio. No
+ * puede chocar con una ruta del sistema (/admin, /login, /p…).
+ */
+export const saveOnlineAlias = createServerFn({ method: "POST" })
+  .middleware([requireOwner])
+  .inputValidator(
+    z.object({
+      locationId: z.number().int(),
+      /** Vacío o null lo saca: el pedido online sigue andando con el link largo. */
+      alias: z.string().trim().toLowerCase().max(40).nullable(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    const loc = await sucursalPropia(context.user as SessionUser, data.locationId);
+    const alias = data.alias || null;
+
+    if (alias !== null) {
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(alias) || alias.length < 3) {
+        throw new Error(
+          "El link corto va con letras sin tilde, números y guiones, de al menos 3 caracteres (ej: primorosas)",
+        );
+      }
+      if (isReservedSlug(alias))
+        throw new Error(`"${alias}" está reservado por el sistema: elegí otro`);
+      const [ocupado] = await db
+        .select({ locationId: onlineSettings.locationId })
+        .from(onlineSettings)
+        .where(eq(onlineSettings.alias, alias))
+        .limit(1);
+      if (ocupado && ocupado.locationId !== loc.id) {
+        throw new Error(`El link "${alias}" ya lo usa otro comercio: probá con otro`);
+      }
+    }
+
+    await asegurarSettings(loc.companyId, loc.id);
+    await db.update(onlineSettings).set({ alias }).where(eq(onlineSettings.locationId, loc.id));
+    return { ok: true, alias };
   });
