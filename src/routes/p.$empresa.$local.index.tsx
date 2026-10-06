@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ImageOff, Plus, Minus, Bike, Store, ShoppingBag } from "lucide-react";
+import { ImageOff, Plus, Minus, ShoppingBag } from "lucide-react";
 import type { TotemProduct, TotemCombo } from "@/lib/api/totem.functions";
 import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
@@ -57,8 +57,6 @@ function OnlineMenuPage() {
   );
 
   const minimo = Number(menu.minOrder);
-  // El envío más barato, para decirlo de entrada: "Envío desde $1.000".
-  const envioDesde = menu.tiers.length > 0 ? Math.min(...menu.tiers.map((t) => t.price)) : null;
 
   // La categoría que se está viendo, marcada en la barra. En un menú largo,
   // scrolleando con el pulgar, es la forma de saber dónde estás sin volver
@@ -109,29 +107,17 @@ function OnlineMenuPage() {
         logoUrl={menu.logoUrl}
       />
 
-      {/* Cómo se puede pedir, antes de que el cliente arme nada: enterarse en
-          el último paso de que no hacen envío es la peor forma de enterarse. */}
-      <div className="mx-auto w-full max-w-2xl px-4 pt-4">
-        <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wider">
-          {menu.delivery && (
-            <span className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5">
-              <Bike className="h-3.5 w-3.5" /> Envío
-              {envioDesde !== null &&
-                (envioDesde > 0 ? ` desde ${formatPrice(envioDesde)}` : " gratis cerca")}
-            </span>
-          )}
-          {menu.pickup && (
-            <span className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5">
-              <Store className="h-3.5 w-3.5" /> Retiro en el local
-            </span>
-          )}
-          {minimo > 0 && (
+      {/* El monto mínimo, antes de que el cliente arme nada: enterarse en el
+          último paso de que no llega al mínimo es la peor forma de enterarse. */}
+      {minimo > 0 && (
+        <div className="mx-auto w-full max-w-2xl px-4 pt-4">
+          <div className="flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wider">
             <span className="rounded-full border border-border px-3 py-1.5 text-muted-foreground">
               Mínimo {formatPrice(minimo)}
             </span>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {(secciones.length > 1 || menu.combos.length > 0) && (
         <nav
