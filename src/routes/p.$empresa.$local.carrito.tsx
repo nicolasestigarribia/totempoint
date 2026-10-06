@@ -399,7 +399,7 @@ function CarritoOnlinePage() {
         volver="Volver al menú"
       />
 
-      <form onSubmit={enviar} className="mx-auto w-full max-w-2xl flex-1 px-4 pb-40 pt-4">
+      <form onSubmit={enviar} className="mx-auto w-full max-w-2xl flex-1 px-4 pb-56 pt-4">
         <h1 className="font-display text-4xl">Tu pedido</h1>
 
         <ul className="mt-4 space-y-3">
@@ -573,7 +573,9 @@ function CarritoOnlinePage() {
             />
             <input
               value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
+              // Solo lo que acepta el server (dígitos, +, (), -, espacio): sin esto
+              // el type="tel" deja tipear letras y el pedido se rechaza al final.
+              onChange={(e) => setTelefono(e.target.value.replace(/[^0-9+()\-\s]/g, ""))}
               required
               type="tel"
               inputMode="tel"

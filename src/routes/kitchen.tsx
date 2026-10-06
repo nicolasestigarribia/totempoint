@@ -21,6 +21,8 @@ import {
   MapPin,
   Volume2,
   Globe,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
@@ -335,6 +337,8 @@ function Kitchen() {
   // queda fuera de lugar y a veces ni aparece.
   const [aCancelar, setACancelar] = useState<KitchenOrder | null>(null);
   const [cancelando, setCancelando] = useState(false);
+  const [cancelarTodos, setCancelarTodos] = useState(false);
+  const [cancelandoTodos, setCancelandoTodos] = useState(false);
   // Quien entra desde el panel vuelve al panel. El personal de cocina no tiene
   // panel: para ellos esta pantalla es todo, y no se les muestra salida.
   const [tienePanel, setTienePanel] = useState(false);
@@ -616,6 +620,28 @@ function Kitchen() {
     }
   };
 
+  const confirmarCancelarTodos = async () => {
+    const ids = grouped.recibido.map((o) => o.id);
+    if (ids.length === 0) {
+      setCancelarTodos(false);
+      return;
+    }
+    setCancelandoTodos(true);
+    try {
+      const res = await Promise.allSettled(ids.map((orderId) => doCancel({ data: { orderId } })));
+      const fallaron = res.filter((r) => r.status === "rejected").length;
+      setCancelarTodos(false);
+      await load();
+      if (fallaron === 0) {
+        toast.success(`Se cancelaron ${ids.length} pedidos recibidos`);
+      } else {
+        toast.error(`Quedaron ${fallaron} sin cancelar de ${ids.length}. Probá de nuevo.`);
+      }
+    } finally {
+      setCancelandoTodos(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await load();
@@ -801,9 +827,23 @@ function Kitchen() {
                       <Icon className="h-5 w-5 text-gold" />
                       <h2 className="font-display text-xl">{statusMeta[col].label}</h2>
                     </div>
-                    <span className="rounded-full bg-secondary px-3 py-0.5 text-sm font-extrabold">
-                      {grouped[col].length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {col === "recibido" && puedeOperar && grouped.recibido.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setCancelarTodos(true)}
+                          aria-label="Cancelar todos los recibidos"
+                          title="Cancelar todos los recibidos"
+                          className="flex h-8 items-center gap-1.5 rounded-full border border-destructive/60 px-3 text-xs font-bold text-destructive transition hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Cancelar todos
+                        </button>
+                      )}
+                      <span className="rounded-full bg-secondary px-3 py-0.5 text-sm font-extrabold">
+                        {grouped[col].length}
+                      </span>
+                    </div>
                   </header>
 
                   <div className="space-y-3">
@@ -1051,6 +1091,48 @@ function Kitchen() {
                 <Ban className="h-4 w-4" />
               )}
               {aCancelar && esPorAceptar(aCancelar) ? "Rechazar" : "Cancelar"} el pedido
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cancelarTodos} onOpenChange={(o) => !o && setCancelarTodos(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Cancelar TODOS los recibidos
+            </DialogTitle>
+            <DialogDescription>
+              Acción peligrosa: vas a cancelar los {grouped.recibido.length} pedidos de la columna
+              Recibido de una sola vez. Cada uno deja de contar para el cierre de caja y los que
+              estén cobrados quedan pendientes de reembolso.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            No se puede deshacer. Si alguno se arrepiente, se toma un pedido nuevo.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setCancelarTodos(false)}
+              disabled={cancelandoTodos}
+              className="flex h-11 items-center rounded-xl border border-border px-5 text-sm font-bold transition hover:border-primary"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              onClick={confirmarCancelarTodos}
+              disabled={cancelandoTodos}
+              className="flex h-11 items-center gap-2 rounded-xl bg-destructive px-5 text-sm font-bold text-destructive-foreground transition hover:brightness-110"
+            >
+              {cancelandoTodos ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Cancelar los {grouped.recibido.length}
             </button>
           </div>
         </DialogContent>
