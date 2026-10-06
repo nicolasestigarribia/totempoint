@@ -43,7 +43,8 @@ const REFRESCO_MS = 15_000;
 /** Pasado este tiempo sin que el local lo acepte, se le avisa al cliente. */
 const DEMORA_CONFIRMACION_MS = 10 * 60 * 1000;
 
-const horaDe = (d: Date) => d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+const horaDe = (d: Date) =>
+  d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 /**
  * El seguimiento del pedido online. El cliente la deja abierta en el celular:

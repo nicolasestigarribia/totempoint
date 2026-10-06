@@ -824,7 +824,15 @@ export function PreciosSection({ panelClass }: { panelClass: string }) {
                     <span className="font-semibold">${h.newPrice}</span>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {h.userName} · {new Date(h.createdAt).toLocaleString("es-AR")}
+                    {h.userName} ·{" "}
+                    {new Date(h.createdAt).toLocaleString("es-AR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
                   </span>
                 </div>
               ))}
