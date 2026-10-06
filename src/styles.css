@@ -353,3 +353,15 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Sin las flechitas de subir/bajar en los inputs numéricos: se cargan tecleando
+   o con los botones + / − de la propia UI, las flechas del navegador sobran. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
