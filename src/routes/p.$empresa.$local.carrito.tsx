@@ -412,61 +412,75 @@ function CarritoOnlinePage() {
             return (
               <li
                 key={clave}
-                className={`rounded-2xl border bg-card/40 p-3 ${
+                className={`flex items-center gap-3 rounded-2xl border bg-card/40 p-3 ${
                   agotado ? "border-destructive/60" : "border-border"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  {i.photoUrl ? (
-                    <img
-                      src={i.photoUrl}
-                      alt=""
-                      className={`h-14 w-14 shrink-0 rounded-xl object-cover ${agotado ? "opacity-50" : ""}`}
-                    />
-                  ) : (
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted">
-                      <ImageOff className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`font-bold leading-tight ${agotado ? "line-through opacity-60" : ""}`}
-                    >
-                      {i.name}
-                    </p>
-                    {agotado && (
-                      <p className="text-sm font-bold text-destructive">
-                        Ya no está a la venta: sacalo para seguir
-                      </p>
-                    )}
-                    {i.removed.length > 0 && (
-                      <p className="text-sm text-amber-400">
-                        {i.removed.map((r) => `sin ${r.name}`).join(", ")}
-                      </p>
-                    )}
-                    {i.extras.length > 0 && (
-                      <p className="text-sm text-emerald-400">
-                        {i.extras.map((x) => `+${x.quantity} ${x.name}`).join(", ")}
-                      </p>
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      {formatPrice(precioLinea(i))} c/u
-                    </p>
+                {i.photoUrl ? (
+                  <img
+                    src={i.photoUrl}
+                    alt=""
+                    className={`h-16 w-16 shrink-0 rounded-xl object-cover ${agotado ? "opacity-50" : ""}`}
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-muted">
+                    <ImageOff className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <span className="shrink-0 font-bold">
-                    {formatPrice(precioLinea(i) * i.quantity)}
-                  </span>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={`font-bold leading-tight ${agotado ? "line-through opacity-60" : ""}`}
+                  >
+                    {i.name}
+                  </p>
+                  {agotado && (
+                    <p className="text-sm font-bold text-destructive">
+                      Ya no está a la venta: sacalo para seguir
+                    </p>
+                  )}
+                  {i.removed.length > 0 && (
+                    <p className="text-sm text-amber-400">
+                      {i.removed.map((r) => `sin ${r.name}`).join(", ")}
+                    </p>
+                  )}
+                  {i.extras.length > 0 && (
+                    <p className="text-sm text-emerald-400">
+                      {i.extras.map((x) => `+${x.quantity} ${x.name}`).join(", ")}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">{formatPrice(precioLinea(i))} c/u</p>
+                  {editable && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditando({
+                          clave,
+                          producto: prod!,
+                          inicialesSacados: i.removed.map((r) => r.id),
+                          inicialesExtras: Object.fromEntries(
+                            i.extras.map((x) => [x.id, x.quantity]),
+                          ),
+                        })
+                      }
+                      className="mt-1 flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      <Pencil className="h-3 w-3" /> Cambiar
+                    </button>
+                  )}
                 </div>
-                <div className="mt-2 flex items-center gap-2">
+
+                {/* Cantidad: − n + */}
+                <div className="flex shrink-0 items-center gap-1.5">
                   <button
                     type="button"
                     aria-label="Quitar uno"
                     onClick={() => removeOne(clave)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
-                  <span className="w-8 text-center font-bold">{i.quantity}</span>
+                  <span className="w-6 text-center font-bold">{i.quantity}</span>
                   <button
                     type="button"
                     aria-label="Agregar uno"
@@ -482,39 +496,24 @@ function CarritoOnlinePage() {
                         extras: i.extras,
                       })
                     }
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border disabled:opacity-40"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border disabled:opacity-40"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
-                  <div className="ml-auto flex items-center gap-2">
-                    {editable && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditando({
-                            clave,
-                            producto: prod!,
-                            inicialesSacados: i.removed.map((r) => r.id),
-                            inicialesExtras: Object.fromEntries(
-                              i.extras.map((x) => [x.id, x.quantity]),
-                            ),
-                          })
-                        }
-                        className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm"
-                      >
-                        <Pencil className="h-4 w-4" /> Cambiar
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      aria-label="Sacar del pedido"
-                      onClick={() => removeAll(clave)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-destructive text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
                 </div>
+
+                <span className="w-16 shrink-0 text-right font-bold">
+                  {formatPrice(precioLinea(i) * i.quantity)}
+                </span>
+
+                <button
+                  type="button"
+                  aria-label="Sacar del pedido"
+                  onClick={() => removeAll(clave)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </li>
             );
           })}
