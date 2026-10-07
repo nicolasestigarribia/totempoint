@@ -120,6 +120,30 @@ function leerUltimo(sucursal: string): UltimoPedido | null {
   }
 }
 
+/**
+ * El número nacional argentino (área + abonado, 10 dígitos). Saca el país (54),
+ * el 9 de móvil y el 0 de larga distancia, así "+54 9 223 687-1234" y
+ * "2236871234" dan lo mismo. Es lo que se valida y lo que se usa para
+ * deduplicar al cliente (igual que `telefonoCanonico` en el back).
+ */
+function telNacional(raw: string): string {
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("54")) d = d.slice(2);
+  if (d.startsWith("9")) d = d.slice(1);
+  d = d.replace(/^0+/, "");
+  return d.slice(0, 10);
+}
+
+/** Mientras escribe: normaliza a nacional y lo agrupa para leerlo (223 687-1234). */
+function formatearTelefono(raw: string): string {
+  const d = telNacional(raw);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)} ${d.slice(3)}`;
+  return `${d.slice(0, 3)} ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
+const telefonoValido = (raw: string) => telNacional(raw).length === 10;
+
 function CarritoOnlinePage() {
   const menu = Route.useLoaderData();
   const { empresa, local } = Route.useParams();
@@ -184,7 +208,7 @@ function CarritoOnlinePage() {
   useEffect(() => {
     const d = leerCliente();
     if (d.nombre) setNombre(d.nombre);
-    if (d.telefono) setTelefono(d.telefono);
+    if (d.telefono) setTelefono(formatearTelefono(d.telefono));
     if (d.email) setEmail(d.email);
     if (d.destino) setAnterior(d.destino);
     setUltimo(leerUltimo(cartKey));
@@ -207,6 +231,10 @@ function CarritoOnlinePage() {
     if (hayNoDisponibles) {
       toast.error("Hay cosas en tu pedido que ya no están a la venta: sacalas para seguir");
       window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (!telefonoValido(telefono)) {
+      toast.error("Revisá tu teléfono: tiene que ser código de área + número (10 dígitos)");
       return;
     }
     // Eligió solo la calle y no escribió la altura ni movió el pin: el
@@ -629,15 +657,16 @@ function CarritoOnlinePage() {
             />
             <input
               value={telefono}
-              // Solo lo que acepta el server (dígitos, +, (), -, espacio): sin esto
-              // el type="tel" deja tipear letras y el pedido se rechaza al final.
-              onChange={(e) => setTelefono(e.target.value.replace(/[^0-9+()\-\s]/g, ""))}
+              // Se enmascara mientras escribe: normaliza a número nacional y lo
+              // agrupa (223 687-1234), así no entran letras ni queda cada uno en
+              // un formato distinto.
+              onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
               required
               type="tel"
-              inputMode="tel"
-              maxLength={40}
+              inputMode="numeric"
+              maxLength={14}
               autoComplete="tel"
-              placeholder="Tu teléfono (por si hay que llamarte)"
+              placeholder="Tu teléfono (código de área + número)"
               className="h-12 w-full rounded-xl border border-border bg-card/40 px-4 outline-none focus:border-primary"
             />
             <input
