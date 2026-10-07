@@ -37,6 +37,8 @@ export function BuscadorDireccion({
   const [abierto, setAbierto] = useState(false);
   const [gps, setGps] = useState<"nada" | "buscando" | "error">("nada");
   const [errorDetalle, setErrorDetalle] = useState(false);
+  // Sugerencia marcada para moverse con las flechas del teclado (-1 = ninguna).
+  const [activo, setActivo] = useState(-1);
   const elegido = useRef(false);
   const sesion = useRef<SesionBusqueda | null>(null);
 
@@ -48,6 +50,7 @@ export function BuscadorDireccion({
       return;
     }
     setSugerencias([]);
+    setActivo(-1);
     if (texto.trim().length < 3) return;
     const control = new AbortController();
     const id = setTimeout(async () => {
@@ -57,6 +60,7 @@ export function BuscadorDireccion({
         const r = await buscarDirecciones(texto, cerca, sesion.current, control.signal);
         if (control.signal.aborted) return;
         setSugerencias(r);
+        setActivo(-1);
         setAbierto(true);
       } catch {
         // Cancelada porque siguió escribiendo, o sin conexión: no es un error
@@ -123,6 +127,24 @@ export function BuscadorDireccion({
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           onFocus={() => sugerencias.length > 0 && setAbierto(true)}
+          onKeyDown={(e) => {
+            if (!abierto || sugerencias.length === 0) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActivo((i) => Math.min(i + 1, sugerencias.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActivo((i) => Math.max(i - 1, 0));
+            } else if (e.key === "Enter") {
+              // Con sugerencias abiertas, Enter elige (la marcada o la primera)
+              // en vez de enviar el formulario.
+              e.preventDefault();
+              void elegir(sugerencias[activo >= 0 ? activo : 0]);
+            } else if (e.key === "Escape") {
+              setAbierto(false);
+              setActivo(-1);
+            }
+          }}
           placeholder={placeholder}
           autoComplete="off"
           aria-label="Buscar dirección"
@@ -133,12 +155,15 @@ export function BuscadorDireccion({
         )}
         {abierto && sugerencias.length > 0 && (
           <ul className="absolute inset-x-0 top-full z-[1000] mt-1 max-h-72 overflow-y-auto rounded-xl border border-border bg-background shadow-lg">
-            {sugerencias.map((s) => (
+            {sugerencias.map((s, i) => (
               <li key={s.placeId}>
                 <button
                   type="button"
                   onClick={() => void elegir(s)}
-                  className="flex w-full items-start gap-2 px-3 py-3 text-left text-sm hover:bg-muted"
+                  onMouseEnter={() => setActivo(i)}
+                  className={`flex w-full items-start gap-2 px-3 py-3 text-left text-sm ${
+                    i === activo ? "bg-muted" : "hover:bg-muted"
+                  }`}
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>
