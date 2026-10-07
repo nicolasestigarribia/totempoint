@@ -206,8 +206,7 @@ const CARTA: Categoria[] = [
 const COMBOS = [
   {
     nombre: "12 clásicos",
-    descripcion:
-      "¡3 de cada uno! Jamón y queso, jamón y tomate, jamón y huevo, y queso, tomate y albahaca.",
+    descripcion: "¡3 de cada uno!",
     foto: "/img/207",
     items: [
       [1, 3],
@@ -218,8 +217,7 @@ const COMBOS = [
   },
   {
     nombre: "10 especiales",
-    descripcion:
-      "¡2 de cada uno! Jamón y palmitos, jamón y ananá, jamón y roquefort, queso, atún y huevo, y jamón crudo, rúcula y parmesano.",
+    descripcion: "¡2 de cada uno!",
     foto: "/img/208",
     items: [
       [21, 2],
@@ -231,8 +229,7 @@ const COMBOS = [
   },
   {
     nombre: "6 de lujo",
-    descripcion:
-      "Roquefort, espinaca, pera y almendras · Pollo, rúcula y parmesano · Caesar · Salmón, queso blanco y rúcula · Salmón, queso blanco, palta y cherry · Frutos rojos, queso brie, mix de hojas, semillas y vinagreta de miel.",
+    descripcion: null,
     foto: "/img/209",
     items: [
       [40, 1],
