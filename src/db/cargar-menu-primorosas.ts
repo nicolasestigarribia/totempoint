@@ -22,8 +22,10 @@ const B: Pan = "blanco";
 const N: Pan = "negro";
 const BN: Pan = "ambos";
 
-// Subtítulo de las categorías de miga (la columna admite 60 caracteres).
-const MIGA = "Miga triple, como dos comunes · Cada 12, 2 de regalo";
+// La bajada de las categorías de miga y su regalo, tal como lo explica el local.
+const MIGA =
+  "Sándwiches de miga cuadrados y triples, grandes como dos de miga tradicionales. Cada 12 van 2 más de regalo. Calculamos 2 por persona para almuerzo o cena.";
+const REGALO_MIGA = { cada: 12, cantidad: 2 };
 
 interface Item {
   n: number | null;
@@ -321,8 +323,11 @@ async function main() {
     let total = 0;
     for (const cat of CARTA) {
       const [r] = await ex(sql`
-        INSERT INTO categories (company_id, name, tagline, photo_url, active, sort)
-        VALUES (${companyId}, ${cat.nombre}, ${cat.tagline}, ${cat.foto}, 1, ${ordenCat++})`);
+        INSERT INTO categories
+          (company_id, name, tagline, photo_url, active, sort, regalo_cada, regalo_cantidad)
+        VALUES (${companyId}, ${cat.nombre}, ${cat.tagline}, ${cat.foto}, 1, ${ordenCat++},
+                ${cat.tagline === MIGA ? REGALO_MIGA.cada : null},
+                ${cat.tagline === MIGA ? REGALO_MIGA.cantidad : null})`);
       const categoryId = (r as unknown as { insertId: number }).insertId;
 
       let orden = 0;

@@ -21,6 +21,7 @@ import { getOnlineMenuCached, onlineCartKey, olvidarMenuOnline } from "@/lib/onl
 import { OnlineError } from "@/components/online/OnlineError";
 import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
+import { AvisoRegalo } from "@/components/totem/AvisoRegalo";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { DireccionEntrega, type Destino } from "@/components/online/DireccionEntrega";
 import { cotizarEnvio, distanciaKm } from "@/lib/delivery";
@@ -422,7 +423,7 @@ function CarritoOnlinePage() {
             return (
               <li
                 key={clave}
-                className={`flex items-center gap-3 rounded-2xl border bg-card/40 p-3 ${
+                className={`flex gap-3 rounded-2xl border bg-card/40 p-3 ${
                   agotado ? "border-destructive/60" : "border-border"
                 }`}
               >
@@ -438,6 +439,9 @@ function CarritoOnlinePage() {
                   </div>
                 )}
 
+                {/* Dos renglones: arriba qué es, abajo cuántos y cuánto. En una sola
+                    fila, con los nombres de una carta real ("02 · Jamón y
+                    aceitunas"), el nombre quedaba a una palabra por renglón. */}
                 <div className="min-w-0 flex-1">
                   <p
                     className={`font-bold leading-tight ${agotado ? "line-through opacity-60" : ""}`}
@@ -479,56 +483,60 @@ function CarritoOnlinePage() {
                       <Pencil className="h-3 w-3" /> Cambiar
                     </button>
                   )}
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        aria-label="Quitar uno"
+                        onClick={() => removeOne(clave)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-border"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <span className="w-6 text-center font-bold">{i.quantity}</span>
+                      <button
+                        type="button"
+                        aria-label="Agregar uno"
+                        disabled={i.quantity >= MAX_POR_LINEA}
+                        onClick={() =>
+                          add(cartKey, {
+                            kind: i.kind,
+                            refId: i.refId,
+                            name: i.name,
+                            price: i.price,
+                            photoUrl: i.photoUrl,
+                            removed: i.removed,
+                            extras: i.extras,
+                            pan: i.pan,
+                          })
+                        }
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-border disabled:opacity-40"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <span className="ml-auto font-bold">
+                      {formatPrice(precioLinea(i) * i.quantity)}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Sacar del pedido"
+                      onClick={() => removeAll(clave)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-
-                {/* Cantidad: − n + */}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    type="button"
-                    aria-label="Quitar uno"
-                    onClick={() => removeOne(clave)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="w-6 text-center font-bold">{i.quantity}</span>
-                  <button
-                    type="button"
-                    aria-label="Agregar uno"
-                    disabled={i.quantity >= MAX_POR_LINEA}
-                    onClick={() =>
-                      add(cartKey, {
-                        kind: i.kind,
-                        refId: i.refId,
-                        name: i.name,
-                        price: i.price,
-                        photoUrl: i.photoUrl,
-                        removed: i.removed,
-                        extras: i.extras,
-                      })
-                    }
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border disabled:opacity-40"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <span className="w-16 shrink-0 text-right font-bold">
-                  {formatPrice(precioLinea(i) * i.quantity)}
-                </span>
-
-                <button
-                  type="button"
-                  aria-label="Sacar del pedido"
-                  onClick={() => removeAll(clave)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
               </li>
             );
           })}
         </ul>
+
+        <div className="mt-3">
+          <AvisoRegalo items={items} productos={menu.products} combos={menu.combos} />
+        </div>
 
         <Link
           to="/p/$empresa/$local"

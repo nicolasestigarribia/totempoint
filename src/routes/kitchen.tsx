@@ -23,6 +23,7 @@ import {
   Globe,
   Trash2,
   AlertTriangle,
+  Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
@@ -189,7 +190,7 @@ function pitar(ctx: AudioContext | null) {
 }
 
 /** Lo que lleva el pedido, con lo sacado y lo agregado bien a la vista. */
-function LineasPedido({ items }: { items: KitchenOrder["items"] }) {
+function LineasPedido({ items, regalo }: { items: KitchenOrder["items"]; regalo: number }) {
   return (
     <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
       {items.map((i, idx) => (
@@ -223,6 +224,13 @@ function LineasPedido({ items }: { items: KitchenOrder["items"] }) {
           )}
         </li>
       ))}
+      {/* "Cada 12, 2 de regalo": la app cuenta, la cocina elige cuáles. Va
+          resaltado porque es lo que más fácil se olvida en un pedido grande. */}
+      {regalo > 0 && (
+        <li className="flex items-center gap-2 rounded-lg bg-gold/15 px-2 py-1 font-bold text-gold">
+          <Gift className="h-4 w-4 shrink-0" />+{regalo} de regalo (a elección del local)
+        </li>
+      )}
     </ul>
   );
 }
@@ -757,7 +765,7 @@ function Kitchen() {
                   </div>
 
                   <DatosOnline o={o} />
-                  <LineasPedido items={o.items} />
+                  <LineasPedido items={o.items} regalo={o.regaloUnidades} />
 
                   {o.comments && (
                     <div className="mt-3 rounded-lg bg-secondary p-2 text-xs italic text-muted-foreground">
@@ -927,7 +935,7 @@ function Kitchen() {
                           </div>
 
                           {o.channel === "online" && <DatosOnline o={o} />}
-                          <LineasPedido items={o.items} />
+                          <LineasPedido items={o.items} regalo={o.regaloUnidades} />
 
                           {o.comments && (
                             <div className="mt-3 rounded-lg bg-secondary p-2 text-xs italic text-muted-foreground">

@@ -272,10 +272,16 @@ export const categories = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
     name: varchar("name", { length: 80 }).notNull(),
-    tagline: varchar("tagline", { length: 60 }),
+    // La bajada: lo que hay que saber de la categoría ("grandes como dos de
+    // miga tradicionales, calculamos 2 por persona"). Hasta 255 caracteres.
+    tagline: varchar("tagline", { length: 255 }),
     photoUrl: varchar("photo_url", { length: 500 }),
     sort: int("sort").notNull().default(0),
     active: boolean("active").notNull().default(true),
+    // "Cada 12, 2 de regalo": cada `regaloCada` unidades de esta categoría el
+    // local regala `regaloCantidad`. Null = sin regalo. Ver `src/lib/regalo.ts`.
+    regaloCada: int("regalo_cada"),
+    regaloCantidad: int("regalo_cantidad"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("categories_company_idx").on(t.companyId)],
@@ -657,6 +663,12 @@ export const orders = mysqlTable(
     deliveryDistanceKm: decimal("delivery_distance_km", { precision: 6, scale: 2 }),
     /** "Pago con $20.000": para que el repartidor salga con el vuelto. */
     cashPaysWith: decimal("cash_pays_with", { precision: 10, scale: 2 }),
+    /**
+     * Unidades de regalo que corresponden a este pedido ("cada 12, 2 más"),
+     * calculadas acá con las reglas de las categorías y congeladas: la comanda
+     * le dice a la cocina cuántas agregar. Qué se regala lo elige el local.
+     */
+    regaloUnidades: int("regalo_unidades").notNull().default(0),
     /** Cuándo lo aceptó el local. Null en un pedido online = todavía por aceptar. */
     acceptedAt: timestamp("accepted_at"),
     /** Demora que prometió el local al aceptar, en minutos. */

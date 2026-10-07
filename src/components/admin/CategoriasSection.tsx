@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Loader2, FolderTree } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -44,6 +45,9 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   const [photoUrl, setPhotoUrl] = useState("");
   const [sort, setSort] = useState("0");
   const [active, setActive] = useState(true);
+  // "Cada N, M de regalo". Vacíos = sin regalo.
+  const [regaloCada, setRegaloCada] = useState("");
+  const [regaloCantidad, setRegaloCantidad] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [estadoFilter, setEstadoFilter] = useState<"todos" | "activos" | "inactivos">("todos");
@@ -71,6 +75,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
     setPhotoUrl("");
     setSort("0");
     setActive(true);
+    setRegaloCada("");
+    setRegaloCantidad("");
     setDialogOpen(true);
   }
 
@@ -81,6 +87,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
     setPhotoUrl(row.photoUrl ?? "");
     setSort(String(row.sort));
     setActive(row.active);
+    setRegaloCada(row.regaloCada ? String(row.regaloCada) : "");
+    setRegaloCantidad(row.regaloCantidad ? String(row.regaloCantidad) : "");
     setDialogOpen(true);
   }
 
@@ -92,6 +100,13 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
     }
     const sortValue = Number.parseInt(sort, 10);
     const safeSort = Number.isNaN(sortValue) || sortValue < 0 ? 0 : sortValue;
+    // El regalo va completo o no va: con uno solo de los dos se avisa acá.
+    const cada = regaloCada.trim() ? Number.parseInt(regaloCada, 10) : null;
+    const cantidad = regaloCantidad.trim() ? Number.parseInt(regaloCantidad, 10) : null;
+    if ((cada === null) !== (cantidad === null) || (cada !== null && (cada < 1 || cantidad! < 1))) {
+      toast.error("Para el regalo completá las dos cosas: cada cuántos y cuántos de regalo");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -104,6 +119,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
             photoUrl: photoUrl.trim(),
             sort: safeSort,
             active,
+            regaloCada: cada,
+            regaloCantidad: cantidad,
           },
         });
         toast.success("Categoría actualizada");
@@ -114,6 +131,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
             tagline: tagline.trim(),
             photoUrl: photoUrl.trim(),
             sort: safeSort,
+            regaloCada: cada,
+            regaloCantidad: cantidad,
           },
         });
         toast.success("Categoría creada");
@@ -281,13 +300,42 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="category-tagline">Bajada</Label>
-              <Input
+              <Textarea
                 id="category-tagline"
                 value={tagline}
-                maxLength={60}
-                placeholder="Ej: Bien frías"
+                maxLength={255}
+                rows={2}
+                placeholder="Ej: Grandes como dos de miga tradicionales. Calculamos 2 por persona."
                 onChange={(e) => setTagline(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Regalo</Label>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span>Cada</span>
+                <Input
+                  aria-label="Cada cuántas unidades"
+                  type="number"
+                  min={1}
+                  value={regaloCada}
+                  onChange={(e) => setRegaloCada(e.target.value)}
+                  className="h-9 w-20"
+                />
+                <span>van</span>
+                <Input
+                  aria-label="Cuántas de regalo"
+                  type="number"
+                  min={1}
+                  value={regaloCantidad}
+                  onChange={(e) => setRegaloCantidad(e.target.value)}
+                  className="h-9 w-20"
+                />
+                <span>más de regalo</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Vacío = sin regalo. Las categorías con el mismo regalo suman juntas, y los combos
+                cuentan por lo que traen. La app solo dice cuántos: cuáles, los elige el local.
+              </p>
             </div>
             <ImageUploadField
               id="category-photo"

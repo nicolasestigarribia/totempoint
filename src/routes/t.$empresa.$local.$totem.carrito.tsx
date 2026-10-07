@@ -18,6 +18,7 @@ import {
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
+import { AvisoRegalo } from "@/components/totem/AvisoRegalo";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/carrito")({
   loader: ({ params }) => getMenuCached(params.empresa, params.local, Number(params.totem)),
@@ -169,6 +170,7 @@ function CarritoPage() {
                             photoUrl: i.photoUrl,
                             removed: i.removed,
                             extras: i.extras,
+                            pan: i.pan,
                           })
                         }
                         className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
@@ -219,6 +221,10 @@ function CarritoPage() {
                 );
               })}
             </ul>
+
+            <div className="mt-5">
+              <AvisoRegalo items={items} productos={menu.products} combos={menu.combos} grande />
+            </div>
 
             <Link
               to="/t/$empresa/$local/$totem/categorias"

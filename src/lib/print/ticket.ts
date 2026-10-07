@@ -47,6 +47,8 @@ export interface TicketData {
   deliveryDistanceKm?: number | null;
   /** "Paga con": para que el repartidor salga con el vuelto. */
   cashPaysWith?: number | null;
+  /** Unidades de regalo ("cada 12, 2 más") que el local agrega a su elección. */
+  regaloUnidades?: number;
   total: number;
   comments?: string | null;
   paymentMethod?: "efectivo" | "mercadopago";
@@ -222,6 +224,13 @@ export function buildTicket(data: TicketData): Uint8Array {
       texto(`   +${e.quantity} ${e.name}`);
       nl();
     }
+  }
+
+  if (data.regaloUnidades) {
+    cmd(BOLD_ON);
+    texto(lineaDoble(`+${data.regaloUnidades} de regalo`, "$0", ancho));
+    cmd(BOLD_OFF);
+    nl();
   }
 
   if (data.deliveryFee) {

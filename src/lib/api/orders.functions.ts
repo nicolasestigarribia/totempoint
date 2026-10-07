@@ -56,6 +56,8 @@ export interface KitchenOrder {
   /** El punto es solo la calle: navegar por la dirección escrita. */
   deliveryApprox: boolean;
   cashPaysWith: string | null;
+  /** Unidades de regalo ("cada 12, 2 más") que la cocina agrega a su elección. */
+  regaloUnidades: number;
   status: OrderStatus;
   total: string;
   createdAt: string;
@@ -307,6 +309,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       deliveryLng: o.deliveryLng,
       deliveryApprox: o.deliveryApprox,
       cashPaysWith: o.cashPaysWith,
+      regaloUnidades: o.regaloUnidades,
       status: o.status,
       total: o.total,
       createdAt: o.createdAt.toISOString(),

@@ -34,6 +34,7 @@ import {
 } from "@/lib/payments/mercadopago";
 import { acreditarPedido } from "@/lib/payments/acreditar";
 import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
+import { unidadesDeRegalo, type ReglaRegalo, type UnidadesConRegalo } from "@/lib/regalo";
 import { distanciaKm, cotizarEnvio, formatearDistancia } from "@/lib/delivery";
 import { distanciaPorRutaKm } from "@/lib/maps/distance-server";
 import {
@@ -335,6 +336,8 @@ export interface TotemProduct {
    * "negro" si se hace solo en ese (se muestra, no se elige); null si no aplica.
    */
   pan: "blanco" | "negro" | "ambos" | null;
+  /** "Cada 12, 2 de regalo", si su categoría lo tiene. */
+  regalo: ReglaRegalo | null;
 }
 
 export interface TotemComboItem {
@@ -350,6 +353,8 @@ export interface TotemCombo {
   photoUrl: string | null;
   /** Qué trae el combo, para que el cliente sepa qué está comprando. */
   items: TotemComboItem[];
+  /** Lo que un combo suma para el regalo: "12 clásicos" son 12 de miga. */
+  regalo: UnidadesConRegalo[];
 }
 
 export interface TotemMenu {
@@ -464,6 +469,49 @@ export const getTotemMenu = createServerFn({ method: "GET" })
  * esta sucursal no apagó, con sus precios propios y lo que se puede sacar o
  * agregar. Lo usan el tótem y el pedido online, que venden lo mismo.
  */
+/** La regla de regalo de cada categoría de la empresa que tiene una. */
+async function reglasDeRegalo(companyId: number): Promise<Map<number, ReglaRegalo>> {
+  const filas = await db
+    .select({
+      id: categories.id,
+      cada: categories.regaloCada,
+      cantidad: categories.regaloCantidad,
+    })
+    .from(categories)
+    .where(eq(categories.companyId, companyId));
+  return new Map(
+    filas
+      .filter((f) => f.cada && f.cantidad)
+      .map((f) => [f.id, { cada: f.cada!, cantidad: f.cantidad! }]),
+  );
+}
+
+/** Lo que suma para el regalo una unidad de cada combo, por lo que trae adentro. */
+async function regaloDeCombos(
+  comboIds: number[],
+  reglas: Map<number, ReglaRegalo>,
+): Promise<Map<number, UnidadesConRegalo[]>> {
+  const porCombo = new Map<number, UnidadesConRegalo[]>();
+  if (comboIds.length === 0 || reglas.size === 0) return porCombo;
+  const componentes = await db
+    .select({
+      comboId: comboProducts.comboId,
+      quantity: comboProducts.quantity,
+      categoryId: products.categoryId,
+    })
+    .from(comboProducts)
+    .innerJoin(products, eq(products.id, comboProducts.productId))
+    .where(inArray(comboProducts.comboId, comboIds));
+  for (const c of componentes) {
+    const regla = c.categoryId !== null ? reglas.get(c.categoryId) : undefined;
+    if (!regla) continue;
+    const lista = porCombo.get(c.comboId) ?? [];
+    lista.push({ regla, unidades: c.quantity });
+    porCombo.set(c.comboId, lista);
+  }
+  return porCombo;
+}
+
 async function armarMenu(companyId: number, locationId: number): Promise<TotemMenu> {
   const [row] = await db
     .select({
@@ -595,6 +643,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
         .orderBy(asc(ingredients.name))
     : [];
 
+  const reglas = await reglasDeRegalo(companyId);
   const visibleProducts: TotemProduct[] = prods.map((p) => ({
     id: p.id,
     name: p.name,
@@ -603,6 +652,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
     price: prodOverrides.get(p.id) ?? p.price,
     categoryId: p.categoryId ?? UNCATEGORIZED,
     pan: p.pan,
+    regalo: (p.categoryId !== null && reglas.get(p.categoryId)) || null,
     removables: p.customizable
       ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
       : [],
@@ -666,9 +716,14 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
     "combo",
     combosVendibles.map((c) => c.id),
   );
+  const regaloCombos = await regaloDeCombos(
+    combosVendibles.map((c) => c.id),
+    reglas,
+  );
   const totemCombos: TotemCombo[] = combosVendibles.map((c) => ({
     ...c,
     price: comboOverrides.get(c.id) ?? c.price,
+    regalo: regaloCombos.get(c.id) ?? [],
     items: comboItems
       .filter((i) => i.comboId === c.id)
       .map((i) => ({ name: i.name, quantity: i.quantity })),
@@ -1044,6 +1099,24 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   });
 
   const subtotal = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
+
+  // "Cada 12, 2 de regalo": se cuenta acá, con las reglas de la base, y queda
+  // en el pedido para que la comanda le diga a la cocina cuántos agregar.
+  const reglas = await reglasDeRegalo(company.id);
+  const regaloCombos = await regaloDeCombos(comboIds, reglas);
+  const regaloUnidades = unidadesDeRegalo(
+    p.items.flatMap((item): UnidadesConRegalo[] => {
+      if (item.kind === "combo") {
+        return (regaloCombos.get(item.id) ?? []).map((r) => ({
+          regla: r.regla,
+          unidades: r.unidades * item.quantity,
+        }));
+      }
+      const categoria = productRows.find((r) => r.id === item.id)?.categoryId;
+      const regla = categoria != null ? reglas.get(categoria) : undefined;
+      return regla ? [{ regla, unidades: item.quantity }] : [];
+    }),
+  );
   const envio = p.online?.envio?.fee ?? 0;
   const total = subtotal + envio;
 
@@ -1142,6 +1215,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
           // Nada se cobra al tomar el pedido: el efectivo se cobra en el mostrador
           // o al entregar, y Mercado Pago lo confirma Mercado Pago.
           paymentStatus: "pendiente",
+          regaloUnidades,
           ...(p.online
             ? {
                 customerId: p.online.customerId,
@@ -1378,6 +1452,8 @@ export interface TotemTicket {
   paymentMethod: "efectivo" | "mercadopago";
   total: string;
   comments: string | null;
+  /** Unidades de regalo ("cada 12, 2 más") que el local agrega a su elección. */
+  regaloUnidades: number;
   items: {
     name: string;
     quantity: number;
@@ -1416,6 +1492,7 @@ export const getTotemTicket = createServerFn({ method: "GET" })
         paymentMethod: orders.paymentMethod,
         total: orders.total,
         comments: orders.comments,
+        regaloUnidades: orders.regaloUnidades,
         companyName: companies.name,
       })
       .from(orders)
@@ -1444,6 +1521,7 @@ export const getTotemTicket = createServerFn({ method: "GET" })
       paymentMethod: row.paymentMethod,
       total: row.total,
       comments: row.comments,
+      regaloUnidades: row.regaloUnidades,
       items,
       printerMac: totem?.printerMac ?? null,
       printerName: totem?.printerName ?? null,
@@ -1871,6 +1949,8 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
   });
 
 export interface OnlineOrderStatus {
+  /** Unidades de regalo ("cada 12, 2 más") que el local agrega a su elección. */
+  regaloUnidades: number;
   orderNumber: number;
   businessDate: string;
   createdAt: string;
@@ -1973,6 +2053,7 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
     }
 
     return {
+      regaloUnidades: o.regaloUnidades,
       orderNumber: o.orderNumber,
       businessDate: o.businessDate,
       createdAt: o.createdAt.toISOString(),

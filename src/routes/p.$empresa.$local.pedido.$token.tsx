@@ -140,6 +140,12 @@ function SeguimientoPage() {
                 <span className="shrink-0">{formatPrice(Number(i.unitPrice) * i.quantity)}</span>
               </li>
             ))}
+            {pedido.regaloUnidades > 0 && (
+              <li className="flex justify-between gap-3 font-bold text-emerald-400">
+                <span>+{pedido.regaloUnidades} de regalo</span>
+                <span className="shrink-0">$0</span>
+              </li>
+            )}
             {pedido.deliveryFee && (
               <li className="flex justify-between gap-3 text-muted-foreground">
                 <span>
