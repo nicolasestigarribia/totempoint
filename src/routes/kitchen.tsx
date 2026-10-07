@@ -190,7 +190,15 @@ function pitar(ctx: AudioContext | null) {
 }
 
 /** Lo que lleva el pedido, con lo sacado y lo agregado bien a la vista. */
-function LineasPedido({ items, regalo }: { items: KitchenOrder["items"]; regalo: number }) {
+function LineasPedido({
+  items,
+  regalo,
+  regaloDescuento,
+}: {
+  items: KitchenOrder["items"];
+  regalo: number;
+  regaloDescuento: number;
+}) {
   return (
     <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
       {items.map((i, idx) => (
@@ -226,6 +234,12 @@ function LineasPedido({ items, regalo }: { items: KitchenOrder["items"]; regalo:
       ))}
       {/* "Cada 12, 2 de regalo": la app cuenta, la cocina elige cuáles. Va
           resaltado porque es lo que más fácil se olvida en un pedido grande. */}
+      {regaloDescuento > 0 && (
+        <li className="flex items-center gap-2 text-xs text-emerald-400">
+          <Gift className="h-3.5 w-3.5 shrink-0" />
+          Incluye sándwiches de regalo que eligió el cliente (−{formatPrice(regaloDescuento)})
+        </li>
+      )}
       {regalo > 0 && (
         <li className="flex items-center gap-2 rounded-lg bg-gold/15 px-2 py-1 font-bold text-gold">
           <Gift className="h-4 w-4 shrink-0" />+{regalo} de regalo (a elección del local)
@@ -765,7 +779,11 @@ function Kitchen() {
                   </div>
 
                   <DatosOnline o={o} />
-                  <LineasPedido items={o.items} regalo={o.regaloUnidades} />
+                  <LineasPedido
+                    items={o.items}
+                    regalo={o.regaloUnidades}
+                    regaloDescuento={Number(o.regaloDescuento)}
+                  />
 
                   {o.comments && (
                     <div className="mt-3 rounded-lg bg-secondary p-2 text-xs italic text-muted-foreground">
@@ -935,7 +953,11 @@ function Kitchen() {
                           </div>
 
                           {o.channel === "online" && <DatosOnline o={o} />}
-                          <LineasPedido items={o.items} regalo={o.regaloUnidades} />
+                          <LineasPedido
+                            items={o.items}
+                            regalo={o.regaloUnidades}
+                            regaloDescuento={Number(o.regaloDescuento)}
+                          />
 
                           {o.comments && (
                             <div className="mt-3 rounded-lg bg-secondary p-2 text-xs italic text-muted-foreground">

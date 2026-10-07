@@ -669,6 +669,14 @@ export const orders = mysqlTable(
      * le dice a la cocina cuántas agregar. Qué se regala lo elige el local.
      */
     regaloUnidades: int("regalo_unidades").notNull().default(0),
+    /**
+     * Lo que se descontó porque el cliente agregó sus sándwiches de regalo (con
+     * 14, paga 12): ya está restado del total. `regaloUnidades` son los que le
+     * correspondían y no agregó, que la cocina pone a elección.
+     */
+    regaloDescuento: decimal("regalo_descuento", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0"),
     /** Cuándo lo aceptó el local. Null en un pedido online = todavía por aceptar. */
     acceptedAt: timestamp("accepted_at"),
     /** Demora que prometió el local al aceptar, en minutos. */

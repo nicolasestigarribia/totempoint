@@ -12,6 +12,7 @@ import {
   useRepriceCart,
   formatPrice,
   itemKey,
+  regaloDeProducto,
   type Pan,
 } from "@/lib/totem-cart";
 import { ElegirPan } from "@/components/totem/ElegirPan";
@@ -74,6 +75,7 @@ function MenuCategoryPage() {
       photoUrl: p.photoUrl,
       removed: [],
       pan: panDe(p),
+      regalo: regaloDeProducto(p),
     });
 
   return (

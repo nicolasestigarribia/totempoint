@@ -509,6 +509,7 @@ function CarritoOnlinePage() {
                             removed: i.removed,
                             extras: i.extras,
                             pan: i.pan,
+                            regalo: i.regalo,
                           })
                         }
                         className="flex h-9 w-9 items-center justify-center rounded-full border border-border disabled:opacity-40"
@@ -535,7 +536,7 @@ function CarritoOnlinePage() {
         </ul>
 
         <div className="mt-3">
-          <AvisoRegalo items={items} productos={menu.products} combos={menu.combos} />
+          <AvisoRegalo items={items} />
         </div>
 
         <Link

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { calcularRegalo, type ResultadoRegalo, type UnidadesConRegalo } from "@/lib/regalo";
 
 // Carrito del tótem. El campo `slug` guarda la clave del tótem completo
 // —empresa/local/número, ver `totem-nav.ts`— y no sólo la empresa: si la
@@ -49,6 +50,12 @@ export interface TotemCartItem {
    * "ambos"` en el menú). Sin pan es un producto que no tiene esa elección.
    */
   pan?: Pan;
+  /**
+   * Lo que suma para "cada 12, 2 de regalo" UNA unidad de esta línea: un
+   * sándwich de miga suma 1, el combo "12 clásicos" suma 12. Vacío o ausente =
+   * no cuenta. Viene del menú y se refresca con `reprice`.
+   */
+  regalo?: UnidadesConRegalo[];
 }
 
 /**
@@ -103,10 +110,11 @@ interface CartState {
   items: TotemCartItem[];
   add: (
     slug: string,
-    item: Omit<TotemCartItem, "quantity" | "removed" | "extras" | "pan"> & {
+    item: Omit<TotemCartItem, "quantity" | "removed" | "extras" | "pan" | "regalo"> & {
       removed?: TotemCartRemoval[];
       extras?: TotemCartExtra[];
       pan?: Pan;
+      regalo?: UnidadesConRegalo[];
     },
   ) => void;
   /** Se sacan por clave, no por id: hay que decir cuál de las variantes. */
@@ -144,6 +152,8 @@ export interface ItemVigente {
   photoUrl: string | null;
   /** Precio vigente de cada extra de este producto, por id de ingrediente. */
   extras?: { id: number; price: string }[];
+  /** Lo que suma para el regalo una unidad, según el menú de ahora. */
+  regalo?: UnidadesConRegalo[];
 }
 
 export const useTotemCart = create<CartState>()(
@@ -213,15 +223,18 @@ export const useTotemCart = create<CartState>()(
               extrasCambio = true;
               return { ...e, price: nuevo };
             });
+            const regalo = v.regalo ?? [];
+            const regaloCambio = JSON.stringify(regalo) !== JSON.stringify(i.regalo ?? []);
             if (
               i.price === v.price &&
               i.name === v.name &&
               i.photoUrl === v.photoUrl &&
-              !extrasCambio
+              !extrasCambio &&
+              !regaloCambio
             )
               return i;
             cambio = true;
-            return { ...i, price: v.price, name: v.name, photoUrl: v.photoUrl, extras };
+            return { ...i, price: v.price, name: v.name, photoUrl: v.photoUrl, extras, regalo };
           });
           // Misma referencia si nada cambió: no dispara re-render de más.
           return cambio ? { items } : s;
@@ -256,8 +269,30 @@ export const useTotemCart = create<CartState>()(
   ),
 );
 
-export const cartTotal = (items: TotemCartItem[]) =>
+/** Lo que suman las líneas, sin el regalo. */
+export const cartSubtotal = (items: TotemCartItem[]) =>
   items.reduce((t, i) => t + precioLinea(i) * i.quantity, 0);
+
+/**
+ * "Cada 12, 2 de regalo" sobre el carrito: cuántos salen gratis, cuánto se
+ * descuenta y cuántos le corresponden todavía. Es la misma cuenta que hace el
+ * servidor al tomar el pedido.
+ */
+export const regaloDelCarrito = (items: TotemCartItem[]): ResultadoRegalo =>
+  calcularRegalo(
+    items.flatMap((i) =>
+      (i.regalo ?? []).map((r) => ({
+        regla: r.regla,
+        unidades: r.unidades * i.quantity,
+        // Un sándwich suelto puede salir gratis; lo de adentro de un combo, no.
+        precioUnitario: i.kind === "producto" ? precioLinea(i) : null,
+      })),
+    ),
+  );
+
+/** Lo que paga: las líneas menos el regalo. */
+export const cartTotal = (items: TotemCartItem[]) =>
+  cartSubtotal(items) - regaloDelCarrito(items).descuento;
 
 export const cartCount = (items: TotemCartItem[]) => items.reduce((t, i) => t + i.quantity, 0);
 
@@ -281,13 +316,23 @@ interface ProductoVigente {
   price: string;
   photoUrl: string | null;
   extras: { id: number; price: string }[];
+  regalo: { cada: number; cantidad: number } | null;
 }
 
+interface ComboVigente {
+  id: number;
+  name: string;
+  price: string;
+  photoUrl: string | null;
+  regalo: UnidadesConRegalo[];
+}
+
+/** Lo que suma para el regalo una unidad de un producto del menú. */
+export const regaloDeProducto = (p: Pick<ProductoVigente, "regalo">): UnidadesConRegalo[] =>
+  p.regalo ? [{ regla: p.regalo, unidades: 1 }] : [];
+
 /** Arma la lista de precios vigentes a partir del menú. */
-export function vigentesDeMenu(
-  products: ProductoVigente[],
-  combos: { id: number; name: string; price: string; photoUrl: string | null }[],
-): ItemVigente[] {
+export function vigentesDeMenu(products: ProductoVigente[], combos: ComboVigente[]): ItemVigente[] {
   return [
     ...products.map((p) => ({
       kind: "producto" as const,
@@ -296,6 +341,7 @@ export function vigentesDeMenu(
       name: p.name,
       photoUrl: p.photoUrl,
       extras: p.extras.map((e) => ({ id: e.id, price: e.price })),
+      regalo: regaloDeProducto(p),
     })),
     ...combos.map((c) => ({
       kind: "combo" as const,
@@ -303,6 +349,7 @@ export function vigentesDeMenu(
       price: c.price,
       name: c.name,
       photoUrl: c.photoUrl,
+      regalo: c.regalo,
     })),
   ];
 }
@@ -312,11 +359,7 @@ export function vigentesDeMenu(
  * que ya tiene el menú fresco (browsing, carrito, checkout), así el total a la
  * vista sigue al precio del panel sin esperar a recargar la tablet.
  */
-export function useRepriceCart(
-  slug: string,
-  products: ProductoVigente[],
-  combos: { id: number; name: string; price: string; photoUrl: string | null }[],
-) {
+export function useRepriceCart(slug: string, products: ProductoVigente[], combos: ComboVigente[]) {
   const reprice = useTotemCart((s) => s.reprice);
   useEffect(() => {
     reprice(slug, vigentesDeMenu(products, combos));

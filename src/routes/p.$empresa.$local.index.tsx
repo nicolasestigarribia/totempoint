@@ -17,6 +17,7 @@ import {
   formatPrice,
   itemKey,
   claveDe,
+  regaloDeProducto,
   type Pan,
 } from "@/lib/totem-cart";
 
@@ -349,6 +350,7 @@ function FilaProducto({
                 price: p.price,
                 photoUrl: p.photoUrl,
                 pan,
+                regalo: regaloDeProducto(p),
               })
             }
           />
@@ -396,6 +398,7 @@ function FilaCombo({
                 name: c.name,
                 price: c.price,
                 photoUrl: c.photoUrl,
+                regalo: c.regalo,
               })
             }
           />

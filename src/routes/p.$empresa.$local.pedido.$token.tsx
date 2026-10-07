@@ -140,9 +140,15 @@ function SeguimientoPage() {
                 <span className="shrink-0">{formatPrice(Number(i.unitPrice) * i.quantity)}</span>
               </li>
             ))}
+            {Number(pedido.regaloDescuento) > 0 && (
+              <li className="flex justify-between gap-3 font-bold text-emerald-400">
+                <span>Sándwiches de regalo</span>
+                <span className="shrink-0">−{formatPrice(pedido.regaloDescuento)}</span>
+              </li>
+            )}
             {pedido.regaloUnidades > 0 && (
               <li className="flex justify-between gap-3 font-bold text-emerald-400">
-                <span>+{pedido.regaloUnidades} de regalo</span>
+                <span>+{pedido.regaloUnidades} de regalo, a elección del local</span>
                 <span className="shrink-0">$0</span>
               </li>
             )}

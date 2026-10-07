@@ -171,6 +171,7 @@ function CarritoPage() {
                             removed: i.removed,
                             extras: i.extras,
                             pan: i.pan,
+                            regalo: i.regalo,
                           })
                         }
                         className="flex h-11 w-11 items-center justify-center rounded-xl border border-border transition hover:border-primary"
@@ -223,7 +224,7 @@ function CarritoPage() {
             </ul>
 
             <div className="mt-5">
-              <AvisoRegalo items={items} productos={menu.products} combos={menu.combos} grande />
+              <AvisoRegalo items={items} grande />
             </div>
 
             <Link

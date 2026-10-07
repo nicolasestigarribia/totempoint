@@ -135,6 +135,7 @@ function CombosPage() {
                               name: c.name,
                               price: c.price,
                               photoUrl: c.photoUrl,
+                              regalo: c.regalo,
                             })
                           }
                           aria-label="Agregar una unidad"
@@ -153,6 +154,7 @@ function CombosPage() {
                             name: c.name,
                             price: c.price,
                             photoUrl: c.photoUrl,
+                            regalo: c.regalo,
                           })
                         }
                         className="flex h-14 items-center gap-2 rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"

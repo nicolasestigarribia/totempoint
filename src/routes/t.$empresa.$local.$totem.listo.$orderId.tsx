@@ -63,6 +63,7 @@ function aTicketData(t: TotemTicket): TicketData {
     total: Number(t.total),
     comments: t.comments,
     regaloUnidades: t.regaloUnidades,
+    regaloDescuento: Number(t.regaloDescuento),
     items: t.items.map((i) => ({
       name: i.name,
       quantity: i.quantity,

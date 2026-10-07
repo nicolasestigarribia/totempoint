@@ -34,7 +34,12 @@ import {
 } from "@/lib/payments/mercadopago";
 import { acreditarPedido } from "@/lib/payments/acreditar";
 import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
-import { unidadesDeRegalo, type ReglaRegalo, type UnidadesConRegalo } from "@/lib/regalo";
+import {
+  calcularRegalo,
+  type ParteRegalo,
+  type ReglaRegalo,
+  type UnidadesConRegalo,
+} from "@/lib/regalo";
 import { distanciaKm, cotizarEnvio, formatearDistancia } from "@/lib/delivery";
 import { distanciaPorRutaKm } from "@/lib/maps/distance-server";
 import {
@@ -469,6 +474,30 @@ export const getTotemMenu = createServerFn({ method: "GET" })
  * esta sucursal no apagó, con sus precios propios y lo que se puede sacar o
  * agregar. Lo usan el tótem y el pedido online, que venden lo mismo.
  */
+/**
+ * Lo que se le manda a Mercado Pago. Mercado Pago no acepta líneas negativas,
+ * así que con regalo el pedido va como una sola línea por lo que se paga: si no,
+ * le cobraría los sándwiches que eran gratis.
+ */
+function itemsParaMP(
+  lineas: ItemPreferencia[],
+  descuento: number,
+  envio: number,
+): ItemPreferencia[] {
+  const items: ItemPreferencia[] =
+    descuento > 0
+      ? [
+          {
+            title: "Tu pedido (con sándwiches de regalo)",
+            quantity: 1,
+            unitPrice: lineas.reduce((t, l) => t + l.unitPrice * l.quantity, 0) - descuento,
+          },
+        ]
+      : lineas;
+  if (envio > 0) items.push({ title: "Envío", quantity: 1, unitPrice: envio });
+  return items;
+}
+
 /** La regla de regalo de cada categoría de la empresa que tiene una. */
 async function reglasDeRegalo(companyId: number): Promise<Map<number, ReglaRegalo>> {
   const filas = await db
@@ -1100,31 +1129,38 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
 
   const subtotal = priced.reduce((t, i) => t + Number(i.unitPrice) * i.quantity, 0);
 
-  // "Cada 12, 2 de regalo": se cuenta acá, con las reglas de la base, y queda
-  // en el pedido para que la comanda le diga a la cocina cuántos agregar.
+  // "Cada 12, 2 de regalo": se cuenta acá, con las reglas y los precios de la
+  // base, igual que en el carrito. Los sueltos que salen gratis se descuentan
+  // del total; los que le correspondían y no agregó quedan para que la cocina
+  // los ponga a elección.
   const reglas = await reglasDeRegalo(company.id);
   const regaloCombos = await regaloDeCombos(comboIds, reglas);
-  const regaloUnidades = unidadesDeRegalo(
-    p.items.flatMap((item): UnidadesConRegalo[] => {
+  const regalo = calcularRegalo(
+    p.items.flatMap((item, indice): ParteRegalo[] => {
       if (item.kind === "combo") {
         return (regaloCombos.get(item.id) ?? []).map((r) => ({
           regla: r.regla,
           unidades: r.unidades * item.quantity,
+          precioUnitario: null,
         }));
       }
       const categoria = productRows.find((r) => r.id === item.id)?.categoryId;
       const regla = categoria != null ? reglas.get(categoria) : undefined;
-      return regla ? [{ regla, unidades: item.quantity }] : [];
+      return regla
+        ? [{ regla, unidades: item.quantity, precioUnitario: Number(priced[indice].unitPrice) }]
+        : [];
     }),
   );
+  const regaloUnidades = regalo.pendientes;
+  const aPagar = subtotal - regalo.descuento;
   const envio = p.online?.envio?.fee ?? 0;
-  const total = subtotal + envio;
+  const total = aPagar + envio;
 
   if (p.online) {
     // El mínimo se mide sobre lo pedido, sin el envío: si no, un envío caro
     // ayudaría a llegar al mínimo, y el mínimo existe para que valga la pena
     // salir con el pedido.
-    if (p.online.minOrder > 0 && subtotal < p.online.minOrder) {
+    if (p.online.minOrder > 0 && aPagar < p.online.minOrder) {
       throw new Error(
         `El pedido mínimo es de $${p.online.minOrder.toLocaleString("es-AR")} (sin contar el envío)`,
       );
@@ -1216,6 +1252,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
           // o al entregar, y Mercado Pago lo confirma Mercado Pago.
           paymentStatus: "pendiente",
           regaloUnidades,
+          regaloDescuento: regalo.descuento.toFixed(2),
           ...(p.online
             ? {
                 customerId: p.online.customerId,
@@ -1321,14 +1358,15 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
     const token = await tokenDeMP(company.id);
     if (!token) throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
 
-    const items: ItemPreferencia[] = priced.map((x) => ({
-      title: x.productName,
-      quantity: x.quantity,
-      unitPrice: Number(x.unitPrice),
-    }));
-    if (envio > 0) {
-      items.push({ title: "Envío", quantity: 1, unitPrice: envio });
-    }
+    const items = itemsParaMP(
+      priced.map((x) => ({
+        title: x.productName,
+        quantity: x.quantity,
+        unitPrice: Number(x.unitPrice),
+      })),
+      regalo.descuento,
+      envio,
+    );
 
     let pref: Awaited<ReturnType<typeof crearPreferencia>>;
     try {
@@ -1454,6 +1492,8 @@ export interface TotemTicket {
   comments: string | null;
   /** Unidades de regalo ("cada 12, 2 más") que el local agrega a su elección. */
   regaloUnidades: number;
+  /** Lo descontado por los sándwiches de regalo que el cliente agregó. */
+  regaloDescuento: string;
   items: {
     name: string;
     quantity: number;
@@ -1493,6 +1533,7 @@ export const getTotemTicket = createServerFn({ method: "GET" })
         total: orders.total,
         comments: orders.comments,
         regaloUnidades: orders.regaloUnidades,
+        regaloDescuento: orders.regaloDescuento,
         companyName: companies.name,
       })
       .from(orders)
@@ -1522,6 +1563,7 @@ export const getTotemTicket = createServerFn({ method: "GET" })
       total: row.total,
       comments: row.comments,
       regaloUnidades: row.regaloUnidades,
+      regaloDescuento: row.regaloDescuento,
       items,
       printerMac: totem?.printerMac ?? null,
       printerName: totem?.printerName ?? null,
@@ -1951,6 +1993,8 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
 export interface OnlineOrderStatus {
   /** Unidades de regalo ("cada 12, 2 más") que el local agrega a su elección. */
   regaloUnidades: number;
+  /** Lo descontado por los sándwiches de regalo que el cliente agregó. */
+  regaloDescuento: string;
   orderNumber: number;
   businessDate: string;
   createdAt: string;
@@ -2054,6 +2098,7 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
 
     return {
       regaloUnidades: o.regaloUnidades,
+      regaloDescuento: o.regaloDescuento,
       orderNumber: o.orderNumber,
       businessDate: o.businessDate,
       createdAt: o.createdAt.toISOString(),
@@ -2283,14 +2328,11 @@ export const changeOnlineOrderPayment = createServerFn({ method: "POST" })
     const token = await tokenDeMP(company.id);
     if (!token) throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
     const lineas = await lineasDelPedido(o.id);
-    const items: ItemPreferencia[] = lineas.map((l) => ({
-      title: l.name,
-      quantity: l.quantity,
-      unitPrice: Number(l.unitPrice),
-    }));
-    if (o.deliveryFee && Number(o.deliveryFee) > 0) {
-      items.push({ title: "Envío", quantity: 1, unitPrice: Number(o.deliveryFee) });
-    }
+    const items = itemsParaMP(
+      lineas.map((l) => ({ title: l.name, quantity: l.quantity, unitPrice: Number(l.unitPrice) })),
+      Number(o.regaloDescuento),
+      Number(o.deliveryFee ?? 0),
+    );
     const pref = await crearPreferencia({
       accessToken: token,
       items,
