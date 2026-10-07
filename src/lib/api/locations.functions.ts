@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { locations, totems } from "@/db/schema";
+import { locations, totems, onlineSettings } from "@/db/schema";
 import { requireCompany, requireOwner } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { registrarAuditoria } from "@/lib/audit/registrar";
@@ -14,8 +14,31 @@ export interface LocationRow {
   name: string;
   slug: string;
   address: string | null;
+  lat: string | null;
+  lng: string | null;
   phone: string | null;
   active: boolean;
+}
+
+/**
+ * Guarda el punto de la sucursal como origen de los envíos online. El owner lo
+ * marca una sola vez al cargar la sucursal y sirve para medir la distancia de
+ * los envíos; `online_settings` tiene una fila por sucursal (con defaults en
+ * todo lo demás), así que acá solo se fija el origen.
+ */
+async function sincronizarOrigen(
+  companyId: number,
+  locationId: number,
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): Promise<void> {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return;
+  const originLat = lat.toFixed(6);
+  const originLng = lng.toFixed(6);
+  await db
+    .insert(onlineSettings)
+    .values({ companyId, locationId, originLat, originLng })
+    .onDuplicateKeyUpdate({ set: { originLat, originLng } });
 }
 
 // Slug único de local dentro de una empresa.
@@ -50,6 +73,8 @@ export const listLocations = createServerFn({ method: "GET" })
         name: locations.name,
         slug: locations.slug,
         address: locations.address,
+        lat: locations.lat,
+        lng: locations.lng,
         phone: locations.phone,
         active: locations.active,
       })
@@ -66,6 +91,8 @@ export const createLocation = createServerFn({ method: "POST" })
     z.object({
       name: z.string().trim().min(1).max(120),
       address: z.string().trim().max(255).optional().nullable(),
+      lat: z.number().min(-90).max(90).optional().nullable(),
+      lng: z.number().min(-180).max(180).optional().nullable(),
       phone: z.string().trim().max(40).optional().nullable(),
     }),
   )
@@ -74,11 +101,15 @@ export const createLocation = createServerFn({ method: "POST" })
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
 
     const slug = await uniqueLocationSlug(user.companyId, data.name);
+    const lat = data.lat ?? null;
+    const lng = data.lng ?? null;
     const values = {
       companyId: user.companyId,
       name: data.name.trim(),
       slug,
       address: data.address?.trim() || null,
+      lat: lat !== null ? lat.toFixed(6) : null,
+      lng: lng !== null ? lng.toFixed(6) : null,
       phone: data.phone?.trim() || null,
       active: true,
     };
@@ -87,6 +118,10 @@ export const createLocation = createServerFn({ method: "POST" })
 
     // Primer tótem del local, para que su URL /t/{empresa}/{local}/1 funcione ya.
     await db.insert(totems).values({ locationId: id, number: 1, active: true });
+
+    // El punto cargado es el origen de los envíos online: no hace falta marcar
+    // el mapa otra vez en "Pedido online".
+    await sincronizarOrigen(user.companyId, id, lat, lng);
 
     await registrarAuditoria(user, {
       category: "sucursales",
@@ -100,6 +135,8 @@ export const createLocation = createServerFn({ method: "POST" })
       name: values.name,
       slug: values.slug,
       address: values.address,
+      lat: values.lat,
+      lng: values.lng,
       phone: values.phone,
       active: values.active,
     };
@@ -112,6 +149,8 @@ export const updateLocation = createServerFn({ method: "POST" })
       id: z.number().int(),
       name: z.string().trim().min(1).max(120),
       address: z.string().trim().max(255).optional().nullable(),
+      lat: z.number().min(-90).max(90).optional().nullable(),
+      lng: z.number().min(-180).max(180).optional().nullable(),
       phone: z.string().trim().max(40).optional().nullable(),
       active: z.boolean(),
     }),
@@ -127,15 +166,22 @@ export const updateLocation = createServerFn({ method: "POST" })
       .limit(1);
     if (!existing) throw new Error("Local no encontrado");
 
+    const lat = data.lat ?? null;
+    const lng = data.lng ?? null;
     await db
       .update(locations)
       .set({
         name: data.name.trim(),
         address: data.address?.trim() || null,
+        lat: lat !== null ? lat.toFixed(6) : null,
+        lng: lng !== null ? lng.toFixed(6) : null,
         phone: data.phone?.trim() || null,
         active: data.active,
       })
       .where(and(eq(locations.id, data.id), eq(locations.companyId, user.companyId)));
+
+    // Mantiene el origen de envíos online en sintonía con el punto de la sucursal.
+    await sincronizarOrigen(user.companyId, data.id, lat, lng);
 
     if (existing.active !== data.active) {
       await registrarAuditoria(user, {

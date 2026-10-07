@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, type Column } from "@/components/admin/DataTable";
+import { BuscadorDireccion } from "@/components/online/BuscadorDireccion";
+import { MapaPin } from "@/components/online/MapaPin";
+import { direccionDe } from "@/lib/geocoding";
+import type { Punto } from "@/lib/delivery";
 import {
   listLocations,
   createLocation,
@@ -40,6 +44,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
   const [editing, setEditing] = useState<LocationRow | null>(null);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
+  const [punto, setPunto] = useState<Punto | null>(null);
   const [phone, setPhone] = useState("");
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,6 +84,7 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
     setEditing(null);
     setName("");
     setAddress("");
+    setPunto(null);
     setPhone("");
     setActive(true);
     setDialogOpen(true);
@@ -88,9 +94,20 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
     setEditing(row);
     setName(row.name);
     setAddress(row.address ?? "");
+    setPunto(
+      row.lat !== null && row.lng !== null ? { lat: Number(row.lat), lng: Number(row.lng) } : null,
+    );
     setPhone(row.phone ?? "");
     setActive(row.active);
     setDialogOpen(true);
+  };
+
+  // Al mover el pin, la dirección escrita se refresca con lo que diga Google en
+  // ese punto. El punto es lo que vale (es el origen de los envíos online).
+  const moverPin = async (p: Punto) => {
+    setPunto(p);
+    const label = await direccionDe(p);
+    if (label) setAddress(label);
   };
 
   const handleSave = async () => {
@@ -106,6 +123,8 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             id: editing.id,
             name: name.trim(),
             address: address.trim() || null,
+            lat: punto?.lat ?? null,
+            lng: punto?.lng ?? null,
             phone: phone.trim() || null,
             active,
           },
@@ -116,6 +135,8 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
           data: {
             name: name.trim(),
             address: address.trim() || null,
+            lat: punto?.lat ?? null,
+            lng: punto?.lng ?? null,
             phone: phone.trim() || null,
           },
         });
@@ -281,6 +302,14 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="local-address">Dirección</Label>
+              <BuscadorDireccion
+                cerca={punto}
+                placeholder="Buscá la dirección de la sucursal"
+                onElegir={(l) => {
+                  setAddress(l.label);
+                  setPunto({ lat: l.lat, lng: l.lng });
+                }}
+              />
               <Input
                 id="local-address"
                 value={address}
@@ -288,6 +317,15 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
                 placeholder="Dirección"
                 maxLength={255}
               />
+              {punto && (
+                <>
+                  <MapaPin pin={punto} onMover={(p) => void moverPin(p)} className="h-56" />
+                  <p className="text-xs text-muted-foreground">
+                    Mové el pin hasta la puerta exacta: desde ahí se mide la distancia de los envíos
+                    online.
+                  </p>
+                </>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="local-phone">Teléfono</Label>

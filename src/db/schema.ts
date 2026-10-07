@@ -52,6 +52,14 @@ export const locations = mysqlTable(
     // Slug del local, para la URL del tótem /t/{empresa}/{local}/{totem}. Único por empresa.
     slug: varchar("slug", { length: 60 }).notNull(),
     address: varchar("address", { length: 255 }),
+    /**
+     * El punto de la sucursal en el mapa, elegido al cargarla con la ayuda de
+     * Google. Es desde donde se mide la distancia de los envíos online: al
+     * guardarlo acá se sincroniza como origen en `online_settings`, para no
+     * marcar el mapa dos veces.
+     */
+    lat: decimal("lat", { precision: 9, scale: 6 }),
+    lng: decimal("lng", { precision: 9, scale: 6 }),
     phone: varchar("phone", { length: 40 }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
