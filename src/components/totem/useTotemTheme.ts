@@ -13,7 +13,7 @@ import { useEffect } from "react";
  * propósito: encima del menú hay que leer nombres y precios.
  */
 export type TotemTheme = "oscuro" | "claro" | "calido" | "noche" | "arena" | "bosque";
-export type TotemFont = "impacto" | "elegante" | "moderno" | "redondeado" | "sobrio";
+export type TotemFont = "impacto" | "elegante" | "moderno" | "redondeado" | "sobrio" | "geometrica";
 export type TotemCorners = "redondeado" | "suave" | "recto";
 
 /**
@@ -24,7 +24,10 @@ export type TotemCorners = "redondeado" | "suave" | "recto";
  * mejor se lee en una tablet a un metro de distancia; lo que cambia es el
  * título, que es lo que da carácter.
  */
-export const FUENTES: Record<TotemFont, { display: string; cuerpo: string; nombre: string }> = {
+export const FUENTES: Record<
+  TotemFont,
+  { display: string; cuerpo: string; nombre: string; peso?: string }
+> = {
   impacto: {
     nombre: "Impacto",
     display: '"Bebas Neue", Impact, system-ui, sans-serif',
@@ -49,6 +52,12 @@ export const FUENTES: Record<TotemFont, { display: string; cuerpo: string; nombr
     nombre: "Sobrio",
     display: '"Inter", system-ui, sans-serif',
     cuerpo: '"Inter", system-ui, sans-serif',
+  },
+  geometrica: {
+    nombre: "Geométrica",
+    display: '"Montserrat", system-ui, sans-serif',
+    cuerpo: '"Montserrat", system-ui, sans-serif',
+    peso: "900",
   },
 };
 
@@ -172,6 +181,7 @@ export function themeVars(
   const f = FUENTES[fuente] ?? FUENTES.impacto;
   vars["--totem-display"] = f.display;
   vars["--totem-cuerpo"] = f.cuerpo;
+  vars["--totem-display-peso"] = f.peso ?? "inherit";
 
   // El radio se multiplica: las clases de Tailwind siguen escritas igual, pero
   // todas se achican o se van a cero de una sola vez.

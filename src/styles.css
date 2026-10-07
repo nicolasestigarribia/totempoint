@@ -177,6 +177,9 @@
   .totem-tipografia h3,
   .totem-tipografia .font-display {
     font-family: var(--totem-display, "Bebas Neue", Impact, system-ui, sans-serif);
+    /* Bebas o Archivo Black ya son gruesas de por sí; una familia de varios
+       pesos (Montserrat) necesita que se le pida el negro para el título. */
+    font-weight: var(--totem-display-peso, inherit);
   }
 
   /*

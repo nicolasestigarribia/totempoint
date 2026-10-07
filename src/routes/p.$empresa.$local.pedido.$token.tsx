@@ -137,6 +137,11 @@ function SeguimientoPage() {
                   {i.pan && (
                     <span className="block text-xs text-muted-foreground">Pan {i.pan}</span>
                   )}
+                  {i.elecciones.length > 0 && (
+                    <span className="block text-xs text-muted-foreground">
+                      {i.elecciones.map((e) => `${e.quantity} ${e.name}`).join(" · ")}
+                    </span>
+                  )}
                   {i.removed.length > 0 && (
                     <span className="block text-xs text-amber-400">
                       {i.removed.map((r) => `sin ${r}`).join(", ")}

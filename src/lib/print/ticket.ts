@@ -26,6 +26,8 @@ export interface TicketItem {
   extras?: { name: string; quantity: number }[];
   /** El pan con que se hace ("blanco" / "negro"). */
   pan?: string | null;
+  /** Los gustos elegidos en un combo a elección. */
+  elecciones?: { name: string; quantity: number }[];
 }
 
 export interface TicketData {
@@ -216,6 +218,10 @@ export function buildTicket(data: TicketData): Uint8Array {
     nl();
     if (it.pan) {
       texto(`   pan ${it.pan}`);
+      nl();
+    }
+    for (const e of it.elecciones ?? []) {
+      texto(`   ${e.quantity}x ${e.name}`);
       nl();
     }
     for (const r of it.removed ?? []) {

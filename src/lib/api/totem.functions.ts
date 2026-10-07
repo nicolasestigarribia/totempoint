@@ -19,6 +19,7 @@ import {
   orderItems,
   orderItemRemovals,
   orderItemExtras,
+  orderItemElecciones,
   productIngredients,
   ingredients,
   paymentSettings,
@@ -268,7 +269,13 @@ async function combosApagadosEnElLocal(
 export type TotemTemplate = "clasico" | "completo" | "split";
 
 export type TotemThemeName = "oscuro" | "claro" | "calido" | "noche" | "arena" | "bosque";
-export type TotemFontName = "impacto" | "elegante" | "moderno" | "redondeado" | "sobrio";
+export type TotemFontName =
+  | "impacto"
+  | "elegante"
+  | "moderno"
+  | "redondeado"
+  | "sobrio"
+  | "geometrica";
 export type TotemCornersName = "redondeado" | "suave" | "recto";
 
 export interface TotemHome {
@@ -362,6 +369,19 @@ export interface TotemCombo {
   items: TotemComboItem[];
   /** Lo que un combo suma para el regalo: "12 clásicos" son 12 de miga. */
   regalo: UnidadesConRegalo[];
+  /**
+   * Lo que el cliente elige adentro ("18 empanadas clásicas"), con los gustos
+   * que puede elegir hoy en esta sucursal. Vacío = combo de gustos fijos.
+   */
+  grupos: TotemComboGrupo[];
+}
+
+export interface TotemComboGrupo {
+  /** Su posición en el combo: es lo que viaja en el pedido. */
+  indice: number;
+  nombre: string;
+  cantidad: number;
+  opciones: { id: number; name: string; description: string | null }[];
 }
 
 export interface TotemMenu {
@@ -468,7 +488,11 @@ export const getTotemMenu = createServerFn({ method: "GET" })
   .inputValidator(z.object(totemInput))
   .handler(async ({ data }): Promise<TotemMenu> => {
     const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
-    return armarMenu(resuelto.company.id, resuelto.locationId);
+    const menu = await armarMenu(resuelto.company.id, resuelto.locationId);
+    // Los combos a elección todavía no tienen pantalla en el tótem: se venden
+    // por el pedido online. Sin esto, la tablet los agregaría sin gustos y el
+    // servidor los rechazaría al confirmar.
+    return { ...menu, combos: menu.combos.filter((c) => c.grupos.length === 0) };
   });
 
 /**
@@ -713,6 +737,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
       description: combos.description,
       price: combos.price,
       photoUrl: combos.photoUrl,
+      grupos: combos.grupos,
     })
     .from(combos)
     .where(and(eq(combos.companyId, companyId), eq(combos.active, true)))
@@ -751,14 +776,27 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
     combosVendibles.map((c) => c.id),
     reglas,
   );
-  const totemCombos: TotemCombo[] = combosVendibles.map((c) => ({
-    ...c,
-    price: comboOverrides.get(c.id) ?? c.price,
-    regalo: regaloCombos.get(c.id) ?? [],
-    items: comboItems
-      .filter((i) => i.comboId === c.id)
-      .map((i) => ({ name: i.name, quantity: i.quantity })),
-  }));
+  const totemCombos: TotemCombo[] = combosVendibles
+    .map(({ grupos, ...c }) => ({
+      ...c,
+      price: comboOverrides.get(c.id) ?? c.price,
+      regalo: regaloCombos.get(c.id) ?? [],
+      items: comboItems
+        .filter((i) => i.comboId === c.id)
+        .map((i) => ({ name: i.name, quantity: i.quantity })),
+      // Los gustos que se pueden elegir son los que esta sucursal vende hoy:
+      // lo apagado o agotado no se ofrece adentro del combo tampoco.
+      grupos: (grupos ?? []).map((g, indice) => ({
+        indice,
+        nombre: g.nombre,
+        cantidad: g.cantidad,
+        opciones: visibleProducts
+          .filter((p) => g.categoriaIds.includes(p.categoryId))
+          .map((p) => ({ id: p.id, name: p.name, description: p.description })),
+      })),
+    }))
+    // Un combo con algo para elegir y nada que se pueda elegir no se vende.
+    .filter((c) => c.grupos.every((g) => g.opciones.length > 0));
 
   const looseCount = visibleProducts.filter((p) => p.categoryId === UNCATEGORIZED).length;
   if (looseCount > 0) {
@@ -801,6 +839,18 @@ const lineaPedido = z.object({
   // El pan que eligió, solo en los productos que se hacen en blanco o negro.
   // En los demás se ignora: manda lo que diga el producto.
   pan: z.enum(["blanco", "negro"]).optional(),
+  // Los gustos de un combo a elección: de qué grupo, qué producto y cuántos.
+  // Se validan abajo contra el combo; el cliente no decide qué se puede elegir.
+  elecciones: z
+    .array(
+      z.object({
+        grupo: z.number().int().min(0),
+        productId: z.number().int(),
+        quantity: z.number().int().min(1).max(200),
+      }),
+    )
+    .max(60)
+    .optional(),
   // Los ingredientes que el cliente sacó de esta línea. Se valida abajo
   // contra la receta: el cliente no elige qué se puede sacar.
   removedIngredientIds: z.array(z.number().int()).max(30).optional(),
@@ -937,7 +987,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
 
   const comboRows = comboIds.length
     ? await db
-        .select({ id: combos.id, name: combos.name, price: combos.price })
+        .select({ id: combos.id, name: combos.name, price: combos.price, grupos: combos.grupos })
         .from(combos)
         .where(
           and(
@@ -1092,6 +1142,85 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
     }
   }
 
+  // Los gustos de los combos a elección se validan contra el combo, no se
+  // creen: cada grupo tiene que sumar exactamente lo que trae, y cada gusto
+  // tiene que ser de una categoría permitida y estar a la venta hoy en esta
+  // sucursal (no apagado ni agotado). Por índice de línea, como lo sacado: el
+  // mismo combo puede ir dos veces con gustos distintos.
+  const eleccionesPorLinea = new Map<
+    number,
+    { grupo: string; productId: number; name: string; quantity: number }[]
+  >();
+  const elegidosIds = [
+    ...new Set(
+      p.items.flatMap((i) =>
+        i.kind === "combo" ? (i.elecciones ?? []).map((e) => e.productId) : [],
+      ),
+    ),
+  ];
+  const elegibles = elegidosIds.length
+    ? await db
+        .select({
+          id: products.id,
+          name: products.name,
+          categoryId: products.categoryId,
+        })
+        .from(products)
+        .where(
+          and(
+            eq(products.companyId, company.id),
+            eq(products.active, true),
+            inArray(products.id, elegidosIds),
+          ),
+        )
+    : [];
+  const [elegiblesApagados, elegiblesAgotados] = elegibles.length
+    ? await Promise.all([
+        productosApagadosEnElLocal(location.id, elegibles),
+        productosAgotados(
+          location.id,
+          elegibles.map((e) => e.id),
+        ),
+      ])
+    : [new Set<number>(), new Set<number>()];
+  for (const [indice, item] of p.items.entries()) {
+    if (item.kind !== "combo") continue;
+    const combo = comboRows.find((c) => c.id === item.id)!;
+    const grupos = combo.grupos ?? [];
+    if (grupos.length === 0) continue;
+    const elegidas = item.elecciones ?? [];
+    const lista: { grupo: string; productId: number; name: string; quantity: number }[] = [];
+    for (const [g, grupo] of grupos.entries()) {
+      const delGrupo = elegidas.filter((e) => e.grupo === g);
+      const suma = delGrupo.reduce((t, e) => t + e.quantity, 0);
+      if (suma !== grupo.cantidad) {
+        throw new Error(
+          suma < grupo.cantidad
+            ? `En tu ${combo.name} faltan ${grupo.cantidad - suma} de ${grupo.nombre}: elegí los gustos`
+            : `En tu ${combo.name} van ${grupo.cantidad} de ${grupo.nombre}, elegiste ${suma}`,
+        );
+      }
+      for (const e of delGrupo) {
+        const prod = elegibles.find((x) => x.id === e.productId);
+        if (!prod || prod.categoryId === null || !grupo.categoriaIds.includes(prod.categoryId)) {
+          throw new Error(
+            `Uno de los gustos de tu ${combo.name} ya no se puede elegir. Volvé a armarlo`,
+          );
+        }
+        if (elegiblesApagados.has(prod.id) || elegiblesAgotados.has(prod.id)) {
+          throw new Error(`Ahora no hay ${prod.name}. Cambiá ese gusto de tu ${combo.name}`);
+        }
+        lista.push({
+          grupo: grupo.nombre,
+          productId: prod.id,
+          name: prod.name,
+          quantity: e.quantity,
+        });
+      }
+    }
+    eleccionesPorLinea.set(indice, lista);
+  }
+
   // Precio efectivo del local: override por local si existe, si no el base.
   const [prodOverrides, comboOverrides] = await Promise.all([
     priceOverrides(location.id, "product", productIds),
@@ -1189,16 +1318,29 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   // porque no pudimos calcular el inventario sería el peor de los dos errores,
   // el mismo criterio que con Mercado Pago más abajo.
   let consumo: Awaited<ReturnType<typeof calcularConsumo>> = [];
-  const lineas: LineaVendida[] = p.items.map((i, indice) => ({
-    kind: i.kind,
-    refId: i.id,
-    quantity: i.quantity,
-    removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
-    extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
-      ingredientId: x.id,
-      quantity: x.quantity,
+  const lineas: LineaVendida[] = [
+    ...p.items.map((i, indice) => ({
+      kind: i.kind,
+      refId: i.id,
+      quantity: i.quantity,
+      removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
+      extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
+        ingredientId: x.id,
+        quantity: x.quantity,
+      })),
     })),
-  }));
+    // Lo elegido en un combo a elección consume como si se vendiera suelto:
+    // 18 clásicas son 18 empanadas que salen del stock.
+    ...[...eleccionesPorLinea.entries()].flatMap(([indice, elegidas]) =>
+      elegidas.map(
+        (e): LineaVendida => ({
+          kind: "producto",
+          refId: e.productId,
+          quantity: e.quantity * p.items[indice].quantity,
+        }),
+      ),
+    ),
+  ];
   try {
     await asegurarCodigosDeVenta(company.id);
     consumo = await calcularConsumo(company.id, lineas);
@@ -1297,6 +1439,19 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
               // El nombre queda congelado, como el del producto: la comanda de
               // un pedido viejo tiene que seguir diciendo lo mismo.
               ingredientName: x.name,
+            })),
+          );
+        }
+
+        const elegidas = eleccionesPorLinea.get(indice) ?? [];
+        if (elegidas.length > 0) {
+          await tx.insert(orderItemElecciones).values(
+            elegidas.map((e) => ({
+              orderItemId,
+              grupo: e.grupo,
+              productId: e.productId,
+              productName: e.name,
+              quantity: e.quantity,
             })),
           );
         }
@@ -1523,6 +1678,8 @@ export interface TotemTicket {
     extras: { name: string; quantity: number }[];
     /** El pan con que se hace ("blanco" / "negro"); null si no tiene. */
     pan: string | null;
+    /** Los gustos elegidos en un combo a elección ("6 Humita"). */
+    elecciones: { grupo: string; name: string; quantity: number }[];
   }[];
   /** Impresora asignada a este tótem en el panel; la MAC no es secreta. */
   printerMac: string | null;
@@ -1672,7 +1829,7 @@ async function lineasDelPedido(orderId: number) {
     .where(eq(orderItems.orderId, orderId));
 
   const itemIds = itemRows.map((i) => i.id);
-  const [removalRows, extraRows] = await Promise.all([
+  const [removalRows, extraRows, eleccionRows] = await Promise.all([
     itemIds.length
       ? db
           .select({
@@ -1692,6 +1849,17 @@ async function lineasDelPedido(orderId: number) {
           .from(orderItemExtras)
           .where(inArray(orderItemExtras.orderItemId, itemIds))
       : [],
+    itemIds.length
+      ? db
+          .select({
+            orderItemId: orderItemElecciones.orderItemId,
+            grupo: orderItemElecciones.grupo,
+            name: orderItemElecciones.productName,
+            quantity: orderItemElecciones.quantity,
+          })
+          .from(orderItemElecciones)
+          .where(inArray(orderItemElecciones.orderItemId, itemIds))
+      : [],
   ]);
 
   return itemRows.map((it) => ({
@@ -1703,6 +1871,9 @@ async function lineasDelPedido(orderId: number) {
       .filter((e) => e.orderItemId === it.id)
       .map((e) => ({ name: e.name, quantity: e.quantity })),
     pan: it.pan,
+    elecciones: eleccionRows
+      .filter((e) => e.orderItemId === it.id)
+      .map((e) => ({ grupo: e.grupo, name: e.name, quantity: e.quantity })),
   }));
 }
 

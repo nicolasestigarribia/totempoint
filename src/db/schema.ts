@@ -254,7 +254,14 @@ export const totemSettings = mysqlTable(
      * propósito: son parejas ya probadas de títulos y texto, para que nadie
      * termine con un menú que no se puede leer de parado a un metro.
      */
-    fontTheme: mysqlEnum("font_theme", ["impacto", "elegante", "moderno", "redondeado", "sobrio"])
+    fontTheme: mysqlEnum("font_theme", [
+      "impacto",
+      "elegante",
+      "moderno",
+      "redondeado",
+      "sobrio",
+      "geometrica",
+    ])
       .notNull()
       .default("impacto"),
     /** Qué tan redondeadas van las esquinas. Cambia bastante el carácter. */
@@ -591,6 +598,13 @@ export const combos = mysqlTable(
     photoUrl: varchar("photo_url", { length: 500 }),
     active: boolean("active").notNull().default(true),
     sort: int("sort").notNull().default(0),
+    /**
+     * Lo que el cliente elige dentro del combo: "18 empanadas clásicas" con los
+     * gustos que quiera de las categorías indicadas. Se suma a los productos
+     * fijos de `combo_products` (la "Planazo" son 8 a elección + 2 cervezas
+     * fijas). Null o vacío = combo de gustos fijos, como siempre.
+     */
+    grupos: json("grupos").$type<{ nombre: string; cantidad: number; categoriaIds: number[] }[]>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("combos_company_idx").on(t.companyId)],
@@ -859,6 +873,23 @@ export const orderItems = mysqlTable(
     pan: mysqlEnum("pan", ["blanco", "negro"]),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
+);
+
+// Los gustos que eligió el cliente en un combo a elección: "6 Humita, 6 Capresse
+// y 6 Jamón y mozzarella" de las 18 clásicas. Nombre congelado como en
+// `order_items`, para que la comanda de un pedido viejo diga lo mismo; el id del
+// producto, para descontar su stock y devolverlo si se cancela.
+export const orderItemElecciones = mysqlTable(
+  "order_item_elecciones",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    orderItemId: int("order_item_id").notNull(),
+    grupo: varchar("grupo", { length: 120 }).notNull(),
+    productId: int("product_id"),
+    productName: varchar("product_name", { length: 120 }).notNull(),
+    quantity: int("quantity").notNull(),
+  },
+  (t) => [index("order_item_elecciones_item_idx").on(t.orderItemId)],
 );
 
 // Qué ingredientes sacó el cliente de una línea del pedido: el "sin cebolla".

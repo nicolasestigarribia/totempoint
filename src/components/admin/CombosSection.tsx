@@ -26,6 +26,15 @@ import {
   type ComboRow,
 } from "@/lib/api/combos.functions";
 import { listProducts, type ProductRow } from "@/lib/api/products.functions";
+import { listCategories, type CategoryRow } from "@/lib/api/categories.functions";
+import { mensajeDeError } from "@/lib/error-message";
+
+/** Lo que elige el cliente, mientras se edita: la cantidad como texto del input. */
+interface DraftGrupo {
+  nombre: string;
+  cantidad: string;
+  categoriaIds: number[];
+}
 
 interface DraftProduct {
   productId: number;
@@ -42,6 +51,9 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
   const remove = useServerFn(deleteCombo);
   const toggleActiveFn = useServerFn(setComboActive);
   const loadProducts = useServerFn(listProducts);
+  const loadCategories = useServerFn(listCategories);
+  const [categorias, setCategorias] = useState<CategoryRow[]>([]);
+  const [draftGrupos, setDraftGrupos] = useState<DraftGrupo[]>([]);
 
   const [rows, setRows] = useState<ComboRow[]>([]);
   const [products, setProducts] = useState<ProductRow[]>([]);
@@ -74,9 +86,10 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
   async function loadAll() {
     setLoading(true);
     try {
-      const [cmb, prods] = await Promise.all([list(), loadProducts()]);
+      const [cmb, prods, cats] = await Promise.all([list(), loadProducts(), loadCategories()]);
       setRows(cmb);
       setProducts(prods);
+      setCategorias(cats);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudieron cargar los datos");
     } finally {
@@ -105,6 +118,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
     setPhotoUrl("");
     setActive(true);
     setDraftProducts([]);
+    setDraftGrupos([]);
     setProductSearch("");
     setDialogOpen(true);
   }
@@ -124,6 +138,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
         quantity: String(p.quantity),
       })),
     );
+    setDraftGrupos(row.grupos.map((g) => ({ ...g, cantidad: String(g.cantidad) })));
     setProductSearch("");
     setDialogOpen(true);
   }
@@ -171,6 +186,23 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
       };
     });
 
+    const gruposPayload = draftGrupos.map((g) => ({
+      nombre: g.nombre.trim(),
+      cantidad: Number.parseInt(g.cantidad, 10) || 0,
+      categoriaIds: g.categoriaIds,
+    }));
+    const grupoMal = gruposPayload.find(
+      (g) => !g.nombre || g.cantidad < 1 || g.categoriaIds.length === 0,
+    );
+    if (grupoMal) {
+      toast.error("En lo que elige el cliente completá nombre, cantidad y al menos una categoría");
+      return;
+    }
+    if (productsPayload.length === 0 && gruposPayload.length === 0) {
+      toast.error("El combo tiene que traer algo: productos fijos o algo para elegir");
+      return;
+    }
+
     const trimmedPhoto = photoUrl.trim();
     const trimmedDesc = description.trim();
 
@@ -187,6 +219,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
             active,
             sort: editing.sort,
             products: productsPayload,
+            grupos: gruposPayload,
           },
         });
         toast.success("Combo actualizado");
@@ -198,6 +231,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
             price: priceValue,
             photoUrl: trimmedPhoto || undefined,
             products: productsPayload,
+            grupos: gruposPayload,
           },
         });
         toast.success("Combo creado");
@@ -205,7 +239,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
       setDialogOpen(false);
       await loadCombosOnly();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo guardar el combo");
+      toast.error(mensajeDeError(err, "No se pudo guardar el combo"));
     } finally {
       setSaving(false);
     }
@@ -422,9 +456,104 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
             </div>
 
             {/* Productos: buscador + seleccionados */}
+            {/* Lo que elige el cliente: "18 empanadas clásicas, los gustos que
+                quieras". Se suma a los productos fijos de abajo. */}
+            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  A elección del cliente
+                </h4>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ej: 18 de Empanadas clásicas. El cliente elige los gustos de esas categorías al
+                  pedirlo, y la comanda los muestra.
+                </p>
+              </div>
+              {draftGrupos.map((g, i) => (
+                <div key={i} className="space-y-2 rounded-xl border border-white/10 p-3">
+                  <div className="flex gap-2">
+                    <Input
+                      value={g.nombre}
+                      placeholder="Qué elige (ej: Empanadas clásicas)"
+                      className="h-10 flex-1"
+                      onChange={(e) =>
+                        setDraftGrupos((gs) =>
+                          gs.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <Input
+                      type="number"
+                      min={1}
+                      value={g.cantidad}
+                      aria-label="Cuántos"
+                      placeholder="Cant."
+                      className="h-10 w-20"
+                      onChange={(e) =>
+                        setDraftGrupos((gs) =>
+                          gs.map((x, j) => (j === i ? { ...x, cantidad: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="Quitar"
+                      onClick={() => setDraftGrupos((gs) => gs.filter((_, j) => j !== i))}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {categorias.map((c) => {
+                      const marcada = g.categoriaIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() =>
+                            setDraftGrupos((gs) =>
+                              gs.map((x, j) =>
+                                j === i
+                                  ? {
+                                      ...x,
+                                      categoriaIds: marcada
+                                        ? x.categoriaIds.filter((id) => id !== c.id)
+                                        : [...x.categoriaIds, c.id],
+                                    }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1 text-xs font-bold transition ${
+                            marcada
+                              ? "border-primary bg-primary/15 text-foreground"
+                              : "border-white/15 text-muted-foreground"
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start gap-1.5"
+                onClick={() =>
+                  setDraftGrupos((gs) => [...gs, { nombre: "", cantidad: "", categoriaIds: [] }])
+                }
+              >
+                <Plus className="h-4 w-4" /> Agregar algo a elección
+              </Button>
+            </div>
+
             <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Productos
+                Productos fijos
               </h4>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

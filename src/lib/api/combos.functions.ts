@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, inArray, asc } from "drizzle-orm";
 import { db } from "@/db";
-import { combos, comboProducts, products } from "@/db/schema";
+import { combos, comboProducts, products, categories } from "@/db/schema";
 import { requireView, requireEdit, requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
@@ -14,6 +14,13 @@ export interface ComboProductRow {
   quantity: number;
 }
 
+/** Una parte a elección del combo: "18 de Empanadas clásicas". */
+export interface ComboGrupo {
+  nombre: string;
+  cantidad: number;
+  categoriaIds: number[];
+}
+
 export interface ComboRow {
   id: number;
   name: string;
@@ -23,6 +30,31 @@ export interface ComboRow {
   active: boolean;
   sort: number;
   products: ComboProductRow[];
+  /** Lo que elige el cliente. Vacío = combo de gustos fijos. */
+  grupos: ComboGrupo[];
+}
+
+const grupoInput = z.object({
+  nombre: z.string().trim().min(1, "Poné un nombre a lo que elige el cliente").max(120),
+  cantidad: z.number().int().min(1).max(200),
+  categoriaIds: z.array(z.number().int()).min(1, "Elegí de qué categorías puede elegir"),
+});
+
+/** Que cada categoría de los grupos sea de la empresa. */
+async function validarGrupos(
+  grupos: ComboGrupo[] | undefined,
+  companyId: number,
+): Promise<ComboGrupo[] | undefined> {
+  if (!grupos) return undefined;
+  const ids = [...new Set(grupos.flatMap((g) => g.categoriaIds))];
+  if (ids.length > 0) {
+    const propias = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(inArray(categories.id, ids), eq(categories.companyId, companyId)));
+    if (propias.length !== ids.length) throw new Error("Una categoría no es de tu empresa");
+  }
+  return grupos.map((g) => ({ ...g, nombre: g.nombre.trim() }));
 }
 
 const productInput = z.object({
@@ -65,10 +97,7 @@ async function validateProducts(
 }
 
 // Carga el detalle completo (con productos) de un combo por id.
-async function loadComboRow(
-  comboId: number,
-  companyId: number,
-): Promise<ComboRow> {
+async function loadComboRow(comboId: number, companyId: number): Promise<ComboRow> {
   const [row] = await db
     .select({
       id: combos.id,
@@ -78,6 +107,7 @@ async function loadComboRow(
       photoUrl: combos.photoUrl,
       active: combos.active,
       sort: combos.sort,
+      grupos: combos.grupos,
     })
     .from(combos)
     .where(and(eq(combos.id, comboId), eq(combos.companyId, companyId)))
@@ -99,6 +129,7 @@ async function loadComboRow(
 
   return {
     ...row,
+    grupos: row.grupos ?? [],
     products: prods.map((p) => ({
       productId: p.productId,
       name: p.name,
@@ -123,6 +154,7 @@ export const listCombos = createServerFn({ method: "GET" })
         photoUrl: combos.photoUrl,
         active: combos.active,
         sort: combos.sort,
+        grupos: combos.grupos,
       })
       .from(combos)
       .where(eq(combos.companyId, user.companyId))
@@ -162,6 +194,7 @@ export const listCombos = createServerFn({ method: "GET" })
 
     return rows.map((r) => ({
       ...r,
+      grupos: r.grupos ?? [],
       products: byCombo.get(r.id) ?? [],
     }));
   });
@@ -176,6 +209,7 @@ export const createCombo = createServerFn({ method: "POST" })
       photoUrl: z.string().max(500).optional(),
       sort: z.number().int().optional(),
       products: z.array(productInput).optional(),
+      grupos: z.array(grupoInput).max(6).optional(),
     }),
   )
   .handler(async ({ context, data }): Promise<ComboRow> => {
@@ -183,6 +217,10 @@ export const createCombo = createServerFn({ method: "POST" })
     if (!user.companyId) throw new Error("Usuario sin empresa asignada");
 
     const prodList = await validateProducts(data.products, user.companyId);
+    const grupos = await validarGrupos(data.grupos, user.companyId);
+    if (prodList.length === 0 && !grupos?.length) {
+      throw new Error("El combo tiene que traer algo: productos fijos o algo para elegir");
+    }
 
     const name = data.name.trim();
     const description = data.description?.trim() ? data.description.trim() : null;
@@ -200,6 +238,7 @@ export const createCombo = createServerFn({ method: "POST" })
         photoUrl,
         active: true,
         sort,
+        grupos: grupos?.length ? grupos : null,
       })
       .$returningId();
 
@@ -228,6 +267,7 @@ export const updateCombo = createServerFn({ method: "POST" })
       active: z.boolean(),
       sort: z.number().int().optional(),
       products: z.array(productInput).optional(),
+      grupos: z.array(grupoInput).max(6).optional(),
     }),
   )
   .handler(async ({ context, data }) => {
@@ -243,10 +283,13 @@ export const updateCombo = createServerFn({ method: "POST" })
     if (!existing) throw new Error("Combo no encontrado");
 
     const prodList = await validateProducts(data.products, user.companyId);
+    const grupos = await validarGrupos(data.grupos, user.companyId);
 
     await db
       .update(combos)
       .set({
+        // Si no viene, no se toca: un llamado que no conoce los grupos no los borra.
+        ...(grupos !== undefined ? { grupos: grupos.length ? grupos : null } : {}),
         name: data.name.trim(),
         description: data.description?.trim() ? data.description.trim() : null,
         price: String(data.price),

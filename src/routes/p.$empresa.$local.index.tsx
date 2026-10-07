@@ -23,6 +23,7 @@ import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { useHorario } from "@/components/online/useHorario";
+import { ElegirGustos } from "@/components/online/ElegirGustos";
 import type { EstadoHorario } from "@/lib/horario";
 import {
   haceCuanto,
@@ -43,6 +44,7 @@ import {
   claveDe,
   regaloDeProducto,
   regaloDelCarrito,
+  type TotemCartEleccion,
   useTotemCart as useCarrito,
   type Pan,
 } from "@/lib/totem-cart";
@@ -655,6 +657,7 @@ function TarjetaMenu({
   hayMas,
   opciones,
   pie,
+  forzarAbierta = false,
 }: {
   accent: string;
   foto: string | null;
@@ -669,8 +672,11 @@ function TarjetaMenu({
   opciones?: React.ReactNode;
   /** Precio y agregar. */
   pie: React.ReactNode;
+  /** Abierta sí o sí: mientras el cliente arma un combo a elección. */
+  forzarAbierta?: boolean;
 }) {
-  const [abierta, setAbierta] = useState(false);
+  const [abiertaPropia, setAbierta] = useState(false);
+  const abierta = abiertaPropia || forzarAbierta;
   const alternar = () => setAbierta((a) => !a);
 
   const { numero, resto: nombreSolo } = partirNombre(nombre);
@@ -700,7 +706,7 @@ function TarjetaMenu({
   const resto = (
     <>
       {opciones && <div className="mt-1.5">{opciones}</div>}
-      <div className="mt-auto flex items-center justify-between gap-2 pt-2">{pie}</div>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">{pie}</div>
     </>
   );
 
@@ -835,8 +841,28 @@ function FilaCombo({
   const add = useTotemCart((s) => s.add);
   const items = useCartForSlug(cartKey);
   const clave = itemKey("combo", c.id);
-  const enCarrito = items.find((i) => claveDe(i) === clave)?.quantity;
-  const unidades = c.items.reduce((t, i) => t + i.quantity, 0);
+  const aEleccion = c.grupos.length > 0;
+  // Un combo a elección puede estar varias veces con gustos distintos: se
+  // cuentan todas sus líneas.
+  const enCarrito = aEleccion
+    ? items
+        .filter((i) => i.kind === "combo" && i.refId === c.id)
+        .reduce((t, i) => t + i.quantity, 0)
+    : items.find((i) => claveDe(i) === clave)?.quantity;
+  const unidades =
+    c.items.reduce((t, i) => t + i.quantity, 0) + c.grupos.reduce((t, g) => t + g.cantidad, 0);
+  const [armando, setArmando] = useState(false);
+
+  const agregar = (elecciones?: TotemCartEleccion[]) =>
+    add(cartKey, {
+      kind: "combo",
+      refId: c.id,
+      name: c.name,
+      price: c.price,
+      photoUrl: c.photoUrl,
+      regalo: c.regalo,
+      elecciones,
+    });
 
   return (
     <TarjetaMenu
@@ -845,9 +871,11 @@ function FilaCombo({
       nombre={c.name}
       // Un combo casi nunca entra en dos renglones: siempre se puede abrir.
       hayMas
+      forzarAbierta={armando}
       resumen={
         <p className="line-clamp-2">
-          {c.description ? `${c.description} · ` : ""}Trae {unidades}{" "}
+          {c.description ? `${c.description} · ` : ""}
+          {aEleccion ? "Elegís los gustos · " : ""}Trae {unidades}{" "}
           {unidades === 1 ? "unidad" : "unidades"}
         </p>
       }
@@ -858,6 +886,12 @@ function FilaCombo({
             Trae {unidades} {unidades === 1 ? "unidad" : "unidades"}
           </p>
           <ul className="mt-1 space-y-0.5 text-foreground">
+            {c.grupos.map((g) => (
+              <li key={`g${g.indice}`} className="flex gap-2">
+                <span className="w-7 shrink-0 text-right font-bold">{g.cantidad}×</span>
+                <span>{g.nombre}, a elección</span>
+              </li>
+            ))}
             {c.items.map((i, idx) => (
               <li key={idx} className="flex gap-2">
                 <span className="w-7 shrink-0 text-right font-bold">{i.quantity}×</span>
@@ -867,28 +901,48 @@ function FilaCombo({
           </ul>
         </>
       }
-      pie={
-        <>
-          <span className="font-display text-xl" style={{ color: accent }}>
-            {formatPrice(c.price)}
-          </span>
-          <Cantidad
-            clave={clave}
-            enCarrito={enCarrito ?? 0}
+      opciones={
+        armando ? (
+          <ElegirGustos
+            grupos={c.grupos}
             accent={accent}
-            nombre={c.name}
-            onAgregar={() =>
-              add(cartKey, {
-                kind: "combo",
-                refId: c.id,
-                name: c.name,
-                price: c.price,
-                photoUrl: c.photoUrl,
-                regalo: c.regalo,
-              })
-            }
+            textoBoton={`Agregar al pedido · ${formatPrice(c.price)}`}
+            onCancelar={() => setArmando(false)}
+            onListo={(elecciones) => {
+              agregar(elecciones);
+              setArmando(false);
+              toast.success(`${c.name} agregado a tu pedido`);
+            }}
           />
-        </>
+        ) : undefined
+      }
+      pie={
+        armando ? null : (
+          <>
+            <span className="font-display text-xl" style={{ color: accent }}>
+              {formatPrice(c.price)}
+            </span>
+            {aEleccion ? (
+              <button
+                type="button"
+                onClick={() => setArmando(true)}
+                className="flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-sm font-bold text-white"
+                style={{ background: accent }}
+              >
+                <Plus className="h-4 w-4" />
+                {enCarrito ? `Otro (${enCarrito})` : "Elegir gustos"}
+              </button>
+            ) : (
+              <Cantidad
+                clave={clave}
+                enCarrito={enCarrito ?? 0}
+                accent={accent}
+                nombre={c.name}
+                onAgregar={() => agregar()}
+              />
+            )}
+          </>
+        )
       }
     />
   );

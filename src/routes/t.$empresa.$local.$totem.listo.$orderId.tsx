@@ -71,6 +71,7 @@ function aTicketData(t: TotemTicket): TicketData {
       removed: i.removed,
       extras: i.extras,
       pan: i.pan,
+      elecciones: i.elecciones,
     })),
   };
 }

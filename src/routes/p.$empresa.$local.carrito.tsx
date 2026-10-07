@@ -307,6 +307,11 @@ function CarritoOnlinePage() {
             removedIngredientIds: i.removed.map((r) => r.id),
             extras: i.extras.map((x) => ({ id: x.id, quantity: x.quantity })),
             pan: i.pan,
+            elecciones: i.elecciones?.map((e) => ({
+              grupo: e.grupo,
+              productId: e.productId,
+              quantity: e.quantity,
+            })),
           })),
           totalEsperado: total,
         },
@@ -507,6 +512,11 @@ function CarritoOnlinePage() {
                     </p>
                   )}
                   {i.pan && <p className="text-sm text-muted-foreground">Pan {i.pan}</p>}
+                  {i.elecciones && i.elecciones.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {i.elecciones.map((e) => `${e.quantity} ${e.name}`).join(" · ")}
+                    </p>
+                  )}
                   {i.removed.length > 0 && (
                     <p className="text-sm text-amber-400">
                       {i.removed.map((r) => `sin ${r.name}`).join(", ")}
@@ -562,6 +572,7 @@ function CarritoOnlinePage() {
                             removed: i.removed,
                             extras: i.extras,
                             pan: i.pan,
+                            elecciones: i.elecciones,
                             regalo: i.regalo,
                           })
                         }

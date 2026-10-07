@@ -2,7 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, or, ne, desc, inArray, gte, lte, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, orderItems, orderItemRemovals, orderItemExtras, locations } from "@/db/schema";
+import {
+  orders,
+  orderItems,
+  orderItemRemovals,
+  orderItemExtras,
+  orderItemElecciones,
+  locations,
+} from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
 import {
   accessibleLocationIds,
@@ -29,6 +36,8 @@ export interface KitchenOrderItem {
   extras: { name: string; quantity: number }[];
   /** El pan con que se hace ("blanco" / "negro"); null si no tiene. */
   pan: string | null;
+  /** Los gustos elegidos en un combo a elección: lo que hay que armar. */
+  elecciones: { grupo: string; name: string; quantity: number }[];
 }
 
 export interface KitchenOrder {
@@ -268,7 +277,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
     // prepara, así que viaja con el pedido y no se pide aparte. Las dos
     // consultas van a la vez: no dependen una de la otra, y la comandera se
     // refresca cada 10 segundos.
-    const [sacados, agregados] = await Promise.all([
+    const [sacados, agregados, elegidos] = await Promise.all([
       items.length
         ? db
             .select({
@@ -294,6 +303,22 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
             .where(
               inArray(
                 orderItemExtras.orderItemId,
+                items.map((i) => i.id),
+              ),
+            )
+        : [],
+      items.length
+        ? db
+            .select({
+              orderItemId: orderItemElecciones.orderItemId,
+              grupo: orderItemElecciones.grupo,
+              name: orderItemElecciones.productName,
+              quantity: orderItemElecciones.quantity,
+            })
+            .from(orderItemElecciones)
+            .where(
+              inArray(
+                orderItemElecciones.orderItemId,
                 items.map((i) => i.id),
               ),
             )
@@ -341,6 +366,9 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
             .filter((e) => e.orderItemId === i.id)
             .map((e) => ({ name: e.ingredientName, quantity: e.quantity })),
           pan: i.pan,
+          elecciones: elegidos
+            .filter((e) => e.orderItemId === i.id)
+            .map((e) => ({ grupo: e.grupo, name: e.name, quantity: e.quantity })),
         })),
     }));
   });

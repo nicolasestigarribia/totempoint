@@ -24,6 +24,14 @@ export interface TotemCartExtra {
   quantity: number;
 }
 
+/** Un gusto elegido en un combo a elección: de qué grupo, cuál y cuántos. */
+export interface TotemCartEleccion {
+  grupo: number;
+  productId: number;
+  name: string;
+  quantity: number;
+}
+
 /** El pan que eligió el cliente, en los productos que se hacen en blanco o negro. */
 export type Pan = "blanco" | "negro";
 
@@ -56,6 +64,8 @@ export interface TotemCartItem {
    * no cuenta. Viene del menú y se refresca con `reprice`.
    */
   regalo?: UnidadesConRegalo[];
+  /** Los gustos de un combo a elección. Ausente = combo de gustos fijos. */
+  elecciones?: TotemCartEleccion[];
 }
 
 /**
@@ -73,6 +83,7 @@ export const itemKey = (
   removed: TotemCartRemoval[] = [],
   extras: TotemCartExtra[] = [],
   pan?: Pan,
+  elecciones: TotemCartEleccion[] = [],
 ) => {
   const sacados = removed
     .map((r) => r.id)
@@ -87,12 +98,19 @@ export const itemKey = (
   if (agregados) clave += `-mas${agregados}`;
   // Uno en pan blanco y otro en negro son dos líneas, como con o sin tomate.
   if (pan) clave += `-pan${pan}`;
+  // Dos "Regaladas" con gustos distintos son dos líneas, no cantidad 2.
+  const gustos = elecciones
+    .map((e) => `${e.grupo}:${e.productId}x${e.quantity}`)
+    .sort()
+    .join(".");
+  if (gustos) clave += `-gustos${gustos}`;
   return clave;
 };
 
 /** La clave de una línea ya armada. */
-export const claveDe = (i: Pick<TotemCartItem, "kind" | "refId" | "removed" | "extras" | "pan">) =>
-  itemKey(i.kind, i.refId, i.removed, i.extras, i.pan);
+export const claveDe = (
+  i: Pick<TotemCartItem, "kind" | "refId" | "removed" | "extras" | "pan" | "elecciones">,
+) => itemKey(i.kind, i.refId, i.removed, i.extras, i.pan, i.elecciones);
 
 // Colapsa NaN/Infinity a un fallback: un precio o cantidad corrupta (dato viejo
 // migrado, string no numérico) no debe contaminar el total con "$NaN".
@@ -110,11 +128,15 @@ interface CartState {
   items: TotemCartItem[];
   add: (
     slug: string,
-    item: Omit<TotemCartItem, "quantity" | "removed" | "extras" | "pan" | "regalo"> & {
+    item: Omit<
+      TotemCartItem,
+      "quantity" | "removed" | "extras" | "pan" | "regalo" | "elecciones"
+    > & {
       removed?: TotemCartRemoval[];
       extras?: TotemCartExtra[];
       pan?: Pan;
       regalo?: UnidadesConRegalo[];
+      elecciones?: TotemCartEleccion[];
     },
   ) => void;
   /** Se sacan por clave, no por id: hay que decir cuál de las variantes. */
@@ -166,7 +188,7 @@ export const useTotemCart = create<CartState>()(
           const items = s.slug === slug ? s.items : [];
           const removed = item.removed ?? [];
           const extras = item.extras ?? [];
-          const clave = itemKey(item.kind, item.refId, removed, extras, item.pan);
+          const clave = itemKey(item.kind, item.refId, removed, extras, item.pan, item.elecciones);
           const found = items.find((i) => claveDe(i) === clave);
           return {
             slug,
@@ -190,7 +212,14 @@ export const useTotemCart = create<CartState>()(
           if (s.slug !== slug) return s;
           const linea = s.items.find((i) => claveDe(i) === claveVieja);
           if (!linea) return s;
-          const nuevaClave = itemKey(linea.kind, linea.refId, removed, extras, linea.pan);
+          const nuevaClave = itemKey(
+            linea.kind,
+            linea.refId,
+            removed,
+            extras,
+            linea.pan,
+            linea.elecciones,
+          );
           if (nuevaClave === claveVieja) return s;
           const resto = s.items.filter((i) => claveDe(i) !== claveVieja);
           const existente = resto.find((i) => claveDe(i) === nuevaClave);

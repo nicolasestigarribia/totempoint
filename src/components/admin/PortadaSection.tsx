@@ -57,6 +57,7 @@ const FUENTES: { value: MyTotemSettings["fontTheme"]; label: string; hint: strin
   { value: "moderno", label: "Moderno", hint: "Bien negro y macizo, urbano" },
   { value: "redondeado", label: "Redondeado", hint: "Simpático, para heladerías y cafés" },
   { value: "sobrio", label: "Sobrio", hint: "Sin adornos, todo en la misma familia" },
+  { value: "geometrica", label: "Geométrica", hint: "Gruesa y prolija, de marca moderna" },
 ];
 
 const ESQUINAS: { value: MyTotemSettings["corners"]; label: string; hint: string }[] = [

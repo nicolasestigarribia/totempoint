@@ -209,6 +209,17 @@ function LineasPedido({
               <span className="font-bold text-gold">{i.quantity}×</span> {i.productName}
             </span>
           </span>
+          {/* Los gustos de un combo a elección: es lo que hay que armar, uno por
+              renglón para contarlos rápido. */}
+          {i.elecciones.length > 0 && (
+            <ul className="mt-0.5 space-y-px pl-5 text-xs font-bold text-sky-300">
+              {i.elecciones.map((e, k) => (
+                <li key={k}>
+                  {e.quantity}× {e.name}
+                </li>
+              ))}
+            </ul>
+          )}
           {/* El pan, para el que arma la bandeja: un blanco por un negro es
               un sándwich equivocado. */}
           {i.pan && (

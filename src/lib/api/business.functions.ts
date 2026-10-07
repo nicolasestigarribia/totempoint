@@ -81,7 +81,7 @@ export interface MyTotemSettings {
   /** Base de color de las pantallas de adentro del tótem. */
   theme: "oscuro" | "claro" | "calido" | "noche" | "arena" | "bosque";
   /** Pareja de tipografías: cambia el aire sin tocar el contenido. */
-  fontTheme: "impacto" | "elegante" | "moderno" | "redondeado" | "sobrio";
+  fontTheme: "impacto" | "elegante" | "moderno" | "redondeado" | "sobrio" | "geometrica";
   /** Qué tan redondeadas van las cajas. */
   corners: "redondeado" | "suave" | "recto";
   heroImageUrl: string;
@@ -131,7 +131,7 @@ export const updateMyTotemSettings = createServerFn({ method: "POST" })
       template: z.enum(["clasico", "completo", "split"]),
       theme: z.enum(["oscuro", "claro", "calido", "noche", "arena", "bosque"]).default("oscuro"),
       fontTheme: z
-        .enum(["impacto", "elegante", "moderno", "redondeado", "sobrio"])
+        .enum(["impacto", "elegante", "moderno", "redondeado", "sobrio", "geometrica"])
         .default("impacto"),
       corners: z.enum(["redondeado", "suave", "recto"]).default("redondeado"),
       heroImageUrl: z.string().trim().max(500),

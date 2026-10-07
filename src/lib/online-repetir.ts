@@ -67,6 +67,21 @@ export function rearmarPedido(
         faltan.push(i.name);
         continue;
       }
+      // Un combo a elección se repite con sus gustos solo si siguen a la venta
+      // y suman lo que el combo trae hoy; si no, que lo arme de nuevo.
+      const elecciones = i.elecciones ?? [];
+      const gustosValidos = c.grupos.every(
+        (g) =>
+          elecciones
+            .filter((e) => e.grupo === g.indice)
+            .every((e) => g.opciones.some((o) => o.id === e.productId)) &&
+          elecciones.filter((e) => e.grupo === g.indice).reduce((t, e) => t + e.quantity, 0) ===
+            g.cantidad,
+      );
+      if (c.grupos.length > 0 && !gustosValidos) {
+        faltan.push(`${c.name} (armalo de nuevo, cambiaron los gustos)`);
+        continue;
+      }
       lineas.push({
         ...i,
         name: c.name,
@@ -76,6 +91,7 @@ export function rearmarPedido(
         removed: [],
         extras: [],
         pan: undefined,
+        elecciones: c.grupos.length > 0 ? elecciones : undefined,
       });
       continue;
     }
