@@ -10,6 +10,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `PARA-NICOLAS.md` is a handoff briefing in Spanish: the business rules and invariants that must not be changed, and the work still pending. Keep it in sync when either of those moves.
 
+## Team agents
+
+Shared subagents live in `.claude/agents/` (committed, so everyone on the repo gets them). Use them proactively:
+- **code-reviewer** — after writing or changing non-trivial code, review the diff (security, multi-tenant isolation, bugs).
+- **arquitecto-ts** — before building a new feature or changing structure, to design it against the project's patterns and invariants.
+- **test-engineer-ts** — for tests of permission rules and pure business logic (`bun test`), following the deliberately narrow coverage.
+- **doc-writer** — for README/guides/module docs.
+
+The `.NET`-flavoured agents some devs have user-globally (dotnet-*) do **not** apply here: this is TypeScript/TanStack/Drizzle, not C#.
+
 ## Commands
 
 Package manager is **bun** (`bun.lock`, `bunfig.toml`), not npm/pnpm.

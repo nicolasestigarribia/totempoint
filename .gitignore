@@ -32,5 +32,9 @@ dist-ssr
 *.sw?
 
 # Claude Code / misc
-.claude/
+# Se ignora todo .claude/ salvo los agentes compartidos del equipo: esos se
+# versionan para que el Claude Code de cualquiera del equipo los use.
+.claude/*
+!.claude/agents/
+.claude/settings.local.json
 *.stackdump
