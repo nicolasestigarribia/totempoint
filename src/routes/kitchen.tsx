@@ -878,7 +878,7 @@ function Kitchen() {
                           Cancelar todos
                         </button>
                       )}
-                      {grouped[col].length > 0 && (
+                      {col !== "recibido" && grouped[col].length > 0 && (
                         <button
                           type="button"
                           onClick={() => limpiarColumna(grouped[col])}
