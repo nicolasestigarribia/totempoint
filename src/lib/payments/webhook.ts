@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { orders, locations, paymentSettings } from "@/db/schema";
 import { traerPago } from "./mercadopago";
 import { acreditarPedido } from "./acreditar";
+import { registrarError } from "@/lib/logs/registrar";
 
 /**
  * Aviso de Mercado Pago de que pasó algo con un pago.
@@ -71,7 +72,7 @@ export async function handleMercadoPagoWebhook(request: Request): Promise<Respon
 
     return ok();
   } catch (error) {
-    console.error("Webhook de Mercado Pago:", error);
+    void registrarError({ context: "mp.webhook", error });
     return ok();
   }
 }

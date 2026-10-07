@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { auditLog } from "@/db/schema";
 import type { SessionUser } from "@/lib/auth/session";
 import type { AuditCategory } from "./categorias";
+import { registrarError } from "@/lib/logs/registrar";
 
 export interface EntradaAuditoria {
   category: AuditCategory;
@@ -39,7 +40,14 @@ export async function registrarAuditoria(user: SessionUser, e: EntradaAuditoria)
       details: e.details === undefined ? null : JSON.stringify(e.details),
     });
   } catch (err) {
-    console.error("No se pudo registrar la auditoría:", e.action, err);
+    void registrarError({
+      context: "auditoria.registrar",
+      error: err,
+      companyId: e.companyId === undefined ? user.companyId : e.companyId,
+      userId: user.id,
+      userEmail: user.email,
+      extra: { action: e.action },
+    });
   }
 }
 

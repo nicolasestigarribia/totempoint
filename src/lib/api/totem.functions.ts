@@ -43,6 +43,7 @@ import {
 } from "@/lib/regalo";
 import { distanciaKm, cotizarEnvio, formatearDistancia } from "@/lib/delivery";
 import { distanciaPorRutaKm } from "@/lib/maps/distance-server";
+import { registrarError } from "@/lib/logs/registrar";
 import {
   calcularConsumo,
   registrarVenta,
@@ -1202,7 +1203,12 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
     await asegurarCodigosDeVenta(company.id);
     consumo = await calcularConsumo(company.id, lineas);
   } catch (error) {
-    console.error("No se pudo calcular el stock de la venta:", error);
+    void registrarError({
+      context: "tomarPedido.calcularConsumo",
+      error,
+      companyId: company.id,
+      locationId: location.id,
+    });
   }
 
   let creado: { orderId: number; orderNumber: number };
@@ -1389,7 +1395,13 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       // pague, y quedaría escondido con el stock apartado. Se cancela ya, el
       // stock vuelve, y el cliente sabe que su pedido no salió.
       if (p.channel === "online") {
-        console.error(`Mercado Pago no generó el cobro del pedido ${creado.orderId}:`, error);
+        void registrarError({
+          context: "tomarPedido.mpPreferencia",
+          error,
+          companyId: company.id,
+          locationId: location.id,
+          extra: { orderId: creado.orderId },
+        });
         await db
           .update(orders)
           .set({ status: "cancelado", cancelledAt: new Date(), cancelledBy: null })
@@ -1397,7 +1409,13 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         try {
           await devolverVenta(creado.orderId);
         } catch (e) {
-          console.error(`No se pudo devolver el stock del pedido ${creado.orderId}:`, e);
+          void registrarError({
+            context: "tomarPedido.devolverVenta.mpFalla",
+            error: e,
+            companyId: company.id,
+            locationId: location.id,
+            extra: { orderId: creado.orderId },
+          });
         }
         throw new Error(
           "No pudimos generar el cobro con Mercado Pago y tu pedido no se envió. Probá de nuevo en un rato o elegí pagar en efectivo",
@@ -2299,7 +2317,13 @@ export const cancelOnlineOrder = createServerFn({ method: "POST" })
     try {
       await devolverVenta(o.id);
     } catch (error) {
-      console.error(`No se pudo devolver el stock del pedido ${o.id}:`, error);
+      void registrarError({
+        context: "cancelOnlineOrder.devolverVenta",
+        error,
+        companyId: company.id,
+        locationId: o.locationId,
+        extra: { orderId: o.id },
+      });
     }
     return { ok: true, reembolso: pagado };
   });

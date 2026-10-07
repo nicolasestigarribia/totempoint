@@ -936,3 +936,32 @@ export const auditLog = mysqlTable(
   },
   (t) => [index("audit_log_company_date_idx").on(t.companyId, t.createdAt)],
 );
+
+/**
+ * Registro de errores y excepciones del sistema. A diferencia de `audit_log`
+ * (cambios deliberados del panel, legibles), esto guarda lo que falló: una
+ * excepción no manejada, una devolución de stock que no salió, Mercado Pago que
+ * no respondió. Se diferencia por empresa y sucursal cuando el error las conoce
+ * (en los catches con contexto); en los crashes globales suele quedar en null.
+ *
+ * Lo escribe `registrarError` (nunca tira). Lo ve el superadmin; se purgan solos
+ * los de más de 90 días.
+ */
+export const logs = mysqlTable(
+  "logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Dónde / qué operación falló, ej. "orders.devolverVenta", "request". */
+    context: varchar("context", { length: 120 }).notNull(),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    companyId: int("company_id"),
+    locationId: int("location_id"),
+    userId: int("user_id"),
+    userEmail: varchar("user_email", { length: 255 }),
+    /** Datos sueltos útiles para reproducir (ids, input). JSON serializado. */
+    extra: text("extra"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("logs_created_idx").on(t.createdAt), index("logs_company_idx").on(t.companyId)],
+);

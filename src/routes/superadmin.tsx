@@ -27,6 +27,7 @@ import {
   Link2,
   Monitor,
   Globe,
+  Bug,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -42,6 +43,7 @@ import {
   type BusinessRow,
 } from "@/lib/api/platform.functions";
 import { FacturacionSection } from "@/components/admin/FacturacionSection";
+import { LogsSection } from "@/components/admin/LogsSection";
 import { PASSWORD_HINT, PASSWORD_MIN } from "@/lib/auth/password-policy";
 import { mensajeDeError } from "@/lib/error-message";
 
@@ -67,7 +69,7 @@ export const Route = createFileRoute("/superadmin")({
 
 // El panel de plataforma administra empresas y mira cuánto factura cada una:
 // el catálogo (ingredientes, categorías, códigos de acción) es de cada empresa.
-type SectionId = "negocios" | "facturacion";
+type SectionId = "negocios" | "facturacion" | "logs";
 
 const SECTIONS: { id: SectionId; label: string; icon: LucideIcon; desc: string }[] = [
   {
@@ -81,6 +83,12 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon; desc: string }
     label: "Facturación",
     icon: Receipt,
     desc: "Cuánto factura cada empresa",
+  },
+  {
+    id: "logs",
+    label: "Errores",
+    icon: Bug,
+    desc: "Excepciones y fallos del sistema",
   },
 ];
 
@@ -440,6 +448,8 @@ function SuperadminPage() {
         <div className="p-6 md:p-8">
           {section === "facturacion" ? (
             <FacturacionSection />
+          ) : section === "logs" ? (
+            <LogsSection />
           ) : (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-4">

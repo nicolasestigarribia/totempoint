@@ -12,6 +12,7 @@ import {
 import type { SessionUser } from "@/lib/auth/session";
 import { verificarPagoMP } from "@/lib/payments/verificar";
 import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
+import { registrarError } from "@/lib/logs/registrar";
 import { devolverVenta } from "@/lib/stock/venta";
 
 export type OrderStatus = "recibido" | "preparacion" | "entregado" | "cancelado";
@@ -236,7 +237,14 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
         try {
           await devolverVenta(id);
         } catch (error) {
-          console.error(`No se pudo devolver el stock del pedido vencido ${id}:`, error);
+          void registrarError({
+            context: "orders.devolverVenta.vencido",
+            error,
+            companyId: user.companyId,
+            userId: user.id,
+            userEmail: user.email,
+            extra: { orderId: id },
+          });
         }
       }
     }
@@ -587,7 +595,15 @@ export const cancelOrder = createServerFn({ method: "POST" })
     try {
       await devolverVenta(data.orderId);
     } catch (error) {
-      console.error(`No se pudo devolver el stock del pedido ${data.orderId}:`, error);
+      void registrarError({
+        context: "orders.devolverVenta.cancelar",
+        error,
+        companyId: user.companyId,
+        locationId: target.locationId,
+        userId: user.id,
+        userEmail: user.email,
+        extra: { orderId: data.orderId },
+      });
     }
 
     await registrarAuditoria(user, {
