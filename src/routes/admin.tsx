@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PantallaCarga } from "@/components/PantallaCarga";
 import {
   Flame,
   LogOut,
@@ -459,11 +460,7 @@ function AdminPage() {
   );
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PantallaCarga />;
   }
 
   if (noBusiness) {

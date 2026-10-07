@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
 import { esAppNativa } from "@/lib/print/native";
 import { getTotemUrl } from "@/lib/native/provisioning";
 import { TotemSetupScreen } from "@/components/totem/TotemSetupScreen";
+import { PantallaCarga } from "@/components/PantallaCarga";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -29,9 +29,5 @@ function Home() {
 
   if (modo === "setup") return <TotemSetupScreen />;
 
-  return (
-    <div className="flex min-h-dvh items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
-  );
+  return <PantallaCarga />;
 }
