@@ -50,6 +50,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { canEditSection } from "@/lib/auth/permissions";
+import { PantallaCarga } from "@/components/PantallaCarga";
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({ meta: [{ title: "Panel de cocina" }] }),
@@ -683,11 +684,7 @@ function Kitchen() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PantallaCarga />;
   }
 
   return (

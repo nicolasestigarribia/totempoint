@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Loader2, Eye, EyeOff, AlertCircle, KeyRound, Check } from "lucide-react";
 import { toast } from "sonner";
 import { me, changeMyPassword, type AuthUser } from "@/lib/api/auth.functions";
+import { PantallaCarga } from "@/components/PantallaCarga";
 import { checkPassword, PASSWORD_HINT } from "@/lib/auth/password-policy";
 import { mensajeDeError } from "@/lib/error-message";
 
@@ -83,11 +84,7 @@ function CuentaPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PantallaCarga />;
   }
 
   return (

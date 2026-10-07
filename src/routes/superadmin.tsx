@@ -44,6 +44,7 @@ import {
 } from "@/lib/api/platform.functions";
 import { FacturacionSection } from "@/components/admin/FacturacionSection";
 import { LogsSection } from "@/components/admin/LogsSection";
+import { PantallaCarga } from "@/components/PantallaCarga";
 import { PASSWORD_HINT, PASSWORD_MIN } from "@/lib/auth/password-policy";
 import { mensajeDeError } from "@/lib/error-message";
 
@@ -348,11 +349,7 @@ function SuperadminPage() {
   }, [sidebarOpen]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PantallaCarga />;
   }
 
   const current = SECTIONS.find((s) => s.id === section)!;
