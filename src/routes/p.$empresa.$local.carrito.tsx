@@ -22,6 +22,7 @@ import { OnlineError } from "@/components/online/OnlineError";
 import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { AvisoRegalo } from "@/components/totem/AvisoRegalo";
+import { guardarParaRepetir } from "@/lib/online-repetir";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { DireccionEntrega, type Destino } from "@/components/online/DireccionEntrega";
 import { cotizarEnvio, distanciaKm } from "@/lib/delivery";
@@ -279,6 +280,8 @@ function CarritoOnlinePage() {
         },
       });
       guardarUltimo({ sucursal: cartKey, token: r.trackingToken, hecho: Date.now() });
+      // Para ofrecerle "repetir" la próxima vez que entre.
+      guardarParaRepetir(cartKey, items);
       // Con Mercado Pago se paga en la página de Mercado Pago, que al terminar
       // vuelve a la de seguimiento. Si el cliente la abandona, el seguimiento
       // le vuelve a ofrecer el pago. Primero se muestra que vamos para allá y

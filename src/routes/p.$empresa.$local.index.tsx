@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ImageOff,
   Plus,
@@ -10,12 +10,22 @@ import {
   Bike,
   Store,
   Wallet,
+  Search,
+  X,
+  RotateCcw,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { TotemProduct, TotemCombo, OnlineMenu } from "@/lib/api/totem.functions";
 import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
+import {
+  haceCuanto,
+  leerParaRepetir,
+  rearmarPedido,
+  type PedidoGuardado,
+} from "@/lib/online-repetir";
 import { ElegirPan } from "@/components/totem/ElegirPan";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import {
@@ -29,6 +39,7 @@ import {
   claveDe,
   regaloDeProducto,
   regaloDelCarrito,
+  useTotemCart as useCarrito,
   type Pan,
 } from "@/lib/totem-cart";
 
@@ -73,6 +84,25 @@ function OnlineMenuPage() {
   );
 
   const minimo = Number(menu.minOrder);
+
+  // El buscador: con texto, el menú se reemplaza por lo que coincide.
+  const [busqueda, setBusqueda] = useState("");
+  const termino = normalizar(busqueda.trim());
+  const resultados = useMemo(() => {
+    if (!termino) return null;
+    const coincide = (...textos: (string | null | undefined)[]) =>
+      textos.some((t) => t && normalizar(t).includes(termino));
+    return {
+      combos: menu.combos.filter((c) =>
+        coincide(c.name, c.description, ...c.items.map((i) => i.name)),
+      ),
+      // Por número y nombre ("21 ·" antes que "40 ·"), no en el orden del menú,
+      // que mezcla categorías.
+      productos: menu.products
+        .filter((p) => coincide(p.name, p.description))
+        .sort((a, b) => a.name.localeCompare(b.name, "es", { numeric: true })),
+    };
+  }, [termino, menu.combos, menu.products]);
 
   // La categoría que se está viendo, marcada en la barra. En un menú largo,
   // scrolleando con el pulgar, es la forma de saber dónde estás sin volver
@@ -131,7 +161,34 @@ function OnlineMenuPage() {
           aria-label="Categorías"
           className="sticky top-16 z-20 mt-3 border-b border-border bg-background"
         >
+          <div className="mx-auto w-full max-w-2xl px-4 pt-1">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={busqueda}
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  window.scrollTo({ top: 0 });
+                }}
+                placeholder="Buscar: roquefort, palta, 21…"
+                aria-label="Buscar en el menú"
+                enterKeyHint="search"
+                className="h-11 w-full rounded-full border border-border bg-card/40 pl-9 pr-10 text-sm outline-none focus:border-primary"
+              />
+              {busqueda && (
+                <button
+                  type="button"
+                  onClick={() => setBusqueda("")}
+                  aria-label="Borrar búsqueda"
+                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </label>
+          </div>
           <div
+            hidden={!!resultados}
             ref={barra}
             className="no-scrollbar mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 py-3"
           >
@@ -162,36 +219,50 @@ function OnlineMenuPage() {
           </div>
         )}
 
-        {menu.combos.length > 0 && (
-          <section id="combos" className="scroll-mt-32 pb-6">
-            <h2 className="mb-3 font-display text-3xl">Combos</h2>
-            <div className="space-y-3">
-              {menu.combos.map((c) => (
-                <FilaCombo key={c.id} combo={c} cartKey={cartKey} accent={accent} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {secciones.map((c, idx) => (
-          <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-32 pb-6">
-            <h2 className="font-display text-3xl">{c.name}</h2>
-            {/* La misma bajada en varias categorías seguidas (las de miga) se
-                lee una vez: repetida cinco veces era un muro de texto. */}
-            {c.tagline && c.tagline !== secciones[idx - 1]?.tagline && (
-              <Bajada
-                texto={c.tagline}
-                regalo={c.productos.some((p) => p.regalo)}
-                accent={accent}
-              />
+        {resultados ? (
+          <Resultados
+            resultados={resultados}
+            busqueda={busqueda.trim()}
+            cartKey={cartKey}
+            accent={accent}
+          />
+        ) : (
+          <>
+            {cantidad === 0 && (
+              <RepetirPedido cartKey={cartKey} menu={menu} empresa={empresa} local={local} />
             )}
-            <div className="mt-3 space-y-3">
-              {c.productos.map((p) => (
-                <FilaProducto key={p.id} producto={p} cartKey={cartKey} accent={accent} />
-              ))}
-            </div>
-          </section>
-        ))}
+            {menu.combos.length > 0 && (
+              <section id="combos" className="scroll-mt-32 pb-6">
+                <h2 className="mb-3 font-display text-3xl">Combos</h2>
+                <div className="space-y-3">
+                  {menu.combos.map((c) => (
+                    <FilaCombo key={c.id} combo={c} cartKey={cartKey} accent={accent} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {secciones.map((c, idx) => (
+              <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-32 pb-6">
+                <h2 className="font-display text-3xl">{c.name}</h2>
+                {/* La misma bajada en varias categorías seguidas (las de miga) se
+                lee una vez: repetida cinco veces era un muro de texto. */}
+                {c.tagline && c.tagline !== secciones[idx - 1]?.tagline && (
+                  <Bajada
+                    texto={c.tagline}
+                    regalo={c.productos.some((p) => p.regalo)}
+                    accent={accent}
+                  />
+                )}
+                <div className="mt-3 space-y-3">
+                  {c.productos.map((p) => (
+                    <FilaProducto key={p.id} producto={p} cartKey={cartKey} accent={accent} />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </>
+        )}
       </main>
 
       {cantidad > 0 && (
@@ -278,6 +349,110 @@ function Bajada({ texto, regalo, accent }: { texto: string; regalo: boolean; acc
 function partirNombre(nombre: string): { numero: string | null; resto: string } {
   const m = nombre.match(/^0*(\d+)\s*·\s*(.+)$/);
   return m ? { numero: m[1], resto: m[2] } : { numero: null, resto: nombre };
+}
+
+/** Para buscar sin que importen tildes ni mayúsculas: "jamon" encuentra "Jamón". */
+function normalizar(t: string): string {
+  return t
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function Resultados({
+  resultados,
+  busqueda,
+  cartKey,
+  accent,
+}: {
+  resultados: { combos: TotemCombo[]; productos: TotemProduct[] };
+  busqueda: string;
+  cartKey: string;
+  accent: string;
+}) {
+  const total = resultados.combos.length + resultados.productos.length;
+  if (total === 0) {
+    return (
+      <div className="mt-8 text-center">
+        <p className="font-display text-2xl">No encontramos “{busqueda}”</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Probá con otra palabra, un ingrediente o el número del sándwich.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <section className="pb-6">
+      <p className="mb-3 text-sm text-muted-foreground">
+        {total} {total === 1 ? "resultado" : "resultados"} para “{busqueda}”
+      </p>
+      <div className="space-y-3">
+        {resultados.combos.map((c) => (
+          <FilaCombo key={`c${c.id}`} combo={c} cartKey={cartKey} accent={accent} />
+        ))}
+        {resultados.productos.map((p) => (
+          <FilaProducto key={`p${p.id}`} producto={p} cartKey={cartKey} accent={accent} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * "Tu último pedido", arriba del menú, para el que vuelve. Lo guarda el celular
+ * al enviar; repetir lo rearma con los precios de hoy y lo lleva a su pedido
+ * para que lo revise antes de mandarlo.
+ */
+function RepetirPedido({
+  cartKey,
+  menu,
+  empresa,
+  local,
+}: {
+  cartKey: string;
+  menu: OnlineMenu;
+  empresa: string;
+  local: string;
+}) {
+  const navigate = useNavigate();
+  const [guardado, setGuardado] = useState<PedidoGuardado | null>(null);
+  // Se lee en el navegador: en el servidor no hay celular que lo recuerde.
+  useEffect(() => setGuardado(leerParaRepetir(cartKey)), [cartKey]);
+  if (!guardado) return null;
+
+  const { lineas, faltan } = rearmarPedido(guardado, menu.products, menu.combos);
+  if (lineas.length === 0) return null;
+  // Con los precios y el regalo de hoy: es lo que va a pagar si lo repite.
+  const total = cartTotal(lineas);
+  const resumen = lineas.map((l) => `${l.quantity}× ${l.name}${l.pan ? ` (pan ${l.pan})` : ""}`);
+
+  const repetir = () => {
+    useCarrito.setState({ slug: cartKey, items: lineas });
+    if (faltan.length > 0) {
+      toast(`${faltan.join(", ")} ya no está en el menú: armamos el resto`, { duration: 6000 });
+    }
+    void navigate({ to: "/p/$empresa/$local/carrito", params: { empresa, local } });
+  };
+
+  return (
+    <section className="mb-6 rounded-3xl border border-border bg-card/40 p-4">
+      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        Tu último pedido · {haceCuanto(guardado.hecho)}
+      </p>
+      <p className="mt-1 line-clamp-2 text-sm">
+        {resumen.slice(0, 3).join(" · ")}
+        {resumen.length > 3 ? ` y ${resumen.length - 3} más` : ""}
+      </p>
+      <button
+        type="button"
+        onClick={repetir}
+        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-border font-bold"
+      >
+        <RotateCcw className="h-4 w-4" />
+        Repetir pedido · {formatPrice(total)}
+      </button>
+    </section>
+  );
 }
 
 function ChipCategoria({
