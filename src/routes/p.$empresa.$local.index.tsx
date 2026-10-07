@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ImageOff, Plus, Minus, ShoppingBag } from "lucide-react";
+import { ImageOff, Plus, Minus, ShoppingBag, ChevronDown } from "lucide-react";
 import type { TotemProduct, TotemCombo } from "@/lib/api/totem.functions";
 import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
@@ -297,6 +297,106 @@ function Cantidad({
   );
 }
 
+/**
+ * Una tarjeta del menú que se abre en el lugar.
+ *
+ * Cerrada es una fila compacta, para recorrer el menú rápido. Tocando la foto o
+ * el texto se abre ahí mismo: la foto grande y todo lo que dice, sin recortes
+ * —en un combo, cada cosa que trae en su renglón—. Tocando de nuevo se cierra.
+ * El agregar y el pan quedan afuera de esa zona, así que nunca se abre por
+ * querer agregar, ni se agrega por querer mirar.
+ */
+function TarjetaMenu({
+  foto,
+  nombre,
+  resumen,
+  detalle,
+  hayMas,
+  opciones,
+  pie,
+}: {
+  foto: string | null;
+  nombre: string;
+  /** Lo que se lee cerrada, recortado a dos renglones. */
+  resumen: React.ReactNode;
+  /** Lo que se lee abierta, completo. */
+  detalle: React.ReactNode;
+  /** Si abrirla muestra algo que cerrada no se ve: ahí se ofrece "Ver más". */
+  hayMas: boolean;
+  /** Lo que se elige (el pan): fuera de la zona que abre. */
+  opciones?: React.ReactNode;
+  /** Precio y agregar. */
+  pie: React.ReactNode;
+}) {
+  const [abierta, setAbierta] = useState(false);
+  const alternar = () => setAbierta((a) => !a);
+
+  const texto = (
+    <>
+      <h3 className="font-bold leading-tight">{nombre}</h3>
+      <div className="mt-0.5 text-sm text-muted-foreground">{abierta ? detalle : resumen}</div>
+      {(hayMas || abierta) && (
+        <span className="mt-1 inline-flex items-center gap-0.5 text-xs font-bold text-muted-foreground">
+          {abierta ? "Ver menos" : "Ver más"}
+          <ChevronDown className={`h-3.5 w-3.5 transition ${abierta ? "rotate-180" : ""}`} />
+        </span>
+      )}
+    </>
+  );
+  const resto = (
+    <>
+      {opciones && <div className="mt-1.5">{opciones}</div>}
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">{pie}</div>
+    </>
+  );
+
+  // Abierta: la foto grande arriba y todo el texto debajo.
+  if (abierta) {
+    return (
+      <article className="rounded-2xl border border-border bg-card/40 p-3">
+        <button type="button" onClick={alternar} aria-expanded className="block w-full text-left">
+          <div className="mb-3 aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted">
+            {foto ? (
+              <img src={foto} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <ImageOff className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          {texto}
+        </button>
+        {resto}
+      </article>
+    );
+  }
+
+  // Cerrada: la fila compacta de siempre. La foto y el texto abren; el pan y el
+  // agregar, no.
+  return (
+    <article className="flex gap-3 rounded-2xl border border-border bg-card/40 p-3">
+      <button
+        type="button"
+        onClick={alternar}
+        aria-expanded={false}
+        aria-label={`Ver ${nombre}`}
+        className="shrink-0 self-start"
+      >
+        <Foto url={foto} />
+      </button>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <button type="button" onClick={alternar} aria-expanded={false} className="text-left">
+          {texto}
+        </button>
+        {resto}
+      </div>
+    </article>
+  );
+}
+
+/** Más de esto en una descripción ya no entra en dos renglones de la tarjeta. */
+const LARGO_RESUMEN = 70;
+
 function FilaProducto({
   producto: p,
   cartKey,
@@ -316,24 +416,32 @@ function FilaProducto({
   const clave = itemKey("producto", p.id, [], [], pan);
   const enCarrito = items.find((i) => claveDe(i) === clave)?.quantity;
   const personalizable = p.removables.length > 0 || p.extras.length > 0;
+  const aviso = personalizable ? "Le podés sacar o agregar cosas desde tu pedido" : null;
 
   return (
-    <article className="flex gap-3 rounded-2xl border border-border bg-card/40 p-3">
-      <Foto url={p.photoUrl} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <h3 className="font-bold leading-tight">{p.name}</h3>
-        {p.description && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{p.description}</p>
-        )}
-        {personalizable && (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Le podés sacar o agregar cosas desde tu pedido
-          </p>
-        )}
-        <div className="mt-1.5">
+    <TarjetaMenu
+      foto={p.photoUrl}
+      nombre={p.name}
+      hayMas={(p.description?.length ?? 0) > LARGO_RESUMEN}
+      resumen={
+        <>
+          {p.description && <p className="line-clamp-2">{p.description}</p>}
+          {aviso && <p className="text-xs">{aviso}</p>}
+        </>
+      }
+      detalle={
+        <>
+          {p.description && <p>{p.description}</p>}
+          {aviso && <p className="text-xs">{aviso}</p>}
+        </>
+      }
+      opciones={
+        p.pan && (
           <ElegirPan pan={p.pan} elegido={panElegido} onElegir={setPanElegido} accent={accent} />
-        </div>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        )
+      }
+      pie={
+        <>
           <span className="font-display text-xl" style={{ color: accent }}>
             {formatPrice(p.price)}
           </span>
@@ -354,9 +462,9 @@ function FilaProducto({
               })
             }
           />
-        </div>
-      </div>
-    </article>
+        </>
+      }
+    />
   );
 }
 
@@ -373,16 +481,37 @@ function FilaCombo({
   const items = useCartForSlug(cartKey);
   const clave = itemKey("combo", c.id);
   const enCarrito = items.find((i) => claveDe(i) === clave)?.quantity;
+  const unidades = c.items.reduce((t, i) => t + i.quantity, 0);
 
   return (
-    <article className="flex gap-3 rounded-2xl border border-border bg-card/40 p-3">
-      <Foto url={c.photoUrl} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <h3 className="font-bold leading-tight">{c.name}</h3>
-        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
+    <TarjetaMenu
+      foto={c.photoUrl}
+      nombre={c.name}
+      // Un combo casi nunca entra en dos renglones: siempre se puede abrir.
+      hayMas
+      resumen={
+        <p className="line-clamp-2">
           {c.items.map((i) => `${i.quantity > 1 ? `${i.quantity}× ` : ""}${i.name}`).join(" + ")}
         </p>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+      }
+      detalle={
+        <>
+          {c.description && <p className="mb-2">{c.description}</p>}
+          <p className="text-xs font-bold uppercase tracking-wide">
+            Trae {unidades} {unidades === 1 ? "unidad" : "unidades"}
+          </p>
+          <ul className="mt-1 space-y-0.5 text-foreground">
+            {c.items.map((i, idx) => (
+              <li key={idx} className="flex gap-2">
+                <span className="w-7 shrink-0 text-right font-bold">{i.quantity}×</span>
+                <span>{i.name}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      }
+      pie={
+        <>
           <span className="font-display text-xl" style={{ color: accent }}>
             {formatPrice(c.price)}
           </span>
@@ -402,8 +531,8 @@ function FilaCombo({
               })
             }
           />
-        </div>
-      </div>
-    </article>
+        </>
+      }
+    />
   );
 }
