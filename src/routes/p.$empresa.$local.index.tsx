@@ -173,7 +173,7 @@ function OnlineMenuPage() {
                 placeholder="Buscar: roquefort, palta, 21…"
                 aria-label="Buscar en el menú"
                 enterKeyHint="search"
-                className="h-11 w-full rounded-full border border-border bg-card/40 pl-9 pr-10 text-sm outline-none focus:border-primary"
+                className="h-11 w-full rounded-full border border-border bg-card/40 pl-9 pr-10 text-base outline-none focus:border-primary"
               />
               {busqueda && (
                 <button

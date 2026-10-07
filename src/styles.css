@@ -365,3 +365,15 @@ input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* En pantallas táctiles, ninguna caja de texto por debajo de 16 px: el iPhone
+   agranda la página al tocar una con letra más chica y no la vuelve a achicar,
+   y el cliente queda viendo el menú con zoom. Pasó con el buscador del pedido
+   online (14 px). La regla cubre también las que se agreguen después. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}
