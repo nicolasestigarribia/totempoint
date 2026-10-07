@@ -85,7 +85,18 @@ function SeguimientoPage() {
       />
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
+        {/* Se actualiza solo: el punto que late lo dice sin palabras de más. */}
+        {!terminado && (
+          <p className="mb-3 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            </span>
+            En vivo
+          </p>
+        )}
         <Estado pedido={pedido} accent={accent} />
+        <Pasos pedido={pedido} accent={accent} />
 
         {pedido.puedeModificar ? (
           <AccionesPedido
@@ -321,6 +332,58 @@ function Estado({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string 
         </p>
       )}
     </Tarjeta>
+  );
+}
+
+/**
+ * Dónde está el pedido, en cuatro pasos. Responde de un vistazo lo que el
+ * cliente se pregunta mirando el celular: ¿ya lo vieron?, ¿lo están haciendo?
+ */
+function Pasos({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string }) {
+  if (pedido.status === "cancelado" || pedido.pagarEn) return null;
+  const envio = pedido.deliveryMethod === "envio";
+  const pasos = ["Enviado", "Confirmado", "Preparando", envio ? "Entregado" : "Listo"];
+  const actual = !pedido.acceptedAt
+    ? 0
+    : pedido.status === "recibido"
+      ? 1
+      : pedido.status === "preparacion"
+        ? 2
+        : 3;
+  return (
+    <ol className="mt-4 flex items-start" aria-label="Estado del pedido">
+      {pasos.map((paso, i) => {
+        const hecho = i <= actual;
+        return (
+          <li key={paso} className="flex flex-1 flex-col items-center gap-1.5 text-center">
+            <div className="flex w-full items-center">
+              <span
+                className="h-0.5 flex-1 transition-colors duration-700"
+                style={{ background: i === 0 ? "transparent" : hecho ? accent : "var(--border)" }}
+              />
+              <span
+                className={`flex h-3 w-3 shrink-0 rounded-full transition-colors duration-700 ${
+                  i === actual && i < 3 ? "ring-4 ring-current/20 animate-pulse" : ""
+                }`}
+                style={{ background: hecho ? accent : "var(--border)", color: accent }}
+              />
+              <span
+                className="h-0.5 flex-1 transition-colors duration-700"
+                style={{
+                  background:
+                    i === pasos.length - 1 ? "transparent" : i < actual ? accent : "var(--border)",
+                }}
+              />
+            </div>
+            <span
+              className={`text-[11px] font-bold ${hecho ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {paso}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

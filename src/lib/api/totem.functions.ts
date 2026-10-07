@@ -34,6 +34,7 @@ import {
 } from "@/lib/payments/mercadopago";
 import { acreditarPedido } from "@/lib/payments/acreditar";
 import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
+import { estadoHorario, type Horarios } from "@/lib/horario";
 import {
   calcularRegalo,
   type ParteRegalo,
@@ -1717,6 +1718,12 @@ export interface OnlineMenu extends TotemMenu {
    */
   origin: { lat: number; lng: number } | null;
   tiers: OnlineTier[];
+  /**
+   * Los turnos en que toma pedidos (0 = domingo). Null = sin horario. Viajan
+   * para que el celular muestre si está abierto y cuándo abre, y lo actualice
+   * solo mientras la página está abierta; el que decide es `createOnlineOrder`.
+   */
+  horarios: Horarios | null;
 }
 
 const onlineInput = {
@@ -1811,6 +1818,7 @@ async function resolverOnline(empresaSlug: string, localSlug: string) {
     minOrder: Number(settings.minOrder),
     origin,
     tiers,
+    horarios: settings.horarios ?? null,
   };
 }
 
@@ -1830,6 +1838,7 @@ export const getOnlineMenu = createServerFn({ method: "GET" })
       minOrder: r.minOrder.toFixed(2),
       origin: r.delivery ? r.origin : null,
       tiers: r.delivery ? r.tiers : [],
+      horarios: r.horarios,
     };
   });
 
@@ -1909,6 +1918,13 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
     const r = await resolverOnline(data.empresa, data.local);
+
+    // Fuera de horario no se toma, aunque el celular haya dejado armar el pedido
+    // (la página pudo quedar abierta desde antes de que cerraran).
+    const horario = estadoHorario(r.horarios);
+    if (!horario.abierto) {
+      throw new Error(`Ahora estamos cerrados. Tomamos pedidos de nuevo ${horario.texto}`);
+    }
 
     if (data.deliveryMethod === "mostrador" && !r.pickup) {
       throw new Error("Esta sucursal no está tomando pedidos para retirar");

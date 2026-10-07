@@ -8,6 +8,7 @@ import { companyIdOf } from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { registrarAuditoria, pesosAuditoria } from "@/lib/audit/registrar";
 import { isReservedSlug } from "@/lib/slug";
+import { DIAS, horaValida, type Horarios } from "@/lib/horario";
 
 /**
  * Configuración del pedido online de cada sucursal: si toma pedidos, si hace
@@ -38,6 +39,8 @@ export interface OnlineLocationConfig {
   minOrder: string;
   /** Link corto: /{alias}. Null si no eligió uno. */
   alias: string | null;
+  /** Turnos por día (0 = domingo). Null = sin horario: toma pedidos siempre. */
+  horarios: Horarios | null;
   /** Desde dónde salen los envíos. Null hasta que el dueño lo marca en el mapa. */
   origin: { lat: number; lng: number } | null;
   tiers: OnlineTierView[];
@@ -133,6 +136,7 @@ export const getOnlineConfig = createServerFn({ method: "GET" })
           cashEnabled: s?.cashEnabled ?? true,
           minOrder: s?.minOrder ?? "0.00",
           alias: s?.alias ?? null,
+          horarios: s?.horarios ?? null,
           origin:
             s?.originLat != null && s.originLng != null
               ? { lat: Number(s.originLat), lng: Number(s.originLng) }
@@ -182,6 +186,50 @@ export const saveOnlineSettings = createServerFn({ method: "POST" })
         cashEnabled: data.cashEnabled,
         minOrder: data.minOrder.toFixed(2),
       })
+      .where(eq(onlineSettings.locationId, loc.id));
+    return { ok: true };
+  });
+
+/**
+ * El horario del pedido online. Fuera de él el menú se sigue viendo, pero el
+ * pedido no se toma: `createOnlineOrder` lo vuelve a mirar, no alcanza con lo
+ * que muestre el celular.
+ */
+export const saveOnlineHorario = createServerFn({ method: "POST" })
+  .middleware([requireOwner])
+  .inputValidator(
+    z.object({
+      locationId: z.number().int(),
+      /** Null = sin horario: toma pedidos siempre que esté encendido. */
+      horarios: z
+        .array(
+          z
+            .array(
+              z.object({
+                desde: z.string().refine(horaValida, "Revisá las horas: van como 19:30"),
+                hasta: z.string().refine(horaValida, "Revisá las horas: van como 23:30"),
+              }),
+            )
+            .max(4, "Hasta 4 turnos por día"),
+        )
+        .length(7)
+        .nullable(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    const user = context.user as SessionUser;
+    const loc = await sucursalPropia(user, data.locationId);
+    data.horarios?.forEach((turnos, dia) => {
+      for (const t of turnos) {
+        if (t.desde === t.hasta) {
+          throw new Error(`El ${DIAS[dia]} tiene un turno que empieza y termina a la misma hora`);
+        }
+      }
+    });
+    await asegurarSettings(loc.companyId, loc.id);
+    await db
+      .update(onlineSettings)
+      .set({ horarios: data.horarios })
       .where(eq(onlineSettings.locationId, loc.id));
     return { ok: true };
   });

@@ -377,3 +377,83 @@ input[type="number"] {
     font-size: max(16px, 1em) !important;
   }
 }
+
+/* Franja que pasa sola (la información del local en el pedido online). El
+   contenido va dos veces seguido y se corre la mitad: así el loop no tiene
+   salto. Se frena al apoyar el dedo, para poder leerla, y no se mueve si el
+   teléfono pide reducir el movimiento. */
+@keyframes marquesina {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquesina-caja {
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 20px,
+    #000 calc(100% - 20px),
+    transparent
+  );
+}
+.marquesina {
+  display: flex;
+  width: max-content;
+  animation: marquesina var(--marquesina-duracion, 30s) linear infinite;
+}
+.marquesina-caja:hover .marquesina,
+.marquesina-caja:active .marquesina {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquesina {
+    animation: none;
+  }
+}
+
+/* Brillo que recorre una foto mientras carga: se ve que algo viene, en vez
+   de un cuadrado vacío. */
+@keyframes brillo {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.cargando-foto {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 30%,
+    color-mix(in oklab, var(--muted), white 10%) 50%,
+    var(--muted) 70%
+  );
+  background-size: 200% 100%;
+  animation: brillo 1.4s linear infinite;
+}
+
+/* Un latido corto: confirma que lo que tocaste entró, sin tapar nada. */
+@keyframes latido {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.latido {
+  animation: latido 360ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cargando-foto,
+  .latido {
+    animation: none;
+  }
+}

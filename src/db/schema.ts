@@ -11,6 +11,7 @@ import {
   text,
   mediumtext,
   date,
+  json,
   unique,
   index,
 } from "drizzle-orm/mysql-core";
@@ -783,6 +784,12 @@ export const onlineSettings = mysqlTable(
      * después del dominio.
      */
     alias: varchar("alias", { length: 40 }),
+    /**
+     * Cuándo toma pedidos: turnos por día de la semana (0 = domingo), en hora
+     * argentina. Null o sin turnos = siempre que `enabled` esté encendido.
+     * Fuera de horario el menú se ve pero no se puede pedir. Ver `src/lib/horario.ts`.
+     */
+    horarios: json("horarios").$type<{ desde: string; hasta: string }[][]>(),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [

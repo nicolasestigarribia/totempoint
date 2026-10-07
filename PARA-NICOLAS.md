@@ -276,7 +276,7 @@ La etapa 1 está hecha y probada de punta a punta (envío y retiro, aceptar y re
   pedido online no pasa por ninguna tablet. Lo natural es que imprima la comandera al aceptarlo.
 - **Abrir y cerrar el canal lo hace solo el dueño** (sección "Pedido online"). Si lo va a hacer el
   de la caja, hay que volverlo un permiso delegable — y extender `user_permissions.section`.
-- **Horario del canal** ("cerrado, abrimos a las 19") y estado "en camino" para el envío.
+- **Estado "en camino" para el envío.** El horario del canal ya está: se carga en Pedido online → Horario y fuera de hora no se toman pedidos (lo frena el servidor).
 - **El bot de WhatsApp** contestando con el link y avisando los cambios de estado.
 - **Mercado Pago no está probado con una cobranza real** del lado online: se probó con credenciales
   de prueba. Antes de que un cliente lo use, hacer un pago chico de verdad con su token `APP_USR-`.

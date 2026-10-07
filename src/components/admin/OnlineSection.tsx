@@ -12,6 +12,8 @@ import {
   ExternalLink,
   MessageCircle,
   AlertTriangle,
+  Clock,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,7 @@ import {
   saveOnlineSettings,
   saveDeliveryOrigin,
   saveOnlineAlias,
+  saveOnlineHorario,
   saveDeliveryTier,
   deleteDeliveryTier,
   type OnlineConfig,
@@ -33,6 +36,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { BuscadorDireccion } from "@/components/online/BuscadorDireccion";
 import { MapaPin } from "@/components/online/MapaPin";
 import type { Punto } from "@/lib/delivery";
+import { DIAS, estadoHorario, horaValida, type Horarios, type Turno } from "@/lib/horario";
 
 /**
  * Pedido online: el link que el cliente abre en su celular para pedir con
@@ -138,6 +142,7 @@ function SucursalOnline({
   const [cash, setCash] = useState(loc.cashEnabled);
   const [minOrder, setMinOrder] = useState(String(Number(loc.minOrder) || ""));
   const [saving, setSaving] = useState(false);
+  const horarioAhora = estadoHorario(loc.horarios);
 
   const faltaParaEnvio = !loc.origin
     ? "Marcá abajo en el mapa dónde está la sucursal: sin eso no se puede medir la distancia de los envíos."
@@ -181,10 +186,18 @@ function SucursalOnline({
           </div>
           <span
             className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
-              loc.enabled ? "bg-green-500/15 text-green-500" : "bg-muted text-muted-foreground"
+              loc.enabled && horarioAhora.abierto
+                ? "bg-green-500/15 text-green-500"
+                : loc.enabled
+                  ? "bg-amber-500/15 text-amber-400"
+                  : "bg-muted text-muted-foreground"
             }`}
           >
-            {loc.enabled ? "Tomando pedidos" : "Cerrado"}
+            {!loc.enabled
+              ? "Cerrado"
+              : horarioAhora.abierto
+                ? "Tomando pedidos"
+                : `Fuera de horario · abre ${horarioAhora.texto}`}
           </span>
         </div>
 
@@ -207,6 +220,8 @@ function SucursalOnline({
           />
         </div>
       </div>
+
+      <HorarioOnline loc={loc} panelClass={panelClass} onChange={onChange} />
 
       <LinkOnline
         empresa={companySlug}
@@ -275,6 +290,194 @@ function SucursalOnline({
 
       <EnviosPorDistancia loc={loc} panelClass={panelClass} onChange={onChange} />
     </>
+  );
+}
+
+/** Lunes primero, como en un local: el domingo va al final. */
+const ORDEN_DIAS = [1, 2, 3, 4, 5, 6, 0];
+const SIN_TURNOS = (): Horarios => Array.from({ length: 7 }, () => []);
+
+/**
+ * Cuándo toma pedidos online la sucursal. Fuera de horario el cliente ve el
+ * menú y cuándo abren, pero no puede enviar: lo frena el servidor, no solo la
+ * pantalla. El interruptor de arriba sigue sirviendo para cerrar un rato (se
+ * quedaron sin pan, se cortó la luz) aunque sea horario.
+ */
+function HorarioOnline({
+  loc,
+  panelClass,
+  onChange,
+}: {
+  loc: OnlineLocationConfig;
+  panelClass: string;
+  onChange: () => Promise<void>;
+}) {
+  const save = useServerFn(saveOnlineHorario);
+  const [conHorario, setConHorario] = useState(loc.horarios !== null);
+  const [dias, setDias] = useState<Horarios>(loc.horarios ?? SIN_TURNOS());
+  const [saving, setSaving] = useState(false);
+
+  const cambiarTurnos = (dia: number, turnos: Turno[]) =>
+    setDias((d) => d.map((t, i) => (i === dia ? turnos : t)));
+
+  const guardar = async () => {
+    if (conHorario && dias.every((t) => t.length === 0)) {
+      toast.error("Marcá al menos un día con su horario, o apagá el horario");
+      return;
+    }
+    if (conHorario) {
+      const mal = dias.some((t) => t.some((x) => !horaValida(x.desde) || !horaValida(x.hasta)));
+      if (mal) {
+        toast.error("Completá todas las horas de los turnos");
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      await save({ data: { locationId: loc.locationId, horarios: conHorario ? dias : null } });
+      toast.success(conHorario ? "Horario guardado" : "Sin horario: toma pedidos siempre");
+      await onChange();
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo guardar el horario"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const estado = conHorario ? estadoHorario(dias) : null;
+
+  return (
+    <div className={`space-y-4 p-6 ${panelClass}`}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h4 className="flex items-center gap-2 font-bold">
+            <Clock className="h-4 w-4" /> Horario de pedidos online
+          </h4>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+            Fuera de horario el cliente ve el menú y cuándo abren, pero no puede mandar el pedido.
+            Un turno que termina después de medianoche (20:00 a 02:00) también vale.
+          </p>
+        </div>
+        <Switch checked={conHorario} onCheckedChange={setConHorario} />
+      </div>
+
+      {!conHorario ? (
+        <p className="text-sm text-muted-foreground">
+          Sin horario: toma pedidos siempre que esté encendido.
+        </p>
+      ) : (
+        <>
+          <div className="divide-y divide-border rounded-2xl border border-border">
+            {ORDEN_DIAS.map((dia) => {
+              const turnos = dias[dia];
+              return (
+                <div key={dia} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <Switch
+                    checked={turnos.length > 0}
+                    onCheckedChange={(v) =>
+                      cambiarTurnos(dia, v ? [{ desde: "11:00", hasta: "15:00" }] : [])
+                    }
+                    aria-label={`Abre el ${DIAS[dia]}`}
+                  />
+                  <span className="w-24 font-medium capitalize">{DIAS[dia]}</span>
+                  {turnos.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">Cerrado</span>
+                  ) : (
+                    <div className="flex flex-1 flex-wrap items-center gap-2">
+                      {turnos.map((t, i) => (
+                        <span
+                          key={i}
+                          className="flex items-center gap-1 rounded-xl border border-border px-2 py-1"
+                        >
+                          <Input
+                            type="time"
+                            value={t.desde}
+                            aria-label="Desde"
+                            onChange={(e) =>
+                              cambiarTurnos(
+                                dia,
+                                turnos.map((x, j) =>
+                                  j === i ? { ...x, desde: e.target.value } : x,
+                                ),
+                              )
+                            }
+                            className="h-8 w-[6.5rem] border-0 px-1"
+                          />
+                          <span className="text-sm text-muted-foreground">a</span>
+                          <Input
+                            type="time"
+                            value={t.hasta}
+                            aria-label="Hasta"
+                            onChange={(e) =>
+                              cambiarTurnos(
+                                dia,
+                                turnos.map((x, j) =>
+                                  j === i ? { ...x, hasta: e.target.value } : x,
+                                ),
+                              )
+                            }
+                            className="h-8 w-[6.5rem] border-0 px-1"
+                          />
+                          <button
+                            type="button"
+                            aria-label="Quitar turno"
+                            onClick={() =>
+                              cambiarTurnos(
+                                dia,
+                                turnos.filter((_, j) => j !== i),
+                              )
+                            }
+                            className="rounded-full p-1 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                      {turnos.length < 4 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            cambiarTurnos(dia, [...turnos, { desde: "19:00", hasta: "23:00" }])
+                          }
+                          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> turno
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDias(SIN_TURNOS().map(() => dias[1].map((t) => ({ ...t }))))}
+            >
+              Copiar el lunes a todos los días
+            </Button>
+            {estado && (
+              <span className="text-sm text-muted-foreground">
+                Con este horario, ahora estaría{" "}
+                {estado.abierto ? (
+                  <span className="text-green-500">abierto {estado.texto}</span>
+                ) : (
+                  <span className="text-amber-400">cerrado · abre {estado.texto}</span>
+                )}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      <Button onClick={guardar} disabled={saving} className="gap-2">
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        Guardar horario
+      </Button>
+    </div>
   );
 }
 

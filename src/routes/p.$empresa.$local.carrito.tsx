@@ -13,6 +13,7 @@ import {
   Smartphone,
   ShoppingBag,
   ImageOff,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createOnlineOrder, type TotemProduct } from "@/lib/api/totem.functions";
@@ -23,6 +24,7 @@ import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { AvisoRegalo } from "@/components/totem/AvisoRegalo";
 import { guardarParaRepetir } from "@/lib/online-repetir";
+import { useHorario } from "@/components/online/useHorario";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { DireccionEntrega, type Destino } from "@/components/online/DireccionEntrega";
 import { cotizarEnvio, distanciaKm } from "@/lib/delivery";
@@ -131,6 +133,8 @@ function CarritoOnlinePage() {
 
   const items = useCartForSlug(cartKey);
   const carritoCargado = useCarritoCargado();
+  // Fuera de horario se puede armar, pero no enviar: lo frena también el servidor.
+  const horario = useHorario(menu.horarios);
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);
   const removeAll = useTotemCart((s) => s.removeAll);
@@ -746,14 +750,24 @@ function CarritoOnlinePage() {
                 </p>
               )}
             </div>
+            {!horario.abierto && (
+              <p className="mb-2 flex items-center justify-center gap-1.5 text-sm font-bold text-amber-300">
+                <Clock className="h-4 w-4" />
+                Estamos cerrados: tomamos pedidos {horario.texto}
+              </p>
+            )}
             <button
               type="submit"
-              disabled={enviando || faltaParaMinimo > 0 || hayNoDisponibles}
+              disabled={enviando || faltaParaMinimo > 0 || hayNoDisponibles || !horario.abierto}
               className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-lg font-bold text-white disabled:opacity-50"
               style={{ background: accent }}
             >
               {enviando && <Loader2 className="h-5 w-5 animate-spin" />}
-              {pago === "mercadopago" ? "Enviar y pagar" : "Enviar pedido"}
+              {!horario.abierto
+                ? "Cerrado por ahora"
+                : pago === "mercadopago"
+                  ? "Enviar y pagar"
+                  : "Enviar pedido"}
             </button>
           </div>
         </div>

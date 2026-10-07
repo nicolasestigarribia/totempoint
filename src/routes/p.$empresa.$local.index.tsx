@@ -13,6 +13,8 @@ import {
   Search,
   X,
   RotateCcw,
+  Radio,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { TotemProduct, TotemCombo, OnlineMenu } from "@/lib/api/totem.functions";
@@ -20,6 +22,8 @@ import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
+import { useHorario } from "@/components/online/useHorario";
+import type { EstadoHorario } from "@/lib/horario";
 import {
   haceCuanto,
   leerParaRepetir,
@@ -73,6 +77,7 @@ function OnlineMenuPage() {
   const total = cartTotal(items);
   const cantidad = cartCount(items);
   const regalo = regaloDelCarrito(items);
+  const horario = useHorario(menu.horarios);
 
   const secciones = useMemo(
     () =>
@@ -154,7 +159,7 @@ function OnlineMenuPage() {
         minimoLabel={minimo > 0 ? `Mínimo ${formatPrice(minimo)}` : undefined}
       />
 
-      <InfoDelLocal menu={menu} />
+      <InfoDelLocal menu={menu} horario={horario} />
 
       {(secciones.length > 1 || menu.combos.length > 0) && (
         <nav
@@ -228,6 +233,18 @@ function OnlineMenuPage() {
           />
         ) : (
           <>
+            {!horario.abierto && (
+              <div className="mb-5 flex items-start gap-3 rounded-3xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">
+                <Clock className="mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <p className="font-bold">Ahora estamos cerrados</p>
+                  <p className="text-sm opacity-90">
+                    Tomamos pedidos {horario.texto}. Mientras tanto podés mirar el menú y armar tu
+                    pedido.
+                  </p>
+                </div>
+              </div>
+            )}
             {cantidad === 0 && (
               <RepetirPedido cartKey={cartKey} menu={menu} empresa={empresa} local={local} />
             )}
@@ -279,7 +296,8 @@ function OnlineMenuPage() {
           <Link
             to="/p/$empresa/$local/carrito"
             params={{ empresa, local }}
-            className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between rounded-2xl px-5 font-bold text-white"
+            key={cantidad}
+            className="latido mx-auto flex h-14 w-full max-w-2xl items-center justify-between rounded-2xl px-5 font-bold text-white"
             style={{ background: accent }}
           >
             <span className="flex items-center gap-2">
@@ -298,9 +316,11 @@ function OnlineMenuPage() {
  * Lo que el cliente quiere saber antes de elegir: si le llevan, si puede
  * retirar y cómo paga. Una franja de una línea, debajo de la marca.
  */
-function InfoDelLocal({ menu }: { menu: OnlineMenu }) {
+function InfoDelLocal({ menu, horario }: { menu: OnlineMenu; horario: EstadoHorario }) {
   const envioDesde = menu.tiers.length ? Math.min(...menu.tiers.map((t) => Number(t.price))) : null;
   const pagos = [menu.mercadoPago && "Mercado Pago", menu.cash && "efectivo"].filter(Boolean);
+  const minimo = Number(menu.minOrder);
+  const conRegalo = menu.products.find((p) => p.regalo)?.regalo;
   const datos = [
     menu.delivery && {
       icono: Bike,
@@ -312,21 +332,64 @@ function InfoDelLocal({ menu }: { menu: OnlineMenu }) {
             : `Envío desde ${formatPrice(envioDesde)}`,
     },
     menu.pickup && { icono: Store, texto: "Retiro en el local" },
-    pagos.length > 0 && { icono: Wallet, texto: pagos.join(" o ") },
+    pagos.length > 0 && { icono: Wallet, texto: `Pagás con ${pagos.join(" o ")}` },
+    conRegalo && {
+      icono: Gift,
+      texto: `Cada ${conRegalo.cada}, ${conRegalo.cantidad} de regalo`,
+    },
+    minimo > 0 && { icono: ShoppingBag, texto: `Pedido mínimo ${formatPrice(minimo)}` },
+    { icono: Radio, texto: "Seguí tu pedido en vivo" },
   ].filter((d): d is { icono: typeof Bike; texto: string } => !!d);
-  if (datos.length === 0) return null;
+
+  // El estado va primero y fijo, con su punto que late: es lo único que cambia
+  // con la hora y lo primero que alguien quiere saber.
+  const estado = (
+    <span
+      className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${
+        horario.abierto ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-300"
+      }`}
+    >
+      <span className="relative flex h-2 w-2">
+        {horario.abierto && (
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+        )}
+        <span
+          className={`relative inline-flex h-2 w-2 rounded-full ${
+            horario.abierto ? "bg-emerald-400" : "bg-amber-300"
+          }`}
+        />
+      </span>
+      {horario.abierto
+        ? horario.texto
+          ? `Abierto ${horario.texto}`
+          : "Abierto ahora"
+        : `Cerrado · abre ${horario.texto}`}
+    </span>
+  );
+
+  const pastilla = ({ icono: Icono, texto }: (typeof datos)[number], copia: number) => (
+    <span
+      key={`${copia}-${texto}`}
+      className="mr-2 flex shrink-0 items-center gap-1.5 rounded-full bg-card/60 px-3 py-1.5 text-xs font-bold text-muted-foreground"
+    >
+      <Icono className="h-3.5 w-3.5" />
+      {texto}
+    </span>
+  );
 
   return (
-    <div className="no-scrollbar mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 pt-3">
-      {datos.map(({ icono: Icono, texto }) => (
-        <span
-          key={texto}
-          className="flex shrink-0 items-center gap-1.5 rounded-full bg-card/60 px-3 py-1.5 text-xs font-bold text-muted-foreground"
+    <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 pt-3">
+      {estado}
+      {/* Pasa sola, de derecha a izquierda; con el dedo encima se frena. */}
+      <div className="marquesina-caja min-w-0 flex-1">
+        <div
+          className="marquesina"
+          style={{ "--marquesina-duracion": `${datos.length * 5}s` } as React.CSSProperties}
         >
-          <Icono className="h-3.5 w-3.5" />
-          {texto}
-        </span>
-      ))}
+          {datos.map((d) => pastilla(d, 0))}
+          {datos.map((d) => pastilla(d, 1))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -489,10 +552,24 @@ function ChipCategoria({
 }
 
 function Foto({ url }: { url: string | null }) {
+  const [cargada, setCargada] = useState(false);
   return (
-    <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-muted">
+    <div
+      className={`h-24 w-24 shrink-0 overflow-hidden rounded-2xl ${url && !cargada ? "cargando-foto" : "bg-muted"}`}
+    >
       {url ? (
-        <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          onLoad={() => setCargada(true)}
+          // Si ya estaba en caché, terminó de cargar antes de que la página
+          // se activara y el onLoad no llega: se mira al montarla.
+          ref={(el) => {
+            if (el?.complete && el.naturalWidth > 0 && !cargada) setCargada(true);
+          }}
+          className={`h-full w-full object-cover transition-opacity duration-500 ${cargada ? "opacity-100" : "opacity-0"}`}
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
           <ImageOff className="h-6 w-6 text-muted-foreground" />
