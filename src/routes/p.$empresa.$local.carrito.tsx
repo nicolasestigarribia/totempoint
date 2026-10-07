@@ -28,6 +28,7 @@ import { cotizarEnvio, distanciaKm } from "@/lib/delivery";
 import {
   useTotemCart,
   useCartForSlug,
+  useCarritoCargado,
   useRepriceCart,
   cartTotal,
   precioLinea,
@@ -128,6 +129,7 @@ function CarritoOnlinePage() {
   const placeOrder = useServerFn(createOnlineOrder);
 
   const items = useCartForSlug(cartKey);
+  const carritoCargado = useCarritoCargado();
   const add = useTotemCart((s) => s.add);
   const removeOne = useTotemCart((s) => s.removeOne);
   const removeAll = useTotemCart((s) => s.removeAll);
@@ -341,6 +343,22 @@ function CarritoOnlinePage() {
             Ver mi pedido
           </Link>
         </main>
+      </div>
+    );
+  }
+
+  // Sin el carrito leído todavía, ni vacío ni lleno: solo la barra de arriba.
+  if (!carritoCargado) {
+    return (
+      <div className="flex min-h-svh flex-col bg-background">
+        <OnlineHeader
+          empresa={empresa}
+          local={local}
+          name={menu.name}
+          sucursal={menu.locationName}
+          logoUrl={menu.logoUrl}
+          volver="Volver al menú"
+        />
       </div>
     );
   }

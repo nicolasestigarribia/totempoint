@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ImageOff, Plus, Minus, ShoppingBag, ChevronDown } from "lucide-react";
-import type { TotemProduct, TotemCombo } from "@/lib/api/totem.functions";
+import {
+  ImageOff,
+  Plus,
+  Minus,
+  ShoppingBag,
+  ChevronDown,
+  Gift,
+  Bike,
+  Store,
+  Wallet,
+} from "lucide-react";
+import type { TotemProduct, TotemCombo, OnlineMenu } from "@/lib/api/totem.functions";
 import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
@@ -18,6 +28,7 @@ import {
   itemKey,
   claveDe,
   regaloDeProducto,
+  regaloDelCarrito,
   type Pan,
 } from "@/lib/totem-cart";
 
@@ -50,6 +61,7 @@ function OnlineMenuPage() {
   const items = useCartForSlug(cartKey);
   const total = cartTotal(items);
   const cantidad = cartCount(items);
+  const regalo = regaloDelCarrito(items);
 
   const secciones = useMemo(
     () =>
@@ -112,6 +124,8 @@ function OnlineMenuPage() {
         minimoLabel={minimo > 0 ? `Mínimo ${formatPrice(minimo)}` : undefined}
       />
 
+      <InfoDelLocal menu={menu} />
+
       {(secciones.length > 1 || menu.combos.length > 0) && (
         <nav
           aria-label="Categorías"
@@ -119,7 +133,7 @@ function OnlineMenuPage() {
         >
           <div
             ref={barra}
-            className="mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 py-3"
+            className="no-scrollbar mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 py-3"
           >
             {menu.combos.length > 0 && (
               <ChipCategoria id="combos" label="Combos" activa={activa} accent={accent} />
@@ -159,10 +173,18 @@ function OnlineMenuPage() {
           </section>
         )}
 
-        {secciones.map((c) => (
+        {secciones.map((c, idx) => (
           <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-32 pb-6">
             <h2 className="font-display text-3xl">{c.name}</h2>
-            {c.tagline && <p className="text-sm text-muted-foreground">{c.tagline}</p>}
+            {/* La misma bajada en varias categorías seguidas (las de miga) se
+                lee una vez: repetida cinco veces era un muro de texto. */}
+            {c.tagline && c.tagline !== secciones[idx - 1]?.tagline && (
+              <Bajada
+                texto={c.tagline}
+                regalo={c.productos.some((p) => p.regalo)}
+                accent={accent}
+              />
+            )}
             <div className="mt-3 space-y-3">
               {c.productos.map((p) => (
                 <FilaProducto key={p.id} producto={p} cartKey={cartKey} accent={accent} />
@@ -174,6 +196,15 @@ function OnlineMenuPage() {
 
       {cantidad > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background p-4">
+          {/* Ya ganó sándwiches de regalo y no los eligió: se le recuerda acá,
+              que es donde está mirando mientras arma el pedido. */}
+          {regalo.pendientes > 0 && (
+            <p className="mx-auto mb-2 flex w-full max-w-2xl items-center justify-center gap-1.5 text-sm font-bold text-emerald-400">
+              <Gift className="h-4 w-4" />
+              Te {regalo.pendientes === 1 ? "corresponde" : "corresponden"} {regalo.pendientes} de
+              regalo: elegilos y no te los cobramos
+            </p>
+          )}
           <Link
             to="/p/$empresa/$local/carrito"
             params={{ empresa, local }}
@@ -190,6 +221,63 @@ function OnlineMenuPage() {
       )}
     </div>
   );
+}
+
+/**
+ * Lo que el cliente quiere saber antes de elegir: si le llevan, si puede
+ * retirar y cómo paga. Una franja de una línea, debajo de la marca.
+ */
+function InfoDelLocal({ menu }: { menu: OnlineMenu }) {
+  const envioDesde = menu.tiers.length ? Math.min(...menu.tiers.map((t) => Number(t.price))) : null;
+  const pagos = [menu.mercadoPago && "Mercado Pago", menu.cash && "efectivo"].filter(Boolean);
+  const datos = [
+    menu.delivery && {
+      icono: Bike,
+      texto:
+        envioDesde === null
+          ? "Envío a domicilio"
+          : envioDesde === 0
+            ? "Envío gratis cerca"
+            : `Envío desde ${formatPrice(envioDesde)}`,
+    },
+    menu.pickup && { icono: Store, texto: "Retiro en el local" },
+    pagos.length > 0 && { icono: Wallet, texto: pagos.join(" o ") },
+  ].filter((d): d is { icono: typeof Bike; texto: string } => !!d);
+  if (datos.length === 0) return null;
+
+  return (
+    <div className="no-scrollbar mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 pt-3">
+      {datos.map(({ icono: Icono, texto }) => (
+        <span
+          key={texto}
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-card/60 px-3 py-1.5 text-xs font-bold text-muted-foreground"
+        >
+          <Icono className="h-3.5 w-3.5" />
+          {texto}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** La bajada de una categoría. Si tiene regalo, va como aviso, con su ícono. */
+function Bajada({ texto, regalo, accent }: { texto: string; regalo: boolean; accent: string }) {
+  if (!regalo) return <p className="text-sm text-muted-foreground">{texto}</p>;
+  return (
+    <p className="mt-2 flex items-start gap-2.5 rounded-2xl border border-border bg-card/40 p-3 text-sm text-muted-foreground">
+      <Gift className="mt-0.5 h-4 w-4 shrink-0" style={{ color: accent }} />
+      {texto}
+    </p>
+  );
+}
+
+/**
+ * "01 · Jamón y queso" → el número aparte, para mostrarlo como en la carta
+ * de la casa ("N°1"). Los que no tienen número quedan como están.
+ */
+function partirNombre(nombre: string): { numero: string | null; resto: string } {
+  const m = nombre.match(/^0*(\d+)\s*·\s*(.+)$/);
+  return m ? { numero: m[1], resto: m[2] } : { numero: null, resto: nombre };
 }
 
 function ChipCategoria({
@@ -307,6 +395,7 @@ function Cantidad({
  * querer agregar, ni se agrega por querer mirar.
  */
 function TarjetaMenu({
+  accent,
   foto,
   nombre,
   resumen,
@@ -315,6 +404,7 @@ function TarjetaMenu({
   opciones,
   pie,
 }: {
+  accent: string;
   foto: string | null;
   nombre: string;
   /** Lo que se lee cerrada, recortado a dos renglones. */
@@ -331,9 +421,21 @@ function TarjetaMenu({
   const [abierta, setAbierta] = useState(false);
   const alternar = () => setAbierta((a) => !a);
 
+  const { numero, resto: nombreSolo } = partirNombre(nombre);
   const texto = (
     <>
-      <h3 className="font-bold leading-tight">{nombre}</h3>
+      <h3 className="flex items-start gap-2 font-bold leading-tight">
+        {numero && (
+          <span
+            className="mt-px shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none text-white"
+            style={{ background: accent }}
+            aria-label={`Número ${numero}`}
+          >
+            N°{numero}
+          </span>
+        )}
+        <span>{nombreSolo}</span>
+      </h3>
       <div className="mt-0.5 text-sm text-muted-foreground">{abierta ? detalle : resumen}</div>
       {(hayMas || abierta) && (
         <span className="mt-1 inline-flex items-center gap-0.5 text-xs font-bold text-muted-foreground">
@@ -420,6 +522,7 @@ function FilaProducto({
 
   return (
     <TarjetaMenu
+      accent={accent}
       foto={p.photoUrl}
       nombre={p.name}
       hayMas={(p.description?.length ?? 0) > LARGO_RESUMEN}
@@ -485,13 +588,15 @@ function FilaCombo({
 
   return (
     <TarjetaMenu
+      accent={accent}
       foto={c.photoUrl}
       nombre={c.name}
       // Un combo casi nunca entra en dos renglones: siempre se puede abrir.
       hayMas
       resumen={
         <p className="line-clamp-2">
-          {c.items.map((i) => `${i.quantity > 1 ? `${i.quantity}× ` : ""}${i.name}`).join(" + ")}
+          {c.description ? `${c.description} · ` : ""}Trae {unidades}{" "}
+          {unidades === 1 ? "unidad" : "unidades"}
         </p>
       }
       detalle={

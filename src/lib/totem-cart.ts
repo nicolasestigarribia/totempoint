@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { calcularRegalo, type ResultadoRegalo, type UnidadesConRegalo } from "@/lib/regalo";
@@ -364,4 +364,18 @@ export function useRepriceCart(slug: string, products: ProductoVigente[], combos
   useEffect(() => {
     reprice(slug, vigentesDeMenu(products, combos));
   }, [slug, products, combos, reprice]);
+}
+
+/**
+ * Si el carrito ya se leyó del celular. Hasta entonces la página llega del
+ * servidor sin carrito, y mostrar "Todavía no agregaste nada" un instante antes
+ * de que aparezca el pedido parecía que se había perdido.
+ */
+export function useCarritoCargado(): boolean {
+  const [cargado, setCargado] = useState(false);
+  useEffect(() => {
+    if (useTotemCart.persist.hasHydrated()) setCargado(true);
+    return useTotemCart.persist.onFinishHydration(() => setCargado(true));
+  }, []);
+  return cargado;
 }
