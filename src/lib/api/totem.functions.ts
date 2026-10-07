@@ -1845,19 +1845,36 @@ export const getOnlineMenu = createServerFn({ method: "GET" })
 /**
  * Registra o actualiza el cliente (perfil global por teléfono), solo si aceptó
  * guardar sus datos. Devuelve su id para ligar el pedido, o null si no se
- * registra. El teléfono se normaliza a dígitos: es la llave y no puede duplicar
- * por cómo lo escribió. Un mail vacío no pisa el que el cliente ya tenía.
+ * registra. La llave es el teléfono canonizado (ver `telefonoCanonico`): no
+ * puede duplicar al mismo cliente según cómo lo escribió. Un mail vacío no pisa
+ * el que el cliente ya tenía.
  *
  * No va dentro de la transacción del pedido: el perfil es independiente, y si el
  * pedido fallara después, que el cliente haya quedado registrado no molesta.
  */
+/**
+ * Canoniza un teléfono a su número nacional argentino (código de área +
+ * abonado, 10 dígitos) para usarlo de llave de cliente. Así "+54 9 223
+ * 687-1234", "0223 6871234" y "2236871234" son el mismo cliente, en vez de
+ * registrarse por separado según cómo lo escriba. Saca el país (54), el 9 de
+ * móvil y el 0 de larga distancia, y se queda con los últimos 10 dígitos.
+ * Números que no llegan a 10 (raros o extranjeros) se dejan como están.
+ */
+function telefonoCanonico(phone: string): string {
+  let d = phone.replace(/\D/g, "");
+  if (d.startsWith("54")) d = d.slice(2);
+  if (d.startsWith("9")) d = d.slice(1);
+  d = d.replace(/^0+/, "");
+  return d.length > 10 ? d.slice(-10) : d;
+}
+
 async function registrarCliente(
   name: string,
   phone: string,
   opts: { email?: string; guardar: boolean },
 ): Promise<number | null> {
   if (!opts.guardar) return null;
-  const telnorm = phone.replace(/\D/g, "");
+  const telnorm = telefonoCanonico(phone);
   if (telnorm.length < 8) return null;
   const nombre = name.trim();
   const email = opts.email?.trim() || null;
