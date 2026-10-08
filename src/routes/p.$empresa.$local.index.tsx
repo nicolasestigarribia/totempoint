@@ -159,6 +159,7 @@ function OnlineMenuPage() {
         sucursal={menu.locationName}
         logoUrl={menu.logoUrl}
         minimoLabel={minimo > 0 ? `Mínimo ${formatPrice(minimo)}` : undefined}
+        cambiarSucursal={menu.sucursalesOnline > 1}
       />
 
       <InfoDelLocal menu={menu} horario={horario} />

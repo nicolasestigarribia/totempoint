@@ -17,6 +17,7 @@ import { Route as BienvenidaRouteImport } from './routes/bienvenida'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AliasRouteImport } from './routes/$alias'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PEmpresaIndexRouteImport } from './routes/p.$empresa.index'
 import { Route as PEmpresaLocalIndexRouteImport } from './routes/p.$empresa.$local.index'
 import { Route as PEmpresaLocalCarritoRouteImport } from './routes/p.$empresa.$local.carrito'
 import { Route as TEmpresaLocalTotemIndexRouteImport } from './routes/t.$empresa.$local.$totem.index'
@@ -67,6 +68,11 @@ const AliasRoute = AliasRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PEmpresaIndexRoute = PEmpresaIndexRouteImport.update({
+  id: '/p/$empresa/',
+  path: '/p/$empresa/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PEmpresaLocalIndexRoute = PEmpresaLocalIndexRouteImport.update({
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/p/$empresa/': typeof PEmpresaIndexRoute
   '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
   '/p/$empresa/$local/': typeof PEmpresaLocalIndexRoute
   '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/p/$empresa': typeof PEmpresaIndexRoute
   '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
   '/p/$empresa/$local': typeof PEmpresaLocalIndexRoute
   '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/p/$empresa/': typeof PEmpresaIndexRoute
   '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
   '/p/$empresa/$local/': typeof PEmpresaLocalIndexRoute
   '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/p/$empresa/'
     | '/p/$empresa/$local/carrito'
     | '/p/$empresa/$local/'
     | '/p/$empresa/$local/pedido/$token'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/p/$empresa'
     | '/p/$empresa/$local/carrito'
     | '/p/$empresa/$local'
     | '/p/$empresa/$local/pedido/$token'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/p/$empresa/'
     | '/p/$empresa/$local/carrito'
     | '/p/$empresa/$local/'
     | '/p/$empresa/$local/pedido/$token'
@@ -272,6 +284,7 @@ export interface RootRouteChildren {
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
+  PEmpresaIndexRoute: typeof PEmpresaIndexRoute
   PEmpresaLocalCarritoRoute: typeof PEmpresaLocalCarritoRoute
   PEmpresaLocalIndexRoute: typeof PEmpresaLocalIndexRoute
   PEmpresaLocalPedidoTokenRoute: typeof PEmpresaLocalPedidoTokenRoute
@@ -341,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$empresa/': {
+      id: '/p/$empresa/'
+      path: '/p/$empresa'
+      fullPath: '/p/$empresa/'
+      preLoaderRoute: typeof PEmpresaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/p/$empresa/$local/': {
@@ -432,6 +452,7 @@ const rootRouteChildren: RootRouteChildren = {
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
+  PEmpresaIndexRoute: PEmpresaIndexRoute,
   PEmpresaLocalCarritoRoute: PEmpresaLocalCarritoRoute,
   PEmpresaLocalIndexRoute: PEmpresaLocalIndexRoute,
   PEmpresaLocalPedidoTokenRoute: PEmpresaLocalPedidoTokenRoute,

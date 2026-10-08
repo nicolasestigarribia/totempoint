@@ -1913,6 +1913,8 @@ export interface OnlineMenu extends TotemMenu {
    * solo mientras la página está abierta; el que decide es `createOnlineOrder`.
    */
   horarios: Horarios | null;
+  /** Cuántas sucursales de la empresa toman pedidos online: con más de una, se ofrece cambiar. */
+  sucursalesOnline: number;
 }
 
 const onlineInput = {
@@ -2011,6 +2013,130 @@ async function resolverOnline(empresaSlug: string, localSlug: string) {
   };
 }
 
+/** Una sucursal que toma pedidos online, como la ve el que elige a cuál pedirle. */
+export interface SucursalOnline {
+  slug: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  pickup: boolean;
+  delivery: boolean;
+  /** Desde dónde sale el envío; null si no hace envíos. */
+  origin: { lat: number; lng: number } | null;
+  tiers: OnlineTier[];
+  horarios: Horarios | null;
+}
+
+export interface OnlineEmpresa {
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  accentColor: string | null;
+  theme: TotemMenu["theme"];
+  fontTheme: TotemMenu["fontTheme"];
+  corners: TotemMenu["corners"];
+  sucursales: SucursalOnline[];
+}
+
+/** Las sucursales de la empresa con el pedido online encendido y algo que ofrecer. */
+async function sucursalesOnlineDe(companyId: number): Promise<SucursalOnline[]> {
+  const filas = await db
+    .select({ location: locations, settings: onlineSettings })
+    .from(locations)
+    .innerJoin(onlineSettings, eq(onlineSettings.locationId, locations.id))
+    .where(
+      and(
+        eq(locations.companyId, companyId),
+        eq(locations.active, true),
+        eq(onlineSettings.enabled, true),
+      ),
+    )
+    .orderBy(asc(locations.name));
+  if (filas.length === 0) return [];
+  const tramos = await db
+    .select({
+      locationId: deliveryTiers.locationId,
+      upToKm: deliveryTiers.upToKm,
+      price: deliveryTiers.price,
+    })
+    .from(deliveryTiers)
+    .where(
+      inArray(
+        deliveryTiers.locationId,
+        filas.map((f) => f.location.id),
+      ),
+    )
+    .orderBy(asc(deliveryTiers.upToKm));
+
+  return filas
+    .map(({ location: l, settings: s }) => {
+      const origin =
+        s.originLat != null && s.originLng != null
+          ? { lat: Number(s.originLat), lng: Number(s.originLng) }
+          : null;
+      const tiers = tramos
+        .filter((t) => t.locationId === l.id)
+        .map((t) => ({ upToKm: Number(t.upToKm), price: Number(t.price) }));
+      // Las mismas condiciones que `resolverOnline`: sin punto o sin tramos no
+      // hay envío que ofrecer.
+      const delivery = s.deliveryEnabled && origin !== null && tiers.length > 0;
+      return {
+        slug: l.slug,
+        name: l.name,
+        address: l.address,
+        phone: l.phone,
+        pickup: s.pickupEnabled,
+        delivery,
+        origin: delivery ? origin : null,
+        tiers: delivery ? tiers : [],
+        horarios: s.horarios ?? null,
+      };
+    })
+    .filter((s) => s.pickup || s.delivery);
+}
+
+/**
+ * La empresa entera, para el link que no es de una sucursal: el cliente pone
+ * su dirección y elige entre las sucursales que le llegan, o elige dónde
+ * retirar. La cuenta de cuál llega se hace en el celular con estos datos (los
+ * mismos que ya viajan con cada menú); el pedido lo vuelve a validar la
+ * sucursal elegida, como siempre.
+ */
+export const getOnlineEmpresa = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ empresa: z.string().trim().min(1).max(60) }))
+  .handler(async ({ data }): Promise<OnlineEmpresa> => {
+    const [row] = await db
+      .select({
+        company: companies,
+        accentColor: totemSettings.accentColor,
+        theme: totemSettings.theme,
+        fontTheme: totemSettings.fontTheme,
+        corners: totemSettings.corners,
+      })
+      .from(companies)
+      .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
+      .where(eq(companies.slug, data.empresa))
+      .limit(1);
+    if (!row) throw new Error("No encontramos este comercio");
+    if (!row.company.active) throw new Error("Este comercio no está disponible en este momento");
+    if (!row.company.onlineOrdering) throw new Error("Este comercio no toma pedidos online");
+
+    const sucursales = await sucursalesOnlineDe(row.company.id);
+    if (sucursales.length === 0) {
+      throw new Error("En este momento no estamos tomando pedidos online");
+    }
+    return {
+      name: row.company.name,
+      slug: row.company.slug,
+      logoUrl: row.company.logoUrl,
+      accentColor: row.accentColor ?? row.company.primaryColor,
+      theme: row.theme ?? "oscuro",
+      fontTheme: row.fontTheme ?? "impacto",
+      corners: row.corners ?? "redondeado",
+      sucursales,
+    };
+  });
+
 export const getOnlineMenu = createServerFn({ method: "GET" })
   .inputValidator(z.object(onlineInput))
   .handler(async ({ data }): Promise<OnlineMenu> => {
@@ -2028,6 +2154,7 @@ export const getOnlineMenu = createServerFn({ method: "GET" })
       origin: r.delivery ? r.origin : null,
       tiers: r.delivery ? r.tiers : [],
       horarios: r.horarios,
+      sucursalesOnline: (await sucursalesOnlineDe(r.company.id)).length,
     };
   });
 
@@ -2590,7 +2717,15 @@ export const changeOnlineOrderPayment = createServerFn({ method: "POST" })
  */
 export const resolveOnlineAlias = createServerFn({ method: "GET" })
   .inputValidator(z.object({ alias: z.string().trim().toLowerCase().min(1).max(40) }))
-  .handler(async ({ data }): Promise<{ empresa: string; local: string }> => {
+  .handler(async ({ data }): Promise<{ empresa: string; local: string | null }> => {
+    // Primero el de la empresa entera: lleva a elegir sucursal.
+    const [empresa] = await db
+      .select({ slug: companies.slug })
+      .from(companies)
+      .where(eq(companies.onlineAlias, data.alias))
+      .limit(1);
+    if (empresa) return { empresa: empresa.slug, local: null };
+
     const [row] = await db
       .select({ empresa: companies.slug, local: locations.slug })
       .from(onlineSettings)

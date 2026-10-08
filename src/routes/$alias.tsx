@@ -14,6 +14,9 @@ import { OnlineError } from "@/components/online/OnlineError";
 export const Route = createFileRoute("/$alias")({
   loader: async ({ params }) => {
     const { empresa, local } = await resolveOnlineAlias({ data: { alias: params.alias } });
+    // El alias de la empresa entera lleva a elegir sucursal; el de una
+    // sucursal, directo a su menú.
+    if (local === null) throw redirect({ to: "/p/$empresa", params: { empresa }, statusCode: 302 });
     throw redirect({ to: "/p/$empresa/$local", params: { empresa, local }, statusCode: 302 });
   },
   errorComponent: ({ error }) => <OnlineError message={error.message} />,

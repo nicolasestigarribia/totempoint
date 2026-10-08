@@ -14,6 +14,7 @@ export function OnlineHeader({
   logoUrl,
   volver,
   minimoLabel,
+  cambiarSucursal = false,
 }: {
   empresa: string;
   local: string;
@@ -24,6 +25,8 @@ export function OnlineHeader({
   volver?: string;
   /** "Mínimo $10.000": se muestra a la derecha de la marca. */
   minimoLabel?: string;
+  /** Con varias sucursales, el nombre de la sucursal lleva a elegir otra. */
+  cambiarSucursal?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">
@@ -43,7 +46,17 @@ export function OnlineHeader({
         )}
         <div className="min-w-0">
           <p className="truncate font-display text-xl leading-tight">{name}</p>
-          <p className="truncate text-xs text-muted-foreground">{sucursal}</p>
+          {cambiarSucursal ? (
+            <Link
+              to="/p/$empresa"
+              params={{ empresa }}
+              className="block truncate text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
+              {sucursal} · <span className="font-bold">Cambiar sucursal</span>
+            </Link>
+          ) : (
+            <p className="truncate text-xs text-muted-foreground">{sucursal}</p>
+          )}
         </div>
         {minimoLabel && (
           <span className="ml-auto shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">

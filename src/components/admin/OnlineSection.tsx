@@ -26,6 +26,7 @@ import {
   saveDeliveryOrigin,
   saveOnlineAlias,
   saveOnlineHorario,
+  saveCompanyOnlineAlias,
   saveDeliveryTier,
   deleteDeliveryTier,
   type OnlineConfig,
@@ -48,6 +49,7 @@ import { DIAS, estadoHorario, horaValida, type Horarios, type Turno } from "@/li
  */
 export function OnlineSection({ panelClass }: { panelClass: string }) {
   const fetchConfig = useServerFn(getOnlineConfig);
+  const saveCompanyAlias = useServerFn(saveCompanyOnlineAlias);
   const [config, setConfig] = useState<OnlineConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [elegida, setElegida] = useState<number | null>(null);
@@ -90,6 +92,20 @@ export function OnlineSection({ panelClass }: { panelClass: string }) {
 
   return (
     <div className="space-y-5">
+      {/* Con varias sucursales, el link que se difunde es el de la empresa: el
+          cliente pone su dirección y elige entre las que le llegan. */}
+      {config.locations.length > 1 && (
+        <LinkOnline
+          titulo="El link de toda la empresa"
+          detalle="El que va en Instagram y WhatsApp: el cliente pone su dirección y elige entre las sucursales que le llegan, o dónde retirar."
+          pathLargo={`/p/${config.companySlug}`}
+          alias={config.companyAlias}
+          guardar={(alias) => saveCompanyAlias({ data: { alias } })}
+          panelClass={panelClass}
+          onChange={cargar}
+        />
+      )}
+
       {config.locations.length > 1 && (
         <div className="flex flex-wrap gap-2">
           {config.locations.map((l) => (
@@ -115,6 +131,7 @@ export function OnlineSection({ panelClass }: { panelClass: string }) {
         loc={loc}
         companySlug={config.companySlug}
         mercadoPago={config.mercadoPago}
+        varias={config.locations.length > 1}
         panelClass={panelClass}
         onChange={cargar}
       />
@@ -126,16 +143,20 @@ function SucursalOnline({
   loc,
   companySlug,
   mercadoPago,
+  varias,
   panelClass,
   onChange,
 }: {
   loc: OnlineLocationConfig;
   companySlug: string;
   mercadoPago: boolean;
+  /** Si la empresa tiene más de una sucursal. */
+  varias: boolean;
   panelClass: string;
   onChange: () => Promise<void>;
 }) {
   const save = useServerFn(saveOnlineSettings);
+  const saveAlias = useServerFn(saveOnlineAlias);
   const [enabled, setEnabled] = useState(loc.enabled);
   const [pickup, setPickup] = useState(loc.pickupEnabled);
   const [delivery, setDelivery] = useState(loc.deliveryEnabled);
@@ -224,10 +245,15 @@ function SucursalOnline({
       <HorarioOnline loc={loc} panelClass={panelClass} onChange={onChange} />
 
       <LinkOnline
-        empresa={companySlug}
-        local={loc.locationSlug}
-        locationId={loc.locationId}
+        titulo={varias ? `El link de ${loc.locationName}` : "El link para pedir"}
+        detalle={
+          varias
+            ? "Lleva directo al menú de esta sucursal: para el QR del mostrador de este local."
+            : undefined
+        }
+        pathLargo={`/p/${companySlug}/${loc.locationSlug}`}
         alias={loc.alias}
+        guardar={(alias) => saveAlias({ data: { locationId: loc.locationId, alias } })}
         panelClass={panelClass}
         onChange={onChange}
       />
@@ -505,21 +531,23 @@ function Opcion({
 
 /** El link para pegar como respuesta rápida de WhatsApp, y su QR para el mostrador. */
 function LinkOnline({
-  empresa,
-  local,
-  locationId,
+  titulo,
+  detalle,
+  pathLargo,
   alias,
+  guardar,
   panelClass,
   onChange,
 }: {
-  empresa: string;
-  local: string;
-  locationId: number;
+  titulo: string;
+  detalle?: string;
+  /** El link sin alias: /p/{empresa}/{sucursal} o /p/{empresa}. */
+  pathLargo: string;
   alias: string | null;
+  guardar: (alias: string | null) => Promise<{ alias: string | null }>;
   panelClass: string;
   onChange: () => Promise<void>;
 }) {
-  const saveAlias = useServerFn(saveOnlineAlias);
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
   const [nuevoAlias, setNuevoAlias] = useState(alias ?? "");
@@ -528,14 +556,14 @@ function LinkOnline({
 
   // Con link corto se comparte ese, que es el que se puede dictar; el largo
   // sigue andando igual para quien ya lo tenga.
-  const path = alias ? `/${alias}` : `/p/${empresa}/${local}`;
+  const path = alias ? `/${alias}` : pathLargo;
   const url = origin ? `${origin}${path}` : path;
   const aliasCambiado = nuevoAlias.trim().toLowerCase() !== (alias ?? "");
 
   const guardarAlias = async () => {
     setGuardando(true);
     try {
-      const r = await saveAlias({ data: { locationId, alias: nuevoAlias.trim() || null } });
+      const r = await guardar(nuevoAlias.trim() || null);
       toast.success(r.alias ? "Link corto guardado" : "Link corto quitado");
       await onChange();
     } catch (err) {
@@ -560,7 +588,10 @@ function LinkOnline({
     <div className={`p-6 ${panelClass}`}>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1 space-y-3">
-          <p className="font-bold">El link para pedir</p>
+          <div>
+            <p className="font-bold">{titulo}</p>
+            {detalle && <p className="text-sm text-muted-foreground">{detalle}</p>}
+          </div>
           <div className="flex flex-wrap gap-2">
             <Input
               readOnly

@@ -23,6 +23,12 @@ export const companies = mysqlTable("companies", {
   slug: varchar("slug", { length: 60 }).notNull().unique(),
   logoUrl: varchar("logo_url", { length: 500 }),
   primaryColor: varchar("primary_color", { length: 9 }).default("#000000"),
+  /**
+   * Link corto de la empresa entera para el pedido online: /{alias} lleva a
+   * /p/{empresa}, donde el cliente pone su dirección y elige la sucursal que le
+   * llega. Único en la plataforma junto con los alias de cada sucursal.
+   */
+  onlineAlias: varchar("online_alias", { length: 40 }),
   active: boolean("active").notNull().default(true),
   /**
    * Módulo pedido online: el link /p/... desde el celular del cliente. Lo

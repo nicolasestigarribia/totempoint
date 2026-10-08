@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { History, MapPin } from "lucide-react";
 import { BuscadorDireccion } from "@/components/online/BuscadorDireccion";
 import { MapaPin } from "@/components/online/MapaPin";
@@ -41,6 +42,7 @@ export function DireccionEntrega({
   anterior,
   onCambiar,
   accent,
+  otraSucursal,
 }: {
   origen: Punto;
   tramos: TramoEnvio[];
@@ -49,6 +51,8 @@ export function DireccionEntrega({
   anterior: Destino | null;
   onCambiar: (d: Destino | null) => void;
   accent: string;
+  /** Slug de la empresa si tiene otras sucursales: ofrece buscar una que llegue. */
+  otraSucursal?: string;
 }) {
   // Si mueve el pin se busca qué dirección es, pero sin pisar lo que el
   // cliente ya escribió a mano: su texto vale más que el del mapa.
@@ -163,6 +167,15 @@ export function DireccionEntrega({
               <p className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 No llegamos hasta ahí: estás a {formatearDistancia(cotizacion.km)} y hacemos envíos
                 hasta {formatearDistancia(cotizacion.maxKm)}. Podés elegir retirarlo.
+                {otraSucursal && (
+                  <Link
+                    to="/p/$empresa"
+                    params={{ empresa: otraSucursal }}
+                    className="mt-1 block font-bold underline underline-offset-4"
+                  >
+                    Ver si otra sucursal te llega
+                  </Link>
+                )}
               </p>
             ))}
 

@@ -48,6 +48,8 @@ export interface OnlineLocationConfig {
 
 export interface OnlineConfig {
   companySlug: string;
+  /** Link corto de toda la empresa (elige sucursal). Null si no tiene. */
+  companyAlias: string | null;
   /** Si la empresa cobra con Mercado Pago: si no, el online solo acepta efectivo. */
   mercadoPago: boolean;
   locations: OnlineLocationConfig[];
@@ -91,7 +93,7 @@ export const getOnlineConfig = createServerFn({ method: "GET" })
 
     const [[company], locs, settings, tiers, [pago]] = await Promise.all([
       db
-        .select({ slug: companies.slug })
+        .select({ slug: companies.slug, alias: companies.onlineAlias })
         .from(companies)
         .where(eq(companies.id, companyId))
         .limit(1),
@@ -120,6 +122,7 @@ export const getOnlineConfig = createServerFn({ method: "GET" })
 
     return {
       companySlug: company?.slug ?? "",
+      companyAlias: company?.alias ?? null,
       mercadoPago: Boolean(pago?.enabled && pago.token),
       locations: locs.map((l) => {
         const s = settings.find((x) => x.locationId === l.id);
@@ -232,6 +235,46 @@ export const saveOnlineHorario = createServerFn({ method: "POST" })
       .set({ horarios: data.horarios })
       .where(eq(onlineSettings.locationId, loc.id));
     return { ok: true };
+  });
+
+/**
+ * El link corto de la empresa entera: /{alias} lleva a elegir sucursal según
+ * la dirección. Sirve a las empresas con varias sucursales; con una sola, el
+ * link de esa sucursal alcanza.
+ */
+export const saveCompanyOnlineAlias = createServerFn({ method: "POST" })
+  .middleware([requireOwner])
+  .inputValidator(z.object({ alias: z.string().trim().toLowerCase().max(40).nullable() }))
+  .handler(async ({ context, data }) => {
+    const companyId = companyIdOf(context.user as SessionUser);
+    await exigirAdicional(companyId);
+    const alias = data.alias || null;
+    if (alias !== null) {
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(alias) || alias.length < 3) {
+        throw new Error(
+          "El link corto va con letras sin tilde, números y guiones, de al menos 3 caracteres (ej: chiqui)",
+        );
+      }
+      if (isReservedSlug(alias))
+        throw new Error(`"${alias}" está reservado por el sistema: elegí otro`);
+      const [deSucursal] = await db
+        .select({ locationId: onlineSettings.locationId })
+        .from(onlineSettings)
+        .where(eq(onlineSettings.alias, alias))
+        .limit(1);
+      const [deOtra] = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.onlineAlias, alias))
+        .limit(1);
+      if (deSucursal || (deOtra && deOtra.id !== companyId)) {
+        throw new Error(
+          `El link "${alias}" ya está en uso: si es de una sucursal tuya, sacáselo primero`,
+        );
+      }
+    }
+    await db.update(companies).set({ onlineAlias: alias }).where(eq(companies.id, companyId));
+    return { ok: true, alias };
   });
 
 /** El punto de la sucursal en el mapa: desde ahí se mide la distancia de cada envío. */
@@ -377,6 +420,12 @@ export const saveOnlineAlias = createServerFn({ method: "POST" })
       if (ocupado && ocupado.locationId !== loc.id) {
         throw new Error(`El link "${alias}" ya lo usa otro comercio: probá con otro`);
       }
+      const [deEmpresa] = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.onlineAlias, alias))
+        .limit(1);
+      if (deEmpresa) throw new Error(`El link "${alias}" ya está en uso: probá con otro`);
     }
 
     await asegurarSettings(loc.companyId, loc.id);

@@ -24,6 +24,7 @@ import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { AvisoRegalo } from "@/components/totem/AvisoRegalo";
 import { guardarParaRepetir } from "@/lib/online-repetir";
+import { tomarEleccion } from "@/lib/online-eleccion";
 import { useHorario } from "@/components/online/useHorario";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { DireccionEntrega, type Destino } from "@/components/online/DireccionEntrega";
@@ -212,6 +213,13 @@ function CarritoOnlinePage() {
     if (d.email) setEmail(d.email);
     if (d.destino) setAnterior(d.destino);
     setUltimo(leerUltimo(cartKey));
+    // Viene de la página de la empresa: ya eligió envío o retiro, y si es
+    // envío, la dirección con la que eligió esta sucursal.
+    const eleccion = tomarEleccion(cartKey, useTotemCart.getState().items.length > 0);
+    if (eleccion) {
+      setEntrega(eleccion.entrega);
+      if (eleccion.destino) setDestino(eleccion.destino);
+    }
   }, [cartKey]);
 
   const subtotal = cartTotal(items);
@@ -650,6 +658,7 @@ function CarritoOnlinePage() {
                 anterior={anterior}
                 onCambiar={setDestino}
                 accent={accent}
+                otraSucursal={menu.sucursalesOnline > 1 ? empresa : undefined}
               />
             </div>
           )}
