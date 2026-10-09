@@ -95,17 +95,21 @@ export function OnlineSection({ panelClass }: { panelClass: string }) {
     <div className="space-y-5">
       {/* Con varias sucursales, el link que se difunde es el de la empresa: el
           cliente pone su dirección y elige entre las que le llegan. */}
-      {config.locations.length > 1 && (
-        <LinkOnline
-          titulo="El link de toda la empresa"
-          detalle="El que va en Instagram y WhatsApp: el cliente pone su dirección y elige entre las sucursales que le llegan, o dónde retirar."
-          pathLargo={`/p/${config.companySlug}`}
-          alias={config.companyAlias}
-          guardar={(alias) => saveCompanyAlias({ data: { alias } })}
-          panelClass={panelClass}
-          onChange={cargar}
-        />
-      )}
+      <LinkOnline
+        titulo={
+          config.locations.length > 1 ? "El link de toda la empresa" : "El link de tu portada"
+        }
+        detalle={
+          config.locations.length > 1
+            ? "El que va en Instagram y WhatsApp: abre la portada, donde el cliente elige envío, retiro o mirar el menú, y la sucursal que le llega."
+            : "El que va en Instagram y WhatsApp: abre la portada con tu marca, donde el cliente elige envío, retiro o mirar el menú."
+        }
+        pathLargo={`/p/${config.companySlug}`}
+        alias={config.companyAlias}
+        guardar={(alias) => saveCompanyAlias({ data: { alias } })}
+        panelClass={panelClass}
+        onChange={cargar}
+      />
 
       {config.locations.length > 1 && (
         <div className="flex flex-wrap gap-2">
@@ -246,11 +250,11 @@ function SucursalOnline({
       <HorarioOnline loc={loc} panelClass={panelClass} onChange={onChange} />
 
       <LinkOnline
-        titulo={varias ? `El link de ${loc.locationName}` : "El link para pedir"}
+        titulo={varias ? `El link de ${loc.locationName}` : "El link directo al menú"}
         detalle={
           varias
             ? "Lleva directo al menú de esta sucursal: para el QR del mostrador de este local."
-            : undefined
+            : "Saltea la portada y abre el menú para pedir."
         }
         pathLargo={`/p/${companySlug}/${loc.locationSlug}`}
         soloVerPath={`/p/${companySlug}/${loc.locationSlug}?ver=1`}

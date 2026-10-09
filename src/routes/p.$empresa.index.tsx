@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Bike,
   Store,
@@ -28,20 +28,14 @@ import type { Lugar } from "@/lib/geocoding";
  * Para un envío el cliente pone su dirección y ve las sucursales que llegan,
  * con el costo, la distancia y si están abiertas; elige una y entra a su menú
  * con la dirección ya cargada. Las cerradas se muestran pero no se eligen: el
- * pedido sigue con otra que esté abierta. Para retirar, elige dónde. Con una
- * sola sucursal no hay nada que elegir y va directo a su menú.
+ * pedido sigue con otra que esté abierta. Para retirar, elige dónde.
+ *
+ * Es también la portada de la marca, así que se muestra aunque haya una sola
+ * sucursal: ahí Retiro y Menú van directo, sin una lista de una.
  */
 export const Route = createFileRoute("/p/$empresa/")({
   loader: async ({ params }) => {
-    const empresa = await getOnlineEmpresa({ data: { empresa: params.empresa } });
-    if (empresa.sucursales.length === 1) {
-      throw redirect({
-        to: "/p/$empresa/$local",
-        params: { empresa: params.empresa, local: empresa.sucursales[0].slug },
-        statusCode: 302,
-      });
-    }
-    return empresa;
+    return getOnlineEmpresa({ data: { empresa: params.empresa } });
   },
   head: ({ loaderData }) => ({
     meta: [
@@ -95,6 +89,15 @@ function EmpresaPage() {
     void navigate({ to: "/p/$empresa/$local", params: { empresa: empresa.slug, local: s.slug } });
   };
 
+  const verMenu = (s: SucursalOnline) =>
+    void navigate({
+      to: "/p/$empresa/$local",
+      params: { empresa: empresa.slug, local: s.slug },
+      search: { ver: true },
+    });
+  // Con una sola sucursal no hay nada que elegir para retirar o mirar.
+  const unica = empresa.sucursales.length === 1 ? empresa.sucursales[0] : null;
+
   // Abierta si alguna sucursal lo está; si no, cuándo abre la primera.
   const horarios = empresa.sucursales.map((s) => estadoHorario(s.horarios));
   const abierta = horarios.some((h) => h.abierto);
@@ -103,7 +106,7 @@ function EmpresaPage() {
   const cinta = [
     hayEnvio && "Envío a domicilio",
     hayRetiro && "Retiro en el local",
-    `${empresa.sucursales.length} sucursales`,
+    empresa.sucursales.length > 1 && `${empresa.sucursales.length} sucursales`,
     "Seguí tu pedido en vivo",
     "Pedí en un minuto",
   ].filter((t): t is string => !!t);
@@ -211,7 +214,7 @@ function EmpresaPage() {
           {hayRetiro && (
             <BotonModo
               activo={modo === "retiro"}
-              onClick={() => setModo("retiro")}
+              onClick={() => (unica ? elegir(unica, "mostrador") : setModo("retiro"))}
               icono={<Store className="h-6 w-6" />}
               titulo="Retiro"
               detalle="Pasás a buscarlo"
@@ -222,7 +225,7 @@ function EmpresaPage() {
           {/* Para el QR pegado en el local: mirar el menú sin pedir nada. */}
           <BotonModo
             activo={modo === "menu"}
-            onClick={() => setModo("menu")}
+            onClick={() => (unica ? verMenu(unica) : setModo("menu"))}
             icono={<BookOpen className="h-6 w-6" />}
             titulo="Menú"
             detalle="Solo mirar"
@@ -346,13 +349,7 @@ function EmpresaPage() {
                     abierta
                     abre={null}
                     accent={accent}
-                    onClick={() =>
-                      void navigate({
-                        to: "/p/$empresa/$local",
-                        params: { empresa: empresa.slug, local: s.slug },
-                        search: { ver: true },
-                      })
-                    }
+                    onClick={() => verMenu(s)}
                   />
                 </li>
               ))}

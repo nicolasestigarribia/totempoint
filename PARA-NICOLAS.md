@@ -116,7 +116,7 @@ almacenamiento de imágenes, en MySQL): el mapa es la excepción elegida.
 `companies.online_alias`). El cliente elige envío o retiro; para envío pone su dirección y ve todas
 las sucursales que le llegan, con distancia, costo y si están abiertas, y **elige él** (decisión de
 Sebastián, no se asigna sola). Las cerradas se ven pero no se eligen: el pedido va a una que lo pueda
-hacer ahora. Con una sola sucursal el link va directo a su menú. La dirección elegida pasa a la
+hacer ahora. Se muestra aunque haya una sola sucursal, porque es la portada de la marca: ahí Retiro y Menú van directo a esa sucursal. La dirección elegida pasa a la
 sucursal por el celular (`src/lib/online-eleccion.ts`), nunca por la URL, y si ya había armado un
 carrito en otra sucursal de la empresa se lo lleva. El pedido lo valida la sucursal elegida como
 siempre. Los links por sucursal siguen funcionando igual (para el QR del mostrador). La página
