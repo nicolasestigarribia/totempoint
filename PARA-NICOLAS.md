@@ -119,7 +119,9 @@ Sebastián, no se asigna sola). Las cerradas se ven pero no se eligen: el pedido
 hacer ahora. Con una sola sucursal el link va directo a su menú. La dirección elegida pasa a la
 sucursal por el celular (`src/lib/online-eleccion.ts`), nunca por la URL, y si ya había armado un
 carrito en otra sucursal de la empresa se lo lleva. El pedido lo valida la sucursal elegida como
-siempre. Los links por sucursal siguen funcionando igual (para el QR del mostrador).
+siempre. Los links por sucursal siguen funcionando igual (para el QR del mostrador). La página
+de la empresa tiene una tercera opción, **Menú · Solo mirar**, para el QR pegado en el local: abre
+el menú de la sucursal elegida con `?ver=1`, sin botones de agregar ni carrito.
 
 **Un pedido online espera que el local lo acepte** (`accepted_at`) antes de entrar a las columnas de
 la cocina, y `setOrderStatus` se niega a moverlo mientras tanto. Rechazar es cancelar, para que

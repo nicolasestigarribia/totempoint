@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { Bike, Store, MapPin, ChevronRight, Clock } from "lucide-react";
+import { Bike, Store, MapPin, ChevronRight, Clock, BookOpen } from "lucide-react";
 import { getOnlineEmpresa, type SucursalOnline } from "@/lib/api/totem.functions";
 import { OnlineError } from "@/components/online/OnlineError";
 import { BuscadorDireccion } from "@/components/online/BuscadorDireccion";
@@ -44,7 +44,7 @@ export const Route = createFileRoute("/p/$empresa/")({
   component: EmpresaPage,
 });
 
-type Modo = "envio" | "retiro";
+type Modo = "envio" | "retiro" | "menu";
 
 function EmpresaPage() {
   const empresa = Route.useLoaderData();
@@ -54,9 +54,7 @@ function EmpresaPage() {
 
   const hayEnvio = empresa.sucursales.some((s) => s.delivery);
   const hayRetiro = empresa.sucursales.some((s) => s.pickup);
-  const [modo, setModo] = useState<Modo | null>(
-    hayEnvio && hayRetiro ? null : hayEnvio ? "envio" : "retiro",
-  );
+  const [modo, setModo] = useState<Modo | null>(null);
   const [lugar, setLugar] = useState<Lugar | null>(null);
 
   // Las sucursales que llegan a esa dirección, de la más cercana a la más lejana.
@@ -99,8 +97,8 @@ function EmpresaPage() {
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 pb-10">
-        {hayEnvio && hayRetiro && (
-          <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${hayEnvio && hayRetiro ? "grid-cols-3" : "grid-cols-2"}`}>
+          {hayEnvio && (
             <BotonModo
               activo={modo === "envio"}
               onClick={() => setModo("envio")}
@@ -109,6 +107,8 @@ function EmpresaPage() {
               detalle="Te lo llevamos"
               accent={accent}
             />
+          )}
+          {hayRetiro && (
             <BotonModo
               activo={modo === "retiro"}
               onClick={() => setModo("retiro")}
@@ -117,8 +117,17 @@ function EmpresaPage() {
               detalle="Pasás a buscarlo"
               accent={accent}
             />
-          </div>
-        )}
+          )}
+          {/* Para el QR pegado en el local: mirar el menú sin pedir nada. */}
+          <BotonModo
+            activo={modo === "menu"}
+            onClick={() => setModo("menu")}
+            icono={<BookOpen className="h-6 w-6" />}
+            titulo="Menú"
+            detalle="Solo mirar"
+            accent={accent}
+          />
+        </div>
 
         {modo === "envio" && (
           <section className="space-y-3">
@@ -192,6 +201,31 @@ function EmpresaPage() {
             </ul>
           </section>
         )}
+        {modo === "menu" && (
+          <section className="space-y-3">
+            <h2 className="font-bold">¿De qué sucursal querés ver el menú?</h2>
+            <ul className="space-y-2">
+              {empresa.sucursales.map((s) => (
+                <li key={s.slug}>
+                  <FilaSucursal
+                    nombre={s.name}
+                    detalle={s.address ?? "Ver el menú"}
+                    abierta
+                    abre={null}
+                    accent={accent}
+                    onClick={() =>
+                      void navigate({
+                        to: "/p/$empresa/$local",
+                        params: { empresa: empresa.slug, local: s.slug },
+                        search: { ver: true },
+                      })
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
     </div>
   );
@@ -217,7 +251,7 @@ function BotonModo({
       type="button"
       onClick={onClick}
       aria-pressed={activo}
-      className={`flex flex-col items-center gap-1 rounded-3xl border-2 p-5 transition ${
+      className={`flex flex-col items-center gap-1 rounded-3xl border-2 px-2 py-4 transition ${
         activo ? "text-white" : "border-border bg-card/40"
       }`}
       style={activo ? { background: accent, borderColor: accent } : undefined}

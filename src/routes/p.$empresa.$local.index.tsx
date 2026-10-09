@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ImageOff,
@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Radio,
   Clock,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { TotemProduct, TotemCombo, OnlineMenu } from "@/lib/api/totem.functions";
@@ -49,7 +50,18 @@ import {
   type Pan,
 } from "@/lib/totem-cart";
 
+/**
+ * `?ver=1`: el menú para mirar, sin pedir. Es el que abre el QR pegado en el
+ * local (vía "Ver el menú" en la página de la empresa): fotos, precios y
+ * descripciones, sin agregar ni carrito.
+ */
+const SoloVer = createContext(false);
+
 export const Route = createFileRoute("/p/$empresa/$local/")({
+  validateSearch: (search: Record<string, unknown>): { ver?: boolean } =>
+    search.ver === true || search.ver === 1 || search.ver === "1" || search.ver === "true"
+      ? { ver: true }
+      : {},
   loader: ({ params }) => getOnlineMenuCached(params.empresa, params.local),
   head: ({ loaderData }) => ({
     meta: [
@@ -70,6 +82,7 @@ export const Route = createFileRoute("/p/$empresa/$local/")({
 function OnlineMenuPage() {
   const menu = Route.useLoaderData();
   const { empresa, local } = Route.useParams();
+  const soloVer = Route.useSearch().ver === true;
   const cartKey = onlineCartKey(empresa, local);
   useRepriceCart(cartKey, menu.products, menu.combos);
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
@@ -151,167 +164,199 @@ function OnlineMenuPage() {
   }, [activa]);
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
-      <OnlineHeader
-        empresa={empresa}
-        local={local}
-        name={menu.name}
-        sucursal={menu.locationName}
-        logoUrl={menu.logoUrl}
-        minimoLabel={minimo > 0 ? `Mínimo ${formatPrice(minimo)}` : undefined}
-        cambiarSucursal={menu.sucursalesOnline > 1}
-      />
+    <SoloVer.Provider value={soloVer}>
+      <div className="flex min-h-svh flex-col bg-background">
+        <OnlineHeader
+          empresa={empresa}
+          local={local}
+          name={menu.name}
+          sucursal={menu.locationName}
+          logoUrl={menu.logoUrl}
+          minimoLabel={minimo > 0 ? `Mínimo ${formatPrice(minimo)}` : undefined}
+          cambiarSucursal={menu.sucursalesOnline > 1}
+        />
 
-      <InfoDelLocal menu={menu} horario={horario} />
-
-      {(secciones.length > 1 || menu.combos.length > 0) && (
-        <nav
-          aria-label="Categorías"
-          className="sticky top-16 z-20 mt-3 border-b border-border bg-background"
-        >
-          <div className="mx-auto w-full max-w-2xl px-4 pt-1">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={busqueda}
-                onChange={(e) => {
-                  setBusqueda(e.target.value);
-                  window.scrollTo({ top: 0 });
-                }}
-                placeholder="Buscar: roquefort, palta, 21…"
-                aria-label="Buscar en el menú"
-                enterKeyHint="search"
-                className="h-11 w-full rounded-full border border-border bg-card/40 pl-9 pr-10 text-base outline-none focus:border-primary"
-              />
-              {busqueda && (
-                <button
-                  type="button"
-                  onClick={() => setBusqueda("")}
-                  aria-label="Borrar búsqueda"
-                  className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </label>
-          </div>
-          <div
-            hidden={!!resultados}
-            ref={barra}
-            className="no-scrollbar mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 py-3"
-          >
-            {menu.combos.length > 0 && (
-              <ChipCategoria id="combos" label="Combos" activa={activa} accent={accent} />
-            )}
-            {secciones.map((c) => (
-              <ChipCategoria
-                key={c.id}
-                id={`cat-${c.id}`}
-                label={c.name}
-                activa={activa}
-                accent={accent}
-              />
-            ))}
-          </div>
-        </nav>
-      )}
-
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-32 pt-4">
-        {/* Todo apagado o agotado: una pantalla en blanco parece un error. */}
-        {menu.combos.length === 0 && secciones.length === 0 && (
-          <div className="mt-10 rounded-3xl border border-border bg-card/60 p-6 text-center">
-            <h2 className="font-display text-3xl">Por ahora no hay nada disponible</h2>
-            <p className="mt-2 text-muted-foreground">
-              Se nos terminó lo que teníamos para hoy. Volvé a mirar en un rato.
+        {soloVer ? (
+          <div className="mx-auto mt-3 flex w-full max-w-2xl items-center gap-3 px-4">
+            <p className="flex flex-1 items-center gap-1.5 text-sm text-muted-foreground">
+              <Eye className="h-4 w-4 shrink-0" /> Estás viendo el menú
             </p>
+            {/* Con varias sucursales vuelve a elegir envío o retiro: la que le
+                lleva puede no ser la que estaba mirando. */}
+            {menu.sucursalesOnline > 1 ? (
+              <Link
+                to="/p/$empresa"
+                params={{ empresa }}
+                className="shrink-0 rounded-full px-4 py-2 text-sm font-bold text-white"
+                style={{ background: accent }}
+              >
+                Pedir online
+              </Link>
+            ) : (
+              <Link
+                to="/p/$empresa/$local"
+                params={{ empresa, local }}
+                search={{}}
+                className="shrink-0 rounded-full px-4 py-2 text-sm font-bold text-white"
+                style={{ background: accent }}
+              >
+                Pedir online
+              </Link>
+            )}
           </div>
-        )}
-
-        {resultados ? (
-          <Resultados
-            resultados={resultados}
-            busqueda={busqueda.trim()}
-            cartKey={cartKey}
-            accent={accent}
-          />
         ) : (
-          <>
-            {!horario.abierto && (
-              <div className="mb-5 flex items-start gap-3 rounded-3xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">
-                <Clock className="mt-0.5 h-5 w-5 shrink-0" />
-                <div>
-                  <p className="font-bold">Ahora estamos cerrados</p>
-                  <p className="text-sm opacity-90">
-                    Tomamos pedidos {horario.texto}. Mientras tanto podés mirar el menú y armar tu
-                    pedido.
-                  </p>
-                </div>
-              </div>
-            )}
-            {cantidad === 0 && (
-              <RepetirPedido cartKey={cartKey} menu={menu} empresa={empresa} local={local} />
-            )}
-            {menu.combos.length > 0 && (
-              <section id="combos" className="scroll-mt-32 pb-6">
-                <h2 className="mb-3 font-display text-3xl">Combos</h2>
-                <div className="space-y-3">
-                  {menu.combos.map((c) => (
-                    <FilaCombo key={c.id} combo={c} cartKey={cartKey} accent={accent} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {secciones.map((c, idx) => (
-              <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-32 pb-6">
-                <h2 className="font-display text-3xl">{c.name}</h2>
-                {/* La misma bajada en varias categorías seguidas (las de miga) se
-                lee una vez: repetida cinco veces era un muro de texto. */}
-                {c.tagline && c.tagline !== secciones[idx - 1]?.tagline && (
-                  <Bajada
-                    texto={c.tagline}
-                    regalo={c.productos.some((p) => p.regalo)}
-                    accent={accent}
-                  />
-                )}
-                <div className="mt-3 space-y-3">
-                  {c.productos.map((p) => (
-                    <FilaProducto key={p.id} producto={p} cartKey={cartKey} accent={accent} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </>
+          <InfoDelLocal menu={menu} horario={horario} />
         )}
-      </main>
 
-      {cantidad > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background p-4">
-          {/* Ya ganó sándwiches de regalo y no los eligió: se le recuerda acá,
-              que es donde está mirando mientras arma el pedido. */}
-          {regalo.pendientes > 0 && (
-            <p className="mx-auto mb-2 flex w-full max-w-2xl items-center justify-center gap-1.5 text-sm font-bold text-emerald-400">
-              <Gift className="h-4 w-4" />
-              Te {regalo.pendientes === 1 ? "corresponde" : "corresponden"} {regalo.pendientes} de
-              regalo: elegilos y no te los cobramos
-            </p>
-          )}
-          <Link
-            to="/p/$empresa/$local/carrito"
-            params={{ empresa, local }}
-            key={cantidad}
-            className="latido mx-auto flex h-14 w-full max-w-2xl items-center justify-between rounded-2xl px-5 font-bold text-white"
-            style={{ background: accent }}
+        {(secciones.length > 1 || menu.combos.length > 0) && (
+          <nav
+            aria-label="Categorías"
+            className="sticky top-16 z-20 mt-3 border-b border-border bg-background"
           >
-            <span className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5" />
-              Ver mi pedido · {cantidad}
-            </span>
-            <span className="text-lg">{formatPrice(total)}</span>
-          </Link>
-        </div>
-      )}
-    </div>
+            <div className="mx-auto w-full max-w-2xl px-4 pt-1">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={busqueda}
+                  onChange={(e) => {
+                    setBusqueda(e.target.value);
+                    window.scrollTo({ top: 0 });
+                  }}
+                  placeholder="Buscar: roquefort, palta, 21…"
+                  aria-label="Buscar en el menú"
+                  enterKeyHint="search"
+                  className="h-11 w-full rounded-full border border-border bg-card/40 pl-9 pr-10 text-base outline-none focus:border-primary"
+                />
+                {busqueda && (
+                  <button
+                    type="button"
+                    onClick={() => setBusqueda("")}
+                    aria-label="Borrar búsqueda"
+                    className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </label>
+            </div>
+            <div
+              hidden={!!resultados}
+              ref={barra}
+              className="no-scrollbar mx-auto flex w-full max-w-2xl gap-2 overflow-x-auto px-4 py-3"
+            >
+              {menu.combos.length > 0 && (
+                <ChipCategoria id="combos" label="Combos" activa={activa} accent={accent} />
+              )}
+              {secciones.map((c) => (
+                <ChipCategoria
+                  key={c.id}
+                  id={`cat-${c.id}`}
+                  label={c.name}
+                  activa={activa}
+                  accent={accent}
+                />
+              ))}
+            </div>
+          </nav>
+        )}
+
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-32 pt-4">
+          {/* Todo apagado o agotado: una pantalla en blanco parece un error. */}
+          {menu.combos.length === 0 && secciones.length === 0 && (
+            <div className="mt-10 rounded-3xl border border-border bg-card/60 p-6 text-center">
+              <h2 className="font-display text-3xl">Por ahora no hay nada disponible</h2>
+              <p className="mt-2 text-muted-foreground">
+                Se nos terminó lo que teníamos para hoy. Volvé a mirar en un rato.
+              </p>
+            </div>
+          )}
+
+          {resultados ? (
+            <Resultados
+              resultados={resultados}
+              busqueda={busqueda.trim()}
+              cartKey={cartKey}
+              accent={accent}
+            />
+          ) : (
+            <>
+              {!horario.abierto && !soloVer && (
+                <div className="mb-5 flex items-start gap-3 rounded-3xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">
+                  <Clock className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="font-bold">Ahora estamos cerrados</p>
+                    <p className="text-sm opacity-90">
+                      Tomamos pedidos {horario.texto}. Mientras tanto podés mirar el menú y armar tu
+                      pedido.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {cantidad === 0 && !soloVer && (
+                <RepetirPedido cartKey={cartKey} menu={menu} empresa={empresa} local={local} />
+              )}
+              {menu.combos.length > 0 && (
+                <section id="combos" className="scroll-mt-32 pb-6">
+                  <h2 className="mb-3 font-display text-3xl">Combos</h2>
+                  <div className="space-y-3">
+                    {menu.combos.map((c) => (
+                      <FilaCombo key={c.id} combo={c} cartKey={cartKey} accent={accent} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {secciones.map((c, idx) => (
+                <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-32 pb-6">
+                  <h2 className="font-display text-3xl">{c.name}</h2>
+                  {/* La misma bajada en varias categorías seguidas (las de miga) se
+                lee una vez: repetida cinco veces era un muro de texto. */}
+                  {c.tagline && c.tagline !== secciones[idx - 1]?.tagline && (
+                    <Bajada
+                      texto={c.tagline}
+                      regalo={c.productos.some((p) => p.regalo)}
+                      accent={accent}
+                    />
+                  )}
+                  <div className="mt-3 space-y-3">
+                    {c.productos.map((p) => (
+                      <FilaProducto key={p.id} producto={p} cartKey={cartKey} accent={accent} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </>
+          )}
+        </main>
+
+        {cantidad > 0 && !soloVer && (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background p-4">
+            {/* Ya ganó sándwiches de regalo y no los eligió: se le recuerda acá,
+              que es donde está mirando mientras arma el pedido. */}
+            {regalo.pendientes > 0 && (
+              <p className="mx-auto mb-2 flex w-full max-w-2xl items-center justify-center gap-1.5 text-sm font-bold text-emerald-400">
+                <Gift className="h-4 w-4" />
+                Te {regalo.pendientes === 1 ? "corresponde" : "corresponden"} {regalo.pendientes} de
+                regalo: elegilos y no te los cobramos
+              </p>
+            )}
+            <Link
+              to="/p/$empresa/$local/carrito"
+              params={{ empresa, local }}
+              key={cantidad}
+              className="latido mx-auto flex h-14 w-full max-w-2xl items-center justify-between rounded-2xl px-5 font-bold text-white"
+              style={{ background: accent }}
+            >
+              <span className="flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5" />
+                Ver mi pedido · {cantidad}
+              </span>
+              <span className="text-lg">{formatPrice(total)}</span>
+            </Link>
+          </div>
+        )}
+      </div>
+    </SoloVer.Provider>
   );
 }
 
@@ -769,6 +814,7 @@ function FilaProducto({
 }) {
   const add = useTotemCart((s) => s.add);
   const items = useCartForSlug(cartKey);
+  const soloVer = useContext(SoloVer);
   // En los que se hacen en blanco o negro, el − / + maneja el pan marcado.
   const [panElegido, setPanElegido] = useState<Pan>("blanco");
   const pan = p.pan === "ambos" ? panElegido : undefined;
@@ -798,32 +844,39 @@ function FilaProducto({
         </>
       }
       opciones={
-        p.pan && (
+        p.pan &&
+        (soloVer ? (
+          <p className="text-xs text-muted-foreground">
+            {p.pan === "ambos" ? "En pan blanco o negro" : `En pan ${p.pan}`}
+          </p>
+        ) : (
           <ElegirPan pan={p.pan} elegido={panElegido} onElegir={setPanElegido} accent={accent} />
-        )
+        ))
       }
       pie={
         <>
           <span className="font-display text-xl" style={{ color: accent }}>
             {formatPrice(p.price)}
           </span>
-          <Cantidad
-            clave={clave}
-            enCarrito={enCarrito ?? 0}
-            accent={accent}
-            nombre={p.name}
-            onAgregar={() =>
-              add(cartKey, {
-                kind: "producto",
-                refId: p.id,
-                name: p.name,
-                price: p.price,
-                photoUrl: p.photoUrl,
-                pan,
-                regalo: regaloDeProducto(p),
-              })
-            }
-          />
+          {!soloVer && (
+            <Cantidad
+              clave={clave}
+              enCarrito={enCarrito ?? 0}
+              accent={accent}
+              nombre={p.name}
+              onAgregar={() =>
+                add(cartKey, {
+                  kind: "producto",
+                  refId: p.id,
+                  name: p.name,
+                  price: p.price,
+                  photoUrl: p.photoUrl,
+                  pan,
+                  regalo: regaloDeProducto(p),
+                })
+              }
+            />
+          )}
         </>
       }
     />
@@ -853,6 +906,7 @@ function FilaCombo({
   const unidades =
     c.items.reduce((t, i) => t + i.quantity, 0) + c.grupos.reduce((t, g) => t + g.cantidad, 0);
   const [armando, setArmando] = useState(false);
+  const soloVer = useContext(SoloVer);
 
   const agregar = (elecciones?: TotemCartEleccion[]) =>
     add(cartKey, {
@@ -923,7 +977,7 @@ function FilaCombo({
             <span className="font-display text-xl" style={{ color: accent }}>
               {formatPrice(c.price)}
             </span>
-            {aEleccion ? (
+            {soloVer ? null : aEleccion ? (
               <button
                 type="button"
                 onClick={() => setArmando(true)}
