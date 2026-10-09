@@ -11,6 +11,7 @@ import {
 import appCss from "../styles.css?url";
 import faviconUrl from "@/assets/totem-logo.png";
 import { Toaster } from "@/components/ui/sonner";
+import { ogMeta } from "@/lib/og";
 
 function NotFoundComponent() {
   return (
@@ -77,10 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Totempoint" },
       { name: "description", content: "Tótems de autoservicio para casas de comida" },
       { name: "author", content: "Totempoint" },
-      { property: "og:title", content: "Totempoint" },
-      { property: "og:description", content: "Tótems de autoservicio para casas de comida" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      ...ogMeta({
+        title: "Totempoint",
+        description: "Tótems de autoservicio para casas de comida",
+      }),
     ],
     links: [
       { rel: "icon", type: "image/png", href: faviconUrl },

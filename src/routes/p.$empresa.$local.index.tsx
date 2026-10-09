@@ -22,6 +22,7 @@ import type { TotemProduct, TotemCombo, OnlineMenu } from "@/lib/api/totem.funct
 import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
+import { ogMeta } from "@/lib/og";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { useHorario } from "@/components/online/useHorario";
 import { ElegirGustos } from "@/components/online/ElegirGustos";
@@ -67,6 +68,14 @@ export const Route = createFileRoute("/p/$empresa/$local/")({
     meta: [
       { title: loaderData ? `Pedí online — ${loaderData.name}` : "Pedido online" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // El link que el comercio comparte por WhatsApp: que la vista previa
+      // diga su nombre y no "Totempoint".
+      ...(loaderData
+        ? ogMeta({
+            title: loaderData.name,
+            description: `Hacé tu pedido online a ${loaderData.name}`,
+          })
+        : []),
     ],
   }),
   errorComponent: ({ error }) => <OnlineError message={error.message} />,
