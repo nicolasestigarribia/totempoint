@@ -88,7 +88,7 @@ async function foto(companyId: number, key: FotoKey): Promise<string | null> {
     return null;
   }
   const mimeType = res.headers.get("content-type")?.split(";")[0] ?? "image/jpeg";
-  const data = Buffer.from(await res.arrayBuffer()).toString("base64");
+  const data = Buffer.from(await res.arrayBuffer());
 
   const [{ id }] = await db.insert(images).values({ companyId, mimeType, data }).$returningId();
   const ruta = `/img/${id}`;
@@ -454,7 +454,7 @@ async function main() {
     .values({
       companyId,
       mimeType: "image/svg+xml",
-      data: Buffer.from(logoSvg(), "utf8").toString("base64"),
+      data: Buffer.from(logoSvg(), "utf8"),
     })
     .$returningId();
   await db

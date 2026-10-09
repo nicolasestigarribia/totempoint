@@ -8,15 +8,35 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { uploadImage } from "@/lib/api/uploads.functions";
 
-const MAX_SIDE = 1600;
+type Formato = "image/webp" | "image/jpeg" | "image/png";
+
+/**
+ * Lado máximo según dónde se muestra la imagen. Una foto de producto se ve en
+ * una tarjeta y un logo en un círculo chico: guardarlas a 1600 px es pagar en
+ * la base píxeles que nadie ve. La portada sí ocupa la pantalla entera.
+ */
+export const LADO_MAXIMO = { foto: 900, logo: 512, portada: 1600 } as const;
+
+/** ¿Algún píxel es (semi)transparente? Decide PNG o JPEG cuando no hay WebP. */
+function tieneTransparencia(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  const { data } = ctx.getImageData(0, 0, w, h);
+  for (let i = 3; i < data.length; i += 4) if (data[i] < 255) return true;
+  return false;
+}
 
 // Redimensiona y recomprime en el navegador: una foto de celular de varios MB
-// termina pesando unos cientos de KB, que es lo que guardamos en la base.
-function compress(file: File): Promise<{ mimeType: "image/webp"; data: string }> {
+// termina pesando decenas de KB, que es lo que guardamos en la base.
+//
+// Safari no sabe codificar WebP desde un canvas: `toDataURL("image/webp")`
+// devuelve en silencio un PNG sin pérdida, que pesa diez veces más (así entró
+// un logo de 463 KB etiquetado como WebP). Por eso se mira qué formato salió de
+// verdad y, si no es WebP, se usa JPEG, o PNG cuando la imagen tiene
+// transparencia (un logo recortado sobre JPEG quedaría con fondo negro).
+function compress(file: File, maxSide: number): Promise<{ mimeType: Formato; data: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
@@ -29,8 +49,15 @@ function compress(file: File): Promise<{ mimeType: "image/webp"; data: string }>
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(img.src);
 
-      const dataUrl = canvas.toDataURL("image/webp", 0.82);
-      resolve({ mimeType: "image/webp", data: dataUrl.slice(dataUrl.indexOf(",") + 1) });
+      let dataUrl = canvas.toDataURL("image/webp", 0.8);
+      let mimeType: Formato = "image/webp";
+      if (!dataUrl.startsWith("data:image/webp")) {
+        mimeType = tieneTransparencia(ctx, canvas.width, canvas.height)
+          ? "image/png"
+          : "image/jpeg";
+        dataUrl = canvas.toDataURL(mimeType, 0.8);
+      }
+      resolve({ mimeType, data: dataUrl.slice(dataUrl.indexOf(",") + 1) });
     };
     img.onerror = () => reject(new Error("No se pudo leer la imagen"));
     img.src = URL.createObjectURL(file);
@@ -42,11 +69,14 @@ export function ImageUploadField({
   label,
   value,
   onChange,
+  maxSide = LADO_MAXIMO.foto,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (url: string) => void;
+  /** Lado máximo en px; ver `LADO_MAXIMO`. */
+  maxSide?: number;
 }) {
   const doUpload = useServerFn(uploadImage);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,7 +85,7 @@ export function ImageUploadField({
   const handleFile = async (file: File) => {
     setUploading(true);
     try {
-      const { url } = await doUpload({ data: await compress(file) });
+      const { url } = await doUpload({ data: await compress(file, maxSide) });
       onChange(url);
       toast.success("Imagen subida");
     } catch (err) {

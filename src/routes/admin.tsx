@@ -62,7 +62,7 @@ import { CajaSection } from "@/components/admin/CajaSection";
 import { PagosSection } from "@/components/admin/PagosSection";
 import { AuditoriaSection } from "@/components/admin/AuditoriaSection";
 import { OnlineSection } from "@/components/admin/OnlineSection";
-import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -796,7 +796,13 @@ function BrandingForm({
             />
           </div>
           <div className="md:col-span-2">
-            <ImageUploadField id="logo" label="Logo" value={logoUrl} onChange={setLogoUrl} />
+            <ImageUploadField
+              id="logo"
+              label="Logo"
+              value={logoUrl}
+              onChange={setLogoUrl}
+              maxSide={LADO_MAXIMO.logo}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="color">Color principal</Label>

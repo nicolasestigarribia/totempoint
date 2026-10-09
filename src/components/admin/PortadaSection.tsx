@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { TotemHome } from "@/components/totem/TotemHome";
 import { PreviewFrame } from "@/components/admin/PreviewFrame";
-import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
 import { useReadOnly } from "@/components/admin/readonly";
 import {
   getMyTotemSettings,
@@ -306,6 +306,7 @@ export function PortadaSection({
 
               <ImageUploadField
                 id="hero"
+                maxSide={LADO_MAXIMO.portada}
                 label="Imagen de portada"
                 value={form.heroImageUrl}
                 onChange={(url) => set("heroImageUrl", url)}

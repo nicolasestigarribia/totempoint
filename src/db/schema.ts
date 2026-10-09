@@ -9,7 +9,7 @@ import {
   decimal,
   mysqlEnum,
   text,
-  mediumtext,
+  customType,
   date,
   json,
   unique,
@@ -195,8 +195,15 @@ export const userPermissions = mysqlTable(
   (t) => [unique("user_permissions_user_section_uq").on(t.userId, t.section)],
 );
 
-// Imágenes subidas por cada negocio, guardadas como base64 en la propia base
-// para no depender de un storage externo. El navegador las comprime antes de
+// Los bytes tal cual. Antes eran base64 en un MEDIUMTEXT, que ocupa un 33% más
+// por la misma imagen; ver src/db/migrate-images-blob.ts. 16 MB de tope, de
+// sobra para lo que entra por uploadImage.
+const mediumblob = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "mediumblob",
+});
+
+// Imágenes subidas por cada negocio, guardadas en la propia base para no
+// depender de un storage externo. El navegador las comprime antes de
 // subirlas; se sirven por /img/:id desde src/lib/images.ts.
 export const images = mysqlTable(
   "images",
@@ -204,7 +211,7 @@ export const images = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     companyId: int("company_id").notNull(),
     mimeType: varchar("mime_type", { length: 40 }).notNull(),
-    data: mediumtext("data").notNull(),
+    data: mediumblob("data").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("images_company_idx").on(t.companyId)],
