@@ -85,7 +85,8 @@ export function ImageUploadField({
   const handleFile = async (file: File) => {
     setUploading(true);
     try {
-      const { url } = await doUpload({ data: await compress(file, maxSide) });
+      const { data } = await compress(file, maxSide);
+      const { url } = await doUpload({ data: { data } });
       onChange(url);
       toast.success("Imagen subida");
     } catch (err) {

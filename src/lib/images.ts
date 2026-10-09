@@ -7,10 +7,10 @@ import { formatoDeImagen } from "@/lib/image-format";
  * Los bytes de la imagen tal como salen de la columna.
  *
  * Hoy `data` es un MEDIUMBLOB con los bytes. Antes de migrate-images-blob.ts
- * era base64 en texto, y entre el deploy y la migración (o si un server viejo
- * sube algo después de migrar) puede venir base64 todavía: si los bytes no
- * tienen firma de imagen se prueban como base64. Así el orden en que se hagan
- * deploy y migración no rompe ninguna imagen.
+ * era base64 en texto, y un server viejo que suba algo entre la migración y el
+ * deploy deja base64 en el blob: si los bytes no tienen firma de imagen se
+ * prueban como base64. La lectura tolera los dos; la escritura no (ver el orden
+ * en migrate-images-blob.ts).
  */
 function bytesDe(data: Buffer | string): Buffer {
   const crudo = typeof data === "string" ? Buffer.from(data, "latin1") : data;
@@ -34,6 +34,7 @@ export async function serveImage(id: number): Promise<Response> {
     headers: {
       "content-type": row.mimeType,
       "cache-control": "public, max-age=31536000, immutable",
+      "x-content-type-options": "nosniff",
     },
   });
 }

@@ -13,10 +13,8 @@ const MAX_BYTES = 1_500_000;
 export const uploadImage = createServerFn({ method: "POST" })
   .middleware([requireCompany])
   .inputValidator(
-    z.object({
-      mimeType: z.enum(["image/webp", "image/jpeg", "image/png"]),
-      data: z.string().min(1),
-    }),
+    // El tipo no se pide: sale de los bytes (ver abajo).
+    z.object({ data: z.string().min(1) }),
   )
   .handler(async ({ context, data }): Promise<{ url: string }> => {
     const user = context.user as SessionUser;
