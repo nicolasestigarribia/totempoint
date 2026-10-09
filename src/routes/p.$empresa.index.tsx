@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { getOnlineEmpresa, type SucursalOnline } from "@/lib/api/totem.functions";
 import { OnlineError } from "@/components/online/OnlineError";
+import { ogMeta } from "@/lib/og";
 import { BuscadorDireccion } from "@/components/online/BuscadorDireccion";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { cotizarEnvio, distanciaKm, formatearDistancia } from "@/lib/delivery";
@@ -41,6 +42,13 @@ export const Route = createFileRoute("/p/$empresa/")({
     meta: [
       { title: loaderData ? `Pedí online — ${loaderData.name}` : "Pedido online" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // El link de la empresa es el que más se comparte por WhatsApp.
+      ...(loaderData
+        ? ogMeta({
+            title: loaderData.name,
+            description: `Hacé tu pedido online a ${loaderData.name}`,
+          })
+        : []),
     ],
   }),
   errorComponent: ({ error }) => <OnlineError message={error.message} />,
