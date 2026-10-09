@@ -460,3 +460,69 @@ input[type="number"] {
     animation: none;
   }
 }
+
+/* La portada del pedido online (/p/{empresa}): luces del color de la marca
+   que se mueven despacio, una grilla que se desvanece y un anillo que gira
+   alrededor del logo. Quietas si el teléfono pide reducir el movimiento. */
+.portada-grilla {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--foreground) 8%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--foreground) 8%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 20%, transparent 75%);
+}
+@keyframes portada-deriva {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(30%, 20%, 0) scale(1.2);
+  }
+}
+.portada-luz {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--portada-acento, var(--primary));
+  filter: blur(70px);
+  opacity: 0.35;
+  animation: portada-deriva 12s ease-in-out infinite alternate;
+}
+.portada-luz-2 {
+  opacity: 0.22;
+  animation-duration: 16s;
+  animation-direction: alternate-reverse;
+}
+@keyframes portada-gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.portada-anillo {
+  position: absolute;
+  inset: -5px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    var(--portada-acento, var(--primary)) 120deg,
+    transparent 240deg
+  );
+  filter: drop-shadow(0 0 14px var(--portada-acento, var(--primary)));
+  animation: portada-gira 3.5s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portada-luz,
+  .portada-anillo {
+    animation: none;
+  }
+}

@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { Bike, Store, MapPin, ChevronRight, Clock, BookOpen } from "lucide-react";
+import {
+  Bike,
+  Store,
+  MapPin,
+  ChevronRight,
+  Clock,
+  BookOpen,
+  ShoppingBag,
+  Radio,
+} from "lucide-react";
 import { getOnlineEmpresa, type SucursalOnline } from "@/lib/api/totem.functions";
 import { OnlineError } from "@/components/online/OnlineError";
 import { BuscadorDireccion } from "@/components/online/BuscadorDireccion";
@@ -86,17 +95,107 @@ function EmpresaPage() {
     void navigate({ to: "/p/$empresa/$local", params: { empresa: empresa.slug, local: s.slug } });
   };
 
+  // Abierta si alguna sucursal lo está; si no, cuándo abre la primera.
+  const horarios = empresa.sucursales.map((s) => estadoHorario(s.horarios));
+  const abierta = horarios.some((h) => h.abierto);
+  const abre = horarios.find((h) => h.texto)?.texto ?? null;
+
+  const cinta = [
+    hayEnvio && "Envío a domicilio",
+    hayRetiro && "Retiro en el local",
+    `${empresa.sucursales.length} sucursales`,
+    "Seguí tu pedido en vivo",
+    "Pedí en un minuto",
+  ].filter((t): t is string => !!t);
+
   return (
-    <div className="flex min-h-svh flex-col bg-background">
-      <header className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 px-4 pb-4 pt-10 text-center">
+    <div
+      className="relative flex min-h-svh flex-col overflow-hidden bg-background"
+      style={{ "--portada-acento": accent } as React.CSSProperties}
+    >
+      {/* El fondo vivo: dos luces del color de la marca que se mueven despacio
+          sobre una grilla que se desvanece. Es lo primero que ve el que
+          escanea el QR, y tiene que decir "esto es nuevo" antes de leer nada. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="portada-grilla" />
+        <div className="portada-luz -left-24 -top-24 h-72 w-72" />
+        <div className="portada-luz portada-luz-2 -right-20 top-40 h-64 w-64" />
+      </div>
+
+      <header className="relative mx-auto flex w-full max-w-2xl flex-col items-center gap-4 px-4 pb-6 pt-12 text-center">
         {empresa.logoUrl && (
-          <img src={empresa.logoUrl} alt="" className="h-24 w-24 rounded-full object-cover" />
+          <button
+            type="button"
+            onClick={() => {
+              setModo(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            aria-label="Volver al inicio"
+            className="aparece relative rounded-full"
+          >
+            <span aria-hidden className="portada-anillo" />
+            <img
+              src={empresa.logoUrl}
+              alt=""
+              className="relative h-28 w-28 rounded-full border-4 border-background object-cover"
+            />
+          </button>
         )}
-        <h1 className="font-display text-4xl leading-none">{empresa.name}</h1>
-        <p className="text-sm text-muted-foreground">Pedí online desde tu celular</p>
+        <h1
+          className="aparece font-display text-5xl leading-none"
+          style={{ animationDelay: "80ms" }}
+        >
+          {empresa.name}
+        </h1>
+        <span
+          className="aparece inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-3 py-1.5 text-xs font-bold backdrop-blur"
+          style={{ animationDelay: "160ms" }}
+        >
+          {abierta ? (
+            <>
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              Abierto ahora
+            </>
+          ) : (
+            <>
+              <Clock className="h-3.5 w-3.5 text-amber-300" />
+              Cerrado{abre ? ` · abre ${abre}` : ""}
+            </>
+          )}
+        </span>
+        <p className="aparece text-sm text-muted-foreground" style={{ animationDelay: "220ms" }}>
+          Pedí online desde tu celular
+        </p>
       </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 pb-10">
+      <div
+        className="marquesina-caja relative mb-5 border-y border-border/60 bg-card/30 py-2.5 backdrop-blur"
+        aria-label={cinta.join(" · ")}
+      >
+        <div
+          className="marquesina"
+          style={{ "--marquesina-duracion": "24s" } as React.CSSProperties}
+        >
+          {[0, 1].map((copia) => (
+            <div key={copia} aria-hidden className="flex shrink-0 items-center">
+              {[...cinta, ...cinta].map((t, i) => (
+                <span
+                  key={i}
+                  className="flex items-center gap-2 whitespace-nowrap px-4 text-xs font-bold uppercase tracking-widest text-muted-foreground"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
+                  {t}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <main className="relative mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 pb-10">
         <div className={`grid gap-2 ${hayEnvio && hayRetiro ? "grid-cols-3" : "grid-cols-2"}`}>
           {hayEnvio && (
             <BotonModo
@@ -106,6 +205,7 @@ function EmpresaPage() {
               titulo="Envío"
               detalle="Te lo llevamos"
               accent={accent}
+              orden={0}
             />
           )}
           {hayRetiro && (
@@ -116,6 +216,7 @@ function EmpresaPage() {
               titulo="Retiro"
               detalle="Pasás a buscarlo"
               accent={accent}
+              orden={1}
             />
           )}
           {/* Para el QR pegado en el local: mirar el menú sin pedir nada. */}
@@ -126,11 +227,43 @@ function EmpresaPage() {
             titulo="Menú"
             detalle="Solo mirar"
             accent={accent}
+            orden={2}
           />
         </div>
 
+        {/* Antes de elegir: cómo sigue, en tres pasos. Se va al tocar una opción. */}
+        {modo === null && (
+          <ol className="grid grid-cols-3 gap-2 pt-4">
+            {[
+              { icono: <MapPin className="h-5 w-5" />, texto: "Elegí envío o retiro" },
+              { icono: <ShoppingBag className="h-5 w-5" />, texto: "Armá tu pedido" },
+              { icono: <Radio className="h-5 w-5" />, texto: "Seguilo en vivo" },
+            ].map((paso, i) => (
+              <li
+                key={i}
+                className="aparece flex flex-col items-center gap-2 text-center"
+                style={{ animationDelay: `${600 + i * 120}ms` }}
+              >
+                <span
+                  className="relative flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card/50 backdrop-blur"
+                  style={{ color: accent }}
+                >
+                  {paso.icono}
+                  <span
+                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-white"
+                    style={{ background: accent }}
+                  >
+                    {i + 1}
+                  </span>
+                </span>
+                <span className="text-xs text-muted-foreground">{paso.texto}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+
         {modo === "envio" && (
-          <section className="space-y-3">
+          <section className="aparece space-y-3">
             <h2 className="font-bold">¿A dónde te lo llevamos?</h2>
             <BuscadorDireccion cerca={cerca} onElegir={setLugar} />
             {lugar &&
@@ -178,7 +311,7 @@ function EmpresaPage() {
         )}
 
         {modo === "retiro" && (
-          <section className="space-y-3">
+          <section className="aparece space-y-3">
             <h2 className="font-bold">¿Dónde lo retirás?</h2>
             <ul className="space-y-2">
               {empresa.sucursales
@@ -202,7 +335,7 @@ function EmpresaPage() {
           </section>
         )}
         {modo === "menu" && (
-          <section className="space-y-3">
+          <section className="aparece space-y-3">
             <h2 className="font-bold">¿De qué sucursal querés ver el menú?</h2>
             <ul className="space-y-2">
               {empresa.sucursales.map((s) => (
@@ -238,6 +371,7 @@ function BotonModo({
   titulo,
   detalle,
   accent,
+  orden,
 }: {
   activo: boolean;
   onClick: () => void;
@@ -245,16 +379,23 @@ function BotonModo({
   titulo: string;
   detalle: string;
   accent: string;
+  /** Posición, para que entren de a uno. */
+  orden: number;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={activo}
-      className={`flex flex-col items-center gap-1 rounded-3xl border-2 px-2 py-4 transition ${
-        activo ? "text-white" : "border-border bg-card/40"
+      className={`aparece flex flex-col items-center gap-1 rounded-3xl border-2 px-2 py-4 backdrop-blur transition duration-200 hover:-translate-y-0.5 active:scale-95 ${
+        activo ? "text-white" : "border-border bg-card/50"
       }`}
-      style={activo ? { background: accent, borderColor: accent } : undefined}
+      style={{
+        animationDelay: `${300 + orden * 80}ms`,
+        ...(activo
+          ? { background: accent, borderColor: accent, boxShadow: `0 10px 30px -8px ${accent}` }
+          : {}),
+      }}
     >
       {icono}
       <span className="font-display text-xl">{titulo}</span>

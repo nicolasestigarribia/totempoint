@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Clock,
   X,
+  Eye,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -252,6 +253,7 @@ function SucursalOnline({
             : undefined
         }
         pathLargo={`/p/${companySlug}/${loc.locationSlug}`}
+        soloVerPath={`/p/${companySlug}/${loc.locationSlug}?ver=1`}
         alias={loc.alias}
         guardar={(alias) => saveAlias({ data: { locationId: loc.locationId, alias } })}
         panelClass={panelClass}
@@ -536,10 +538,13 @@ function LinkOnline({
   pathLargo,
   alias,
   guardar,
+  soloVerPath,
   panelClass,
   onChange,
 }: {
   titulo: string;
+  /** El menú para mirar sin pedir, para el QR pegado en el local. */
+  soloVerPath?: string;
   detalle?: string;
   /** El link sin alias: /p/{empresa}/{sucursal} o /p/{empresa}. */
   pathLargo: string;
@@ -653,6 +658,35 @@ function LinkOnline({
           <QRCodeSVG value={url} size={140} level="M" />
         </div>
       </div>
+      {soloVerPath && (
+        <div className="mt-6 flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1 space-y-2">
+            <p className="flex items-center gap-2 font-bold">
+              <Eye className="h-4 w-4" /> QR para mirar el menú
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Para pegar en las mesas o la vidriera: abre el menú con fotos y precios, sin botones
+              para pedir. Desde ahí, el que quiera pedir online toca "Pedir online".
+            </p>
+            <a
+              href={soloVerPath}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition hover:border-primary"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Ver cómo se ve
+            </a>
+          </div>
+          <div className="mx-auto shrink-0 rounded-2xl bg-white p-3 sm:mx-0">
+            <QRCodeSVG
+              value={origin ? `${origin}${soloVerPath}` : soloVerPath}
+              size={120}
+              level="M"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

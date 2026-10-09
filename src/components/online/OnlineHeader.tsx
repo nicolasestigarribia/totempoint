@@ -41,8 +41,17 @@ export function OnlineHeader({
             <ArrowLeft className="h-5 w-5" />
           </Link>
         )}
+        {/* El logo lleva al inicio: la portada de la empresa, que con una sola
+            sucursal es su menú. */}
         {logoUrl && (
-          <img src={logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+          <Link
+            to="/p/$empresa"
+            params={{ empresa }}
+            aria-label="Ir al inicio"
+            className="shrink-0 rounded-full transition active:scale-95"
+          >
+            <img src={logoUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+          </Link>
         )}
         <div className="min-w-0">
           <p className="truncate font-display text-xl leading-tight">{name}</p>
