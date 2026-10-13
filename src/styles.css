@@ -454,10 +454,28 @@ input[type="number"] {
 .latido {
   animation: latido 360ms ease-out;
 }
+/* El "+1" que sube desde el botón al agregar algo al pedido. */
+@keyframes sube-uno {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-36px);
+  }
+}
+.sube-uno {
+  pointer-events: none;
+  animation: sube-uno 700ms ease-out forwards;
+}
 @media (prefers-reduced-motion: reduce) {
   .cargando-foto,
   .latido {
     animation: none;
+  }
+  .sube-uno {
+    display: none;
   }
 }
 
