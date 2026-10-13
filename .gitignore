@@ -40,3 +40,6 @@ dist-ssr
 !.claude/agents/
 .claude/settings.local.json
 *.stackdump
+
+# Mockups del brainstorming (superpowers)
+.superpowers/
