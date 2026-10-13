@@ -18,6 +18,7 @@ export const PANEL_SECTIONS = [
   "precios",
   "comandera",
   "caja",
+  "salon",
 ] as const;
 
 export type PanelSection = (typeof PANEL_SECTIONS)[number];
@@ -39,6 +40,7 @@ export const SECTION_LABEL: Record<PanelSection, string> = {
   precios: "Precios por sucursal",
   comandera: "Comandera",
   caja: "Recaudación",
+  salon: "Salón",
 };
 
 /**

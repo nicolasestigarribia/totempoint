@@ -292,6 +292,19 @@ La etapa 1 está hecha y probada de punta a punta (envío y retiro, aceptar y re
 - **Mercado Pago no está probado con una cobranza real** del lado online: se probó con credenciales
   de prueba. Antes de que un cliente lo use, hacer un pago chico de verdad con su token `APP_USR-`.
 
+### Pedido en mesa — versión de prueba
+
+Hecho y probado contra la base de test (2026-10-13): módulo "Mesas" en el superadmin, sección
+**Salón** (arrastrar mesas, número, lugares, forma, QR por mesa e impresión), el pedido desde
+`/m/{token}` con el mismo `tomarPedido`, "Mesa N" en la comanda, y el switch de aceptar solos o
+esperar. Reglas: el QR lleva un token y no el número; el pedido congela `table_number`; un pedido
+de mesa con Mercado Pago sin pagar no llega a la cocina. Falta:
+
+- **Probar el editor en una tablet de verdad** (el arrastre con el dedo) y un pago real con Mercado Pago desde la mesa.
+- **Varios salones por sucursal** (terraza, planta alta), **unir mesas** y **la cuenta de la mesa** acumulada.
+- **Avisarle al mozo** en su celular cuando un pedido está listo; hoy lo ve en la comanda.
+- **Imprimir** el pedido de mesa, igual que el online.
+
 ### Decisión pendiente del dueño del producto
 
 **¿Quién mueve los estados de los pedidos en la cocina?** Para que "Recibido → En preparación →

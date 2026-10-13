@@ -23,6 +23,7 @@ export const RESERVED_SLUGS = [
   "totem",
   "img",
   "p",
+  "m",
   "cuenta",
   "bienvenida",
   "assets",

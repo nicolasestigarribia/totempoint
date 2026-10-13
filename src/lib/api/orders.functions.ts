@@ -47,8 +47,10 @@ export interface KitchenOrder {
   customerName: string;
   deliveryMethod: "local" | "mostrador" | "envio";
   comments: string | null;
-  /** Tótem del mostrador o pedido online desde el celular del cliente. */
-  channel: "totem" | "online";
+  /** Tótem del mostrador, pedido online o pedido desde la mesa con su QR. */
+  channel: "totem" | "online" | "mesa";
+  /** Mesa a la que hay que llevarlo, en un pedido del canal mesa. */
+  tableNumber: number | null;
   /**
    * Cuándo lo aceptó el local. Un pedido online sin aceptar no entra todavía
    * a las columnas de la cocina: espera en "Por aceptar".
@@ -115,10 +117,11 @@ const esperandoPagoOnline = (o: {
   paymentStatus: string;
   acceptedAt: Date | null;
 }) =>
-  o.channel === "online" &&
   o.paymentMethod === "mercadopago" &&
   o.paymentStatus === "pendiente" &&
-  o.acceptedAt === null;
+  // El de mesa puede venir aceptado de entrada (aceptación automática), y
+  // tampoco va a la cocina hasta que se paga.
+  ((o.channel === "online" && o.acceptedAt === null) || o.channel === "mesa");
 
 /** Cuánto hacia atrás la cocina sale a buscar pagos de Mercado Pago sin confirmar. */
 const VENTANA_VERIFICACION_MS = 3 * 60 * 60 * 1000;
@@ -237,7 +240,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
           and(
             inArray(orders.id, vencidos),
             eq(orders.paymentStatus, "pendiente"),
-            isNull(orders.acceptedAt),
+            or(isNull(orders.acceptedAt), eq(orders.channel, "mesa")),
             ne(orders.status, "cancelado"),
           ),
         );
@@ -333,6 +336,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       deliveryMethod: o.deliveryMethod,
       comments: o.comments,
       channel: o.channel,
+      tableNumber: o.tableNumber,
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       etaMinutes: o.etaMinutes,
       customerPhone: o.customerPhone,
@@ -404,10 +408,10 @@ export const setOrderStatus = createServerFn({ method: "POST" })
     if (target.status === "cancelado") {
       throw new Error("Ese pedido está cancelado: no se le puede cambiar el estado");
     }
-    // Un pedido online que nadie aceptó no se prepara: el cliente todavía no
-    // sabe si se lo van a hacer, ni en cuánto.
-    if (target.channel === "online" && !target.acceptedAt) {
-      throw new Error("Primero aceptá el pedido online");
+    // Un pedido online o de mesa que nadie aceptó no se prepara: el cliente
+    // todavía no sabe si se lo van a hacer, ni en cuánto.
+    if (target.channel !== "totem" && !target.acceptedAt) {
+      throw new Error("Primero aceptá el pedido");
     }
 
     await db.update(orders).set({ status: data.status }).where(eq(orders.id, data.orderId));
@@ -433,7 +437,8 @@ export const acceptOnlineOrder = createServerFn({ method: "POST" })
     assertCanOperateKitchen(user);
 
     const target = await pedidoVisible(user, data.orderId);
-    if (target.channel !== "online") throw new Error("Ese pedido no es online");
+    // El de mesa también se acepta, cuando la empresa no los acepta automáticamente.
+    if (target.channel === "totem") throw new Error("Ese pedido no es online ni de mesa");
     if (target.paymentMethod === "mercadopago" && target.paymentStatus !== "pagado") {
       throw new Error("El cliente todavía no terminó de pagar con Mercado Pago");
     }

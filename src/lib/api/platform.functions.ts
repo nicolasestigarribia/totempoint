@@ -28,6 +28,8 @@ export interface BusinessRow {
   /** Módulos contratados: el tótem del mostrador y el pedido online desde el celular. */
   totem_enabled: boolean;
   online_ordering: boolean;
+  /** El pedido en mesa: un QR por mesa del salón. */
+  mesas_enabled: boolean;
   created_at: string;
   admin_user_id: number | null;
   admin_email: string | null;
@@ -73,6 +75,7 @@ export const listBusinesses = createServerFn({ method: "GET" })
         active: c.active,
         totem_enabled: c.totemEnabled,
         online_ordering: c.onlineOrdering,
+        mesas_enabled: c.mesasEnabled,
         created_at: c.createdAt.toISOString(),
         admin_user_id: admin?.id ?? null,
         admin_email: admin?.email ?? null,
@@ -172,6 +175,7 @@ export const createBusiness = createServerFn({ method: "POST" })
         active: company.active,
         totem_enabled: company.totemEnabled,
         online_ordering: company.onlineOrdering,
+        mesas_enabled: company.mesasEnabled,
         created_at: company.createdAt.toISOString(),
         admin_user_id: userId,
         admin_email: email,
@@ -393,11 +397,22 @@ export const setBusinessActive = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const NOMBRE_MODULO = { totem: "el tótem", online: "el pedido online" } as const;
+const NOMBRE_MODULO = {
+  totem: "el tótem",
+  online: "el pedido online",
+  mesas: "el pedido en mesa",
+} as const;
+
+const COLUMNA_MODULO = {
+  totem: "totemEnabled",
+  online: "onlineOrdering",
+  mesas: "mesasEnabled",
+} as const;
 
 /**
- * Prende o apaga un módulo de una empresa: el tótem o el pedido online. Se
- * venden por separado, así que una empresa puede tener uno, el otro o los dos.
+ * Prende o apaga un módulo de una empresa: el tótem, el pedido online o el
+ * pedido en mesa. Se venden por separado, así que una empresa puede tener
+ * cualquier combinación, con al menos uno.
  *
  * Apagar no borra nada: la empresa deja de ver lo de ese módulo y sus links
  * dejan de tomar pedidos, pero su configuración y sus pedidos quedan, y vuelven
@@ -407,26 +422,32 @@ const NOMBRE_MODULO = { totem: "el tótem", online: "el pedido online" } as cons
 export const setBusinessModule = createServerFn({ method: "POST" })
   .middleware([requireSuperadmin])
   .inputValidator(
-    z.object({ id: z.number().int(), modulo: z.enum(["totem", "online"]), enabled: z.boolean() }),
+    z.object({
+      id: z.number().int(),
+      modulo: z.enum(["totem", "online", "mesas"]),
+      enabled: z.boolean(),
+    }),
   )
   .handler(async ({ context, data }) => {
     const [c] = await db
-      .select({ totem: companies.totemEnabled, online: companies.onlineOrdering })
+      .select({
+        totem: companies.totemEnabled,
+        online: companies.onlineOrdering,
+        mesas: companies.mesasEnabled,
+      })
       .from(companies)
       .where(eq(companies.id, data.id))
       .limit(1);
     if (!c) throw new Error("Esa empresa no existe");
 
     const queda = { ...c, [data.modulo]: data.enabled };
-    if (!queda.totem && !queda.online) {
+    if (!queda.totem && !queda.online && !queda.mesas) {
       throw new Error("Una empresa necesita al menos un módulo. Si se va, desactivala");
     }
 
     await db
       .update(companies)
-      .set(
-        data.modulo === "totem" ? { totemEnabled: data.enabled } : { onlineOrdering: data.enabled },
-      )
+      .set({ [COLUMNA_MODULO[data.modulo]]: data.enabled })
       .where(eq(companies.id, data.id));
     await registrarAuditoria(context.user as SessionUser, {
       companyId: data.id,

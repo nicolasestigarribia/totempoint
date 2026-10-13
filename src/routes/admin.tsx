@@ -37,6 +37,7 @@ import {
   History,
   Globe,
   Palette,
+  Armchair,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -62,6 +63,7 @@ import { CajaSection } from "@/components/admin/CajaSection";
 import { PagosSection } from "@/components/admin/PagosSection";
 import { AuditoriaSection } from "@/components/admin/AuditoriaSection";
 import { OnlineSection } from "@/components/admin/OnlineSection";
+import { SalonSection } from "@/components/admin/SalonSection";
 import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -87,6 +89,7 @@ type SectionId =
   | "pagos"
   | "totems"
   | "online"
+  | "salon"
   | "operadores"
   | "auditoria";
 
@@ -120,7 +123,7 @@ interface SectionDef {
    */
   parent?: SectionId;
   /** Módulo que se vende aparte: la sección existe solo si la empresa lo tiene. */
-  modulo?: "totem" | "online";
+  modulo?: "totem" | "online" | "mesas";
 }
 
 const SECTIONS: SectionDef[] = [
@@ -151,6 +154,16 @@ const SECTIONS: SectionDef[] = [
     group: "empresa",
     ownerOnly: true,
     modulo: "online",
+  },
+  {
+    // Delegable: armar el salón y sacar los QR lo puede hacer un encargado.
+    id: "salon",
+    label: "Salón",
+    icon: Armchair,
+    desc: "Las mesas de cada sucursal y el QR con el que se pide desde la mesa",
+    group: "empresa",
+    permission: "salon",
+    modulo: "mesas",
   },
   {
     // Se abre desde el botón "Editar portada" en la sección Tótems. A una
@@ -408,6 +421,7 @@ function AdminPage() {
   const visibleSections = SECTIONS.filter((s) => {
     if (s.modulo === "online" && !business?.online_ordering) return false;
     if (s.modulo === "totem" && !business?.totem_enabled) return false;
+    if (s.modulo === "mesas" && !business?.mesas_enabled) return false;
     if (s.ownerOnly) return isOwner;
     if (!s.permission || isOwner) return true;
     return canViewSection(permissions, s.permission);
@@ -423,7 +437,7 @@ function AdminPage() {
   // tótem. Antes iba siempre debajo de Tótems, y una empresa solo online se
   // quedaba sin forma de llegar a la comandera para aceptar sus pedidos.
   const anclaComandera = visibleSections.find(
-    (s) => enNav(s) && (s.id === "totems" || s.id === "online"),
+    (s) => enNav(s) && (s.id === "totems" || s.id === "online" || s.id === "salon"),
   )?.id;
   const current = SECTIONS.find((s) => s.id === section)!;
   const firstVisible = visibleSections.find(enNav)?.id;
@@ -742,6 +756,8 @@ function SectionContent({
       return <PagosSection panelClass={panelClass} />;
     case "online":
       return <OnlineSection panelClass={panelClass} />;
+    case "salon":
+      return <SalonSection panelClass={panelClass} />;
     case "totems":
       return (
         <TotemsSection panelClass={panelClass} business={business} onEditPortada={onEditPortada} />

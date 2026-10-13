@@ -1,28 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  Minus,
-  Plus,
-  Trash2,
-  Pencil,
-  Loader2,
-  Bike,
-  Store,
-  Banknote,
-  Smartphone,
-  ShoppingBag,
-  ImageOff,
-  Clock,
-} from "lucide-react";
+import { Plus, Loader2, Bike, Store, Banknote, Smartphone, ShoppingBag, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { createOnlineOrder, type TotemProduct } from "@/lib/api/totem.functions";
-import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
+import { createOnlineOrder } from "@/lib/api/totem.functions";
+import { PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
 import { getOnlineMenuCached, onlineCartKey, olvidarMenuOnline } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
-import { TotemPersonalizar } from "@/components/totem/TotemPersonalizar";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { AvisoRegalo } from "@/components/totem/AvisoRegalo";
+import { Bloque, Fila, LineasCarrito, Opcion } from "@/components/online/CarritoPartes";
+import { lineaNoDisponible } from "@/lib/linea-disponible";
 import { guardarParaRepetir } from "@/lib/online-repetir";
 import { tomarEleccion } from "@/lib/online-eleccion";
 import { useHorario } from "@/components/online/useHorario";
@@ -35,9 +23,7 @@ import {
   useCarritoCargado,
   useRepriceCart,
   cartTotal,
-  precioLinea,
   formatPrice,
-  claveDe,
 } from "@/lib/totem-cart";
 import { mensajeDeError } from "@/lib/error-message";
 
@@ -160,31 +146,12 @@ function CarritoOnlinePage() {
   const carritoCargado = useCarritoCargado();
   // Fuera de horario se puede armar, pero no enviar: lo frena también el servidor.
   const horario = useHorario(menu.horarios);
-  const add = useTotemCart((s) => s.add);
-  const removeOne = useTotemCart((s) => s.removeOne);
-  const removeAll = useTotemCart((s) => s.removeAll);
-  const setLineChanges = useTotemCart((s) => s.setLineChanges);
   const clear = useTotemCart((s) => s.clear);
 
-  const productosPorId = useMemo(
-    () => new Map(menu.products.map((p) => [p.id, p])),
-    [menu.products],
-  );
   // Lo que quedó en el carrito pero ya no está en el menú: el dueño lo apagó o
   // lo sacó mientras el cliente compraba (el carrito vive en el celular). Se
-  // marca en la lista y no deja enviar hasta sacarlo, en vez de descubrirlo
-  // recién con un error al final.
-  const combosIds = useMemo(() => new Set(menu.combos.map((c) => c.id)), [menu.combos]);
-  const noDisponible = (i: { kind: string; refId: number }) =>
-    i.kind === "producto" ? !productosPorId.has(i.refId) : !combosIds.has(i.refId);
-  const hayNoDisponibles = items.some(noDisponible);
-
-  const [editando, setEditando] = useState<{
-    clave: string;
-    producto: TotemProduct;
-    inicialesSacados: number[];
-    inicialesExtras: Record<number, number>;
-  } | null>(null);
+  // marca en la lista y no deja enviar hasta sacarlo.
+  const hayNoDisponibles = items.some(lineaNoDisponible(menu));
 
   // Envío primero si lo hacen: es el motivo por el que la mayoría pide online.
   const [entrega, setEntrega] = useState<Entrega>(menu.delivery ? "envio" : "mostrador");
@@ -480,132 +447,7 @@ function CarritoOnlinePage() {
       <form onSubmit={enviar} className="mx-auto w-full max-w-2xl flex-1 px-4 pb-56 pt-4">
         <h1 className="font-display text-4xl">Tu pedido</h1>
 
-        <ul className="mt-4 space-y-3">
-          {items.map((i) => {
-            const clave = claveDe(i);
-            const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
-            const editable = !!prod && (prod.removables.length > 0 || prod.extras.length > 0);
-            const agotado = noDisponible(i);
-            return (
-              <li
-                key={clave}
-                className={`flex gap-3 rounded-2xl border bg-card/40 p-3 ${
-                  agotado ? "border-destructive/60" : "border-border"
-                }`}
-              >
-                {i.photoUrl ? (
-                  <img
-                    src={i.photoUrl}
-                    alt=""
-                    className={`h-16 w-16 shrink-0 rounded-xl object-cover ${agotado ? "opacity-50" : ""}`}
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-muted">
-                    <ImageOff className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                )}
-
-                {/* Dos renglones: arriba qué es, abajo cuántos y cuánto. En una sola
-                    fila, con los nombres de una carta real ("02 · Jamón y
-                    aceitunas"), el nombre quedaba a una palabra por renglón. */}
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={`font-bold leading-tight ${agotado ? "line-through opacity-60" : ""}`}
-                  >
-                    {i.name}
-                  </p>
-                  {agotado && (
-                    <p className="text-sm font-bold text-destructive">
-                      Ya no está a la venta: sacalo para seguir
-                    </p>
-                  )}
-                  {i.pan && <p className="text-sm text-muted-foreground">Pan {i.pan}</p>}
-                  {i.elecciones && i.elecciones.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {i.elecciones.map((e) => `${e.quantity} ${e.name}`).join(" · ")}
-                    </p>
-                  )}
-                  {i.removed.length > 0 && (
-                    <p className="text-sm text-amber-400">
-                      {i.removed.map((r) => `sin ${r.name}`).join(", ")}
-                    </p>
-                  )}
-                  {i.extras.length > 0 && (
-                    <p className="text-sm text-emerald-400">
-                      {i.extras.map((x) => `+${x.quantity} ${x.name}`).join(", ")}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{formatPrice(precioLinea(i))} c/u</p>
-                  {editable && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditando({
-                          clave,
-                          producto: prod!,
-                          inicialesSacados: i.removed.map((r) => r.id),
-                          inicialesExtras: Object.fromEntries(
-                            i.extras.map((x) => [x.id, x.quantity]),
-                          ),
-                        })
-                      }
-                      className="mt-1 flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
-                    >
-                      <Pencil className="h-3 w-3" /> Cambiar
-                    </button>
-                  )}
-
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        aria-label="Quitar uno"
-                        onClick={() => removeOne(clave)}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-border"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className="w-6 text-center font-bold">{i.quantity}</span>
-                      <button
-                        type="button"
-                        aria-label="Agregar uno"
-                        disabled={i.quantity >= MAX_POR_LINEA}
-                        onClick={() =>
-                          add(cartKey, {
-                            kind: i.kind,
-                            refId: i.refId,
-                            name: i.name,
-                            price: i.price,
-                            photoUrl: i.photoUrl,
-                            removed: i.removed,
-                            extras: i.extras,
-                            pan: i.pan,
-                            elecciones: i.elecciones,
-                            regalo: i.regalo,
-                          })
-                        }
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-border disabled:opacity-40"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <span className="ml-auto font-bold">
-                      {formatPrice(precioLinea(i) * i.quantity)}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Sacar del pedido"
-                      onClick={() => removeAll(clave)}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-destructive text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <LineasCarrito cartKey={cartKey} menu={menu} accent={accent} />
 
         <div className="mt-3">
           <AvisoRegalo items={items} />
@@ -821,74 +663,6 @@ function CarritoOnlinePage() {
           </div>
         </div>
       </form>
-
-      {editando && (
-        <TotemPersonalizar
-          producto={editando.producto}
-          accent={accent}
-          inicialesSacados={editando.inicialesSacados}
-          inicialesExtras={editando.inicialesExtras}
-          ctaLabel="Guardar"
-          compacto
-          onCancel={() => setEditando(null)}
-          onConfirm={({ sacados, extras }) => {
-            setLineChanges(
-              cartKey,
-              editando.clave,
-              sacados,
-              extras.map((x) => ({ id: x.id, name: x.name, price: x.price, quantity: x.quantity })),
-            );
-            setEditando(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-6">
-      <h2 className="mb-3 font-display text-2xl">{titulo}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Opcion({
-  activa,
-  accent,
-  onClick,
-  icono: Icono,
-  titulo,
-}: {
-  activa: boolean;
-  accent: string;
-  onClick: () => void;
-  icono: typeof Bike;
-  titulo: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={activa}
-      className={`flex h-14 items-center justify-center gap-2 rounded-xl border font-bold transition ${
-        activa ? "border-transparent text-white" : "border-border"
-      }`}
-      style={activa ? { background: accent } : undefined}
-    >
-      <Icono className="h-5 w-5" />
-      {titulo}
-    </button>
-  );
-}
-
-function Fila({ label, valor }: { label: string; valor: string }) {
-  return (
-    <div className="flex items-center justify-between text-muted-foreground">
-      <span>{label}</span>
-      <span>{valor}</span>
     </div>
   );
 }

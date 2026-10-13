@@ -123,9 +123,25 @@ const pagoMeta: Record<PaymentMethod, { label: string; icon: typeof Clock }> = {
 /** Las demoras que se ofrecen al aceptar un pedido online, en minutos. */
 const DEMORAS = [20, 30, 45, 60];
 
-/** Un pedido online que todavía nadie aceptó: espera arriba, fuera de las columnas. */
+/**
+ * Un pedido online (o de mesa, si la empresa no los acepta solos) que todavía
+ * nadie aceptó: espera arriba, fuera de las columnas.
+ */
 const esPorAceptar = (o: KitchenOrder) =>
-  o.channel === "online" && !o.acceptedAt && o.status !== "cancelado";
+  o.channel !== "totem" && !o.acceptedAt && o.status !== "cancelado";
+
+/**
+ * "Mesa 7", grande al lado del número: es lo que necesita el que lleva el
+ * pedido, y lo tiene que leer de lejos.
+ */
+function ChipMesa({ o }: { o: KitchenOrder }) {
+  if (o.channel !== "mesa" || o.tableNumber === null) return null;
+  return (
+    <span className="rounded-lg bg-violet-500 px-2.5 py-0.5 font-display text-2xl text-white">
+      Mesa {o.tableNumber}
+    </span>
+  );
+}
 
 function entregaLabel(o: KitchenOrder): string {
   if (o.deliveryMethod === "envio") {
@@ -133,6 +149,7 @@ function entregaLabel(o: KitchenOrder): string {
       ? `Envío · ${formatearDistancia(Number(o.deliveryDistanceKm))}`
       : "Envío";
   }
+  if (o.channel === "mesa") return "Llevar a la mesa";
   if (o.deliveryMethod === "local") return "Comer en el local";
   return o.channel === "online" ? "Retira en el local" : "Retirar en mostrador";
 }
@@ -748,7 +765,7 @@ function Kitchen() {
             <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Globe className="h-5 w-5 text-sky-300" />
-                <h2 className="font-display text-2xl">Pedidos online por aceptar</h2>
+                <h2 className="font-display text-2xl">Pedidos por aceptar</h2>
                 <span className="rounded-full bg-sky-500 px-3 py-0.5 text-sm font-extrabold text-white">
                   {porAceptar.length}
                 </span>
@@ -773,8 +790,11 @@ function Kitchen() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="font-display text-3xl text-gold">
-                        {formatearNumeroPedido(o.businessDate, o.orderNumber)}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-display text-3xl text-gold">
+                          {formatearNumeroPedido(o.businessDate, o.orderNumber)}
+                        </div>
+                        <ChipMesa o={o} />
                       </div>
                       <div className="text-sm font-bold">{o.customerName}</div>
                       <div className="text-xs text-muted-foreground">
@@ -786,7 +806,7 @@ function Kitchen() {
                     <span className="shrink-0 font-display text-2xl">{formatPrice(o.total)}</span>
                   </div>
 
-                  <DatosOnline o={o} />
+                  {o.channel === "online" && <DatosOnline o={o} />}
                   <LineasPedido
                     items={o.items}
                     regalo={o.regaloUnidades}
@@ -914,8 +934,11 @@ function Kitchen() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <div className="font-display text-3xl text-gold">
-                                {formatearNumeroPedido(o.businessDate, o.orderNumber)}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="font-display text-3xl text-gold">
+                                  {formatearNumeroPedido(o.businessDate, o.orderNumber)}
+                                </div>
+                                <ChipMesa o={o} />
                               </div>
                               <div className="text-sm font-bold">{o.customerName}</div>
                               <div className="text-xs text-muted-foreground">

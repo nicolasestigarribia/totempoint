@@ -17,6 +17,7 @@ export interface MyBusiness {
   /** Módulos contratados: el panel muestra lo de cada uno solo si lo tiene. */
   totem_enabled: boolean;
   online_ordering: boolean;
+  mesas_enabled: boolean;
 }
 
 export const getMyBusiness = createServerFn({ method: "GET" })
@@ -37,6 +38,7 @@ export const getMyBusiness = createServerFn({ method: "GET" })
       active: c.active,
       totem_enabled: c.totemEnabled,
       online_ordering: c.onlineOrdering,
+      mesas_enabled: c.mesasEnabled,
     };
   });
 

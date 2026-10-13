@@ -18,8 +18,11 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AliasRouteImport } from './routes/$alias'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PEmpresaIndexRouteImport } from './routes/p.$empresa.index'
+import { Route as MTokenIndexRouteImport } from './routes/m.$token.index'
+import { Route as MTokenCarritoRouteImport } from './routes/m.$token.carrito'
 import { Route as PEmpresaLocalIndexRouteImport } from './routes/p.$empresa.$local.index'
 import { Route as PEmpresaLocalCarritoRouteImport } from './routes/p.$empresa.$local.carrito'
+import { Route as MTokenPedidoTrackingRouteImport } from './routes/m.$token.pedido.$tracking'
 import { Route as TEmpresaLocalTotemIndexRouteImport } from './routes/t.$empresa.$local.$totem.index'
 import { Route as TEmpresaLocalTotemCombosRouteImport } from './routes/t.$empresa.$local.$totem.combos'
 import { Route as TEmpresaLocalTotemCheckoutRouteImport } from './routes/t.$empresa.$local.$totem.checkout'
@@ -75,6 +78,16 @@ const PEmpresaIndexRoute = PEmpresaIndexRouteImport.update({
   path: '/p/$empresa/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MTokenIndexRoute = MTokenIndexRouteImport.update({
+  id: '/m/$token/',
+  path: '/m/$token/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MTokenCarritoRoute = MTokenCarritoRouteImport.update({
+  id: '/m/$token/carrito',
+  path: '/m/$token/carrito',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PEmpresaLocalIndexRoute = PEmpresaLocalIndexRouteImport.update({
   id: '/p/$empresa/$local/',
   path: '/p/$empresa/$local/',
@@ -83,6 +96,11 @@ const PEmpresaLocalIndexRoute = PEmpresaLocalIndexRouteImport.update({
 const PEmpresaLocalCarritoRoute = PEmpresaLocalCarritoRouteImport.update({
   id: '/p/$empresa/$local/carrito',
   path: '/p/$empresa/$local/carrito',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MTokenPedidoTrackingRoute = MTokenPedidoTrackingRouteImport.update({
+  id: '/m/$token/pedido/$tracking',
+  path: '/m/$token/pedido/$tracking',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TEmpresaLocalTotemIndexRoute = TEmpresaLocalTotemIndexRouteImport.update({
@@ -148,7 +166,10 @@ export interface FileRoutesByFullPath {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/m/$token/carrito': typeof MTokenCarritoRoute
+  '/m/$token/': typeof MTokenIndexRoute
   '/p/$empresa/': typeof PEmpresaIndexRoute
+  '/m/$token/pedido/$tracking': typeof MTokenPedidoTrackingRoute
   '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
   '/p/$empresa/$local/': typeof PEmpresaLocalIndexRoute
   '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
@@ -170,7 +191,10 @@ export interface FileRoutesByTo {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/m/$token/carrito': typeof MTokenCarritoRoute
+  '/m/$token': typeof MTokenIndexRoute
   '/p/$empresa': typeof PEmpresaIndexRoute
+  '/m/$token/pedido/$tracking': typeof MTokenPedidoTrackingRoute
   '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
   '/p/$empresa/$local': typeof PEmpresaLocalIndexRoute
   '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
@@ -193,7 +217,10 @@ export interface FileRoutesById {
   '/kitchen': typeof KitchenRoute
   '/login': typeof LoginRoute
   '/superadmin': typeof SuperadminRoute
+  '/m/$token/carrito': typeof MTokenCarritoRoute
+  '/m/$token/': typeof MTokenIndexRoute
   '/p/$empresa/': typeof PEmpresaIndexRoute
+  '/m/$token/pedido/$tracking': typeof MTokenPedidoTrackingRoute
   '/p/$empresa/$local/carrito': typeof PEmpresaLocalCarritoRoute
   '/p/$empresa/$local/': typeof PEmpresaLocalIndexRoute
   '/p/$empresa/$local/pedido/$token': typeof PEmpresaLocalPedidoTokenRoute
@@ -217,7 +244,10 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/m/$token/carrito'
+    | '/m/$token/'
     | '/p/$empresa/'
+    | '/m/$token/pedido/$tracking'
     | '/p/$empresa/$local/carrito'
     | '/p/$empresa/$local/'
     | '/p/$empresa/$local/pedido/$token'
@@ -239,7 +269,10 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/m/$token/carrito'
+    | '/m/$token'
     | '/p/$empresa'
+    | '/m/$token/pedido/$tracking'
     | '/p/$empresa/$local/carrito'
     | '/p/$empresa/$local'
     | '/p/$empresa/$local/pedido/$token'
@@ -261,7 +294,10 @@ export interface FileRouteTypes {
     | '/kitchen'
     | '/login'
     | '/superadmin'
+    | '/m/$token/carrito'
+    | '/m/$token/'
     | '/p/$empresa/'
+    | '/m/$token/pedido/$tracking'
     | '/p/$empresa/$local/carrito'
     | '/p/$empresa/$local/'
     | '/p/$empresa/$local/pedido/$token'
@@ -284,7 +320,10 @@ export interface RootRouteChildren {
   KitchenRoute: typeof KitchenRoute
   LoginRoute: typeof LoginRoute
   SuperadminRoute: typeof SuperadminRoute
+  MTokenCarritoRoute: typeof MTokenCarritoRoute
+  MTokenIndexRoute: typeof MTokenIndexRoute
   PEmpresaIndexRoute: typeof PEmpresaIndexRoute
+  MTokenPedidoTrackingRoute: typeof MTokenPedidoTrackingRoute
   PEmpresaLocalCarritoRoute: typeof PEmpresaLocalCarritoRoute
   PEmpresaLocalIndexRoute: typeof PEmpresaLocalIndexRoute
   PEmpresaLocalPedidoTokenRoute: typeof PEmpresaLocalPedidoTokenRoute
@@ -363,6 +402,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PEmpresaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/m/$token/': {
+      id: '/m/$token/'
+      path: '/m/$token'
+      fullPath: '/m/$token/'
+      preLoaderRoute: typeof MTokenIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m/$token/carrito': {
+      id: '/m/$token/carrito'
+      path: '/m/$token/carrito'
+      fullPath: '/m/$token/carrito'
+      preLoaderRoute: typeof MTokenCarritoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$empresa/$local/': {
       id: '/p/$empresa/$local/'
       path: '/p/$empresa/$local'
@@ -375,6 +428,13 @@ declare module '@tanstack/react-router' {
       path: '/p/$empresa/$local/carrito'
       fullPath: '/p/$empresa/$local/carrito'
       preLoaderRoute: typeof PEmpresaLocalCarritoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m/$token/pedido/$tracking': {
+      id: '/m/$token/pedido/$tracking'
+      path: '/m/$token/pedido/$tracking'
+      fullPath: '/m/$token/pedido/$tracking'
+      preLoaderRoute: typeof MTokenPedidoTrackingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/t/$empresa/$local/$totem/': {
@@ -452,7 +512,10 @@ const rootRouteChildren: RootRouteChildren = {
   KitchenRoute: KitchenRoute,
   LoginRoute: LoginRoute,
   SuperadminRoute: SuperadminRoute,
+  MTokenCarritoRoute: MTokenCarritoRoute,
+  MTokenIndexRoute: MTokenIndexRoute,
   PEmpresaIndexRoute: PEmpresaIndexRoute,
+  MTokenPedidoTrackingRoute: MTokenPedidoTrackingRoute,
   PEmpresaLocalCarritoRoute: PEmpresaLocalCarritoRoute,
   PEmpresaLocalIndexRoute: PEmpresaLocalIndexRoute,
   PEmpresaLocalPedidoTokenRoute: PEmpresaLocalPedidoTokenRoute,

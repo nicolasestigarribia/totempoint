@@ -26,6 +26,8 @@ import {
   onlineSettings,
   deliveryTiers,
   customers,
+  diningTables,
+  mesaSettings,
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
 import {
@@ -921,13 +923,15 @@ interface PedidoATomar {
   company: { id: number; name: string };
   locationId: number;
   totemId: number | null;
-  channel: "totem" | "online";
+  channel: "totem" | "online" | "mesa";
   customerName: string;
   deliveryMethod: "local" | "mostrador" | "envio";
   paymentMethod: "efectivo" | "mercadopago";
   comments?: string;
   items: LineaPedido[];
   online?: DatosOnline;
+  /** La mesa de un pedido del canal mesa, y si entra a la cocina sin esperar. */
+  mesa?: { tableId: number; number: number; autoAccept: boolean };
   /**
    * El total que le mostró el celular al cliente. Si no coincide con el que se
    * calcula acá (cambió un precio mientras armaba el pedido), se le avisa en vez
@@ -1308,10 +1312,10 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   }
 
   const jornada = diaDeHoy();
-  // La página de seguimiento del pedido online se abre con este código y no con
-  // el id, que es correlativo y dejaría recorrer pedidos ajenos.
+  // La página de seguimiento del pedido online y del de mesa se abre con este
+  // código y no con el id, que es correlativo y dejaría recorrer pedidos ajenos.
   const trackingToken =
-    p.channel === "online" ? globalThis.crypto.randomUUID().replace(/-/g, "") : null;
+    p.channel !== "totem" ? globalThis.crypto.randomUUID().replace(/-/g, "") : null;
 
   // El consumo de stock se resuelve ANTES de abrir la transacción: son lecturas,
   // y si algo falla acá el pedido tiene que tomarse igual. Perder una venta
@@ -1418,6 +1422,16 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
                     ? p.online.paysWith.toFixed(2)
                     : null,
                 trackingToken,
+              }
+            : {}),
+          ...(p.mesa
+            ? {
+                tableId: p.mesa.tableId,
+                tableNumber: p.mesa.number,
+                trackingToken,
+                // Con la aceptación automática entra a la cocina como uno del
+                // tótem; si no, espera en "Por aceptar" como uno online.
+                acceptedAt: p.mesa.autoAccept ? new Date() : null,
               }
             : {}),
         })
@@ -1540,16 +1554,17 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         notificationUrl: urlDeAviso(),
         negocio: company.name,
         numeroPedido: creado.orderNumber,
-        // El online sin pagar se cancela solo: el link vence con él. En el tótem
-        // el cliente está parado enfrente y el local lo cobra igual en la caja.
-        venceEnMinutos: p.channel === "online" ? VENCE_PAGO_ONLINE_MIN : undefined,
+        // El online y el de mesa sin pagar se cancelan solos: el link vence con
+        // ellos. En el tótem el cliente está parado enfrente y el local lo cobra
+        // igual en la caja.
+        venceEnMinutos: p.channel !== "totem" ? VENCE_PAGO_ONLINE_MIN : undefined,
       });
     } catch (error) {
       // En el tótem el pedido queda y el mostrador lo cobra en efectivo. Online,
       // no: nadie está enfrente, el pedido no llega a la cocina hasta que se
       // pague, y quedaría escondido con el stock apartado. Se cancela ya, el
       // stock vuelve, y el cliente sabe que su pedido no salió.
-      if (p.channel === "online") {
+      if (p.channel !== "totem") {
         void registrarError({
           context: "tomarPedido.mpPreferencia",
           error,
@@ -2735,4 +2750,237 @@ export const resolveOnlineAlias = createServerFn({ method: "GET" })
       .limit(1);
     if (!row) throw new Error("No encontramos ese link. Revisá que esté bien escrito");
     return row;
+  });
+
+// ─── Pedido en mesa ─────────────────────────────────────────────────────────
+//
+// El QR de cada mesa del salón abre /m/{token} en el celular del cliente: el
+// mismo menú que el online, sin envío, mínimo ni horario (si está sentado, el
+// local está abierto), y el pedido llega a la comanda con el número de mesa.
+// El token es aleatorio y no el número, para que nadie pida "desde la mesa 8"
+// cambiando un número en la URL.
+
+const mesaInput = {
+  token: z.string().regex(/^[A-Za-z0-9_-]{8,24}$/, "Mesa inválida"),
+};
+
+/** La mesa de un QR, con su sucursal y su empresa. Falla si no está tomando pedidos. */
+async function resolverMesa(token: string) {
+  const [row] = await db
+    .select({
+      mesa: { id: diningTables.id, number: diningTables.number, active: diningTables.active },
+      location: {
+        id: locations.id,
+        name: locations.name,
+        phone: locations.phone,
+        address: locations.address,
+        active: locations.active,
+      },
+      company: {
+        id: companies.id,
+        name: companies.name,
+        active: companies.active,
+        mesasEnabled: companies.mesasEnabled,
+      },
+      autoAccept: mesaSettings.autoAccept,
+    })
+    .from(diningTables)
+    .innerJoin(locations, eq(locations.id, diningTables.locationId))
+    .innerJoin(companies, eq(companies.id, locations.companyId))
+    .leftJoin(mesaSettings, eq(mesaSettings.companyId, companies.id))
+    .where(eq(diningTables.token, token))
+    .limit(1);
+  if (!row) throw new Error("No encontramos esta mesa. Pedile al mozo que te ayude");
+  if (!row.company.active) throw new Error("Este comercio no está disponible en este momento");
+  // El pedido en mesa es un adicional, como el online.
+  if (!row.company.mesasEnabled) {
+    throw new Error("Este comercio no está tomando pedidos desde la mesa");
+  }
+  if (!row.location.active || !row.mesa.active) {
+    throw new Error("Esta mesa no está tomando pedidos. Pedile al mozo que te ayude");
+  }
+  return {
+    company: { id: row.company.id, name: row.company.name },
+    location: row.location,
+    mesa: { id: row.mesa.id, number: row.mesa.number },
+    autoAccept: row.autoAccept ?? true,
+  };
+}
+
+/** El menú de una mesa: el del online sin envío, mínimo ni horario, y su número. */
+export interface MesaMenu extends OnlineMenu {
+  mesa: number;
+}
+
+export const getMesaMenu = createServerFn({ method: "GET" })
+  .inputValidator(z.object(mesaInput))
+  .handler(async ({ data }): Promise<MesaMenu> => {
+    const r = await resolverMesa(data.token);
+    const menu = await armarMenu(r.company.id, r.location.id);
+    return {
+      ...menu,
+      locationName: r.location.name,
+      locationPhone: r.location.phone,
+      locationAddress: r.location.address,
+      pickup: false,
+      delivery: false,
+      // En la mesa siempre se puede pagar en efectivo: lo cobra el mozo.
+      cash: true,
+      minOrder: "0.00",
+      origin: null,
+      tiers: [],
+      horarios: null,
+      sucursalesOnline: 0,
+      mesa: r.mesa.number,
+    };
+  });
+
+export const createMesaOrder = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      ...mesaInput,
+      customerName: z.string().trim().max(60).optional(),
+      paymentMethod: z.enum(["efectivo", "mercadopago"]),
+      comments: z.string().trim().max(500).optional(),
+      items: z.array(lineaPedido).min(1),
+      totalEsperado: z.number().nonnegative().optional(),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
+    const r = await resolverMesa(data.token);
+    if (data.paymentMethod === "mercadopago" && !(await empresaCobraConMP(r.company.id))) {
+      throw new Error("Este comercio no está cobrando con Mercado Pago. Elegí pagar en efectivo");
+    }
+    const tomado = await tomarPedido({
+      company: r.company,
+      locationId: r.location.id,
+      totemId: null,
+      channel: "mesa",
+      // El nombre es opcional: el mozo lo lleva a la mesa, no llama a nadie.
+      customerName: data.customerName?.trim() || `Mesa ${r.mesa.number}`,
+      deliveryMethod: "local",
+      paymentMethod: data.paymentMethod,
+      comments: data.comments,
+      items: data.items,
+      totalEsperado: data.totalEsperado,
+      mesa: { tableId: r.mesa.id, number: r.mesa.number, autoAccept: r.autoAccept },
+      volverA: ({ trackingToken }) => `/m/${data.token}/pedido/${trackingToken}`,
+    });
+    return { trackingToken: tomado.trackingToken!, pagarEn: tomado.pagarEn };
+  });
+
+export interface MesaOrderStatus {
+  orderNumber: number;
+  tableNumber: number | null;
+  status: "recibido" | "preparacion" | "entregado" | "cancelado";
+  /** Null mientras espera que el local lo acepte (sin aceptación automática). */
+  acceptedAt: string | null;
+  paymentMethod: "efectivo" | "mercadopago";
+  paymentStatus: "pendiente" | "pagado" | "reembolso_pendiente";
+  total: string;
+  regaloUnidades: number;
+  regaloDescuento: string;
+  /** Link para pagar con Mercado Pago mientras siga sin pagar. */
+  pagarEn: string | null;
+  /** Se canceló solo porque no se terminó de pagar con Mercado Pago a tiempo. */
+  vencioSinPagar: boolean;
+  items: Awaited<ReturnType<typeof lineasDelPedido>>;
+  companyName: string;
+  locationName: string;
+  logoUrl: string | null;
+  accentColor: string | null;
+  theme: TotemThemeName;
+  fontTheme: TotemFontName;
+  corners: TotemCornersName;
+}
+
+/**
+ * El seguimiento de un pedido de mesa. Se busca por el código de seguimiento y
+ * la mesa del QR juntos: el código solo ya es secreto, y la mesa evita que una
+ * página de seguimiento sirva desde el QR de otra mesa. Si después se borra la
+ * mesa, el pedido deja de verse acá, pero sigue en la comanda.
+ */
+export const getMesaOrder = createServerFn({ method: "GET" })
+  .inputValidator(
+    z.object({ ...mesaInput, tracking: z.string().regex(/^[0-9a-f]{32}$/, "Pedido inválido") }),
+  )
+  .handler(async ({ data }): Promise<MesaOrderStatus> => {
+    const [row] = await db
+      .select({
+        order: orders,
+        companyId: companies.id,
+        companyName: companies.name,
+        locationName: locations.name,
+        logoUrl: companies.logoUrl,
+        primaryColor: companies.primaryColor,
+        accentColor: totemSettings.accentColor,
+        theme: totemSettings.theme,
+        fontTheme: totemSettings.fontTheme,
+        corners: totemSettings.corners,
+      })
+      .from(orders)
+      .innerJoin(diningTables, eq(diningTables.id, orders.tableId))
+      .innerJoin(locations, eq(locations.id, orders.locationId))
+      .innerJoin(companies, eq(companies.id, locations.companyId))
+      .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
+      .where(
+        and(
+          eq(orders.trackingToken, data.tracking),
+          eq(orders.channel, "mesa"),
+          eq(diningTables.token, data.token),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new Error("No encontramos ese pedido");
+
+    const o = row.order;
+    let paymentStatus = o.paymentStatus;
+    // Igual que en el online: si el aviso de Mercado Pago se perdió, preguntar
+    // acá hace que el pedido llegue a la cocina igual.
+    if (
+      o.paymentMethod === "mercadopago" &&
+      paymentStatus === "pendiente" &&
+      o.status !== "cancelado"
+    ) {
+      const token = await tokenDeMP(row.companyId);
+      if (token) {
+        try {
+          const pago = await buscarPagoDePedido(token, String(o.id));
+          if (pago?.aprobado) {
+            await acreditarPedido(o.id, pago.id);
+            paymentStatus = "pagado";
+          }
+        } catch {
+          // Si Mercado Pago no contesta, la página vuelve a preguntar sola.
+        }
+      }
+    }
+
+    return {
+      orderNumber: o.orderNumber,
+      tableNumber: o.tableNumber,
+      status: o.status,
+      acceptedAt: o.acceptedAt?.toISOString() ?? null,
+      paymentMethod: o.paymentMethod,
+      paymentStatus,
+      total: o.total,
+      regaloUnidades: o.regaloUnidades,
+      regaloDescuento: o.regaloDescuento,
+      pagarEn:
+        o.paymentMethod === "mercadopago" &&
+        paymentStatus === "pendiente" &&
+        o.status !== "cancelado" &&
+        o.mpPreferenceId
+          ? `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${o.mpPreferenceId}`
+          : null,
+      vencioSinPagar: vencido(o),
+      items: await lineasDelPedido(o.id),
+      companyName: row.companyName,
+      locationName: row.locationName,
+      logoUrl: row.logoUrl,
+      accentColor: row.accentColor ?? row.primaryColor,
+      theme: row.theme ?? "oscuro",
+      fontTheme: row.fontTheme ?? "impacto",
+      corners: row.corners ?? "redondeado",
+    };
   });

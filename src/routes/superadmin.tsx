@@ -27,6 +27,7 @@ import {
   Link2,
   Monitor,
   Globe,
+  Armchair,
   Bug,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -304,13 +305,17 @@ function SuperadminPage() {
     }
   };
 
-  const handleModulo = async (row: BusinessRow, modulo: "totem" | "online") => {
-    const actual = modulo === "totem" ? row.totem_enabled : row.online_ordering;
+  const handleModulo = async (row: BusinessRow, modulo: "totem" | "online" | "mesas") => {
+    const actual = {
+      totem: row.totem_enabled,
+      online: row.online_ordering,
+      mesas: row.mesas_enabled,
+    }[modulo];
     setCambiandoModulo(`${row.id}-${modulo}`);
     try {
       await toggleModule({ data: { id: row.id, modulo, enabled: !actual } });
       toast.success(
-        `${actual ? "Quitado" : "Habilitado"}: ${modulo === "totem" ? "Tótem" : "Pedido online"} en ${row.name}`,
+        `${actual ? "Quitado" : "Habilitado"}: ${{ totem: "Tótem", online: "Pedido online", mesas: "Mesas" }[modulo]} en ${row.name}`,
       );
       await reload();
     } catch (err) {
@@ -605,6 +610,12 @@ function SuperadminPage() {
                                   label: "Online",
                                   icon: Globe,
                                   on: b.online_ordering,
+                                },
+                                {
+                                  id: "mesas",
+                                  label: "Mesas",
+                                  icon: Armchair,
+                                  on: b.mesas_enabled,
                                 },
                               ] as const
                             ).map((m) => (

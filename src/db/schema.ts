@@ -44,6 +44,12 @@ export const companies = mysqlTable("companies", {
    * ningún módulo.
    */
   totemEnabled: boolean("totem_enabled").notNull().default(true),
+  /**
+   * Módulo mesas: un QR en cada mesa del salón (/m/{token}) con el que el
+   * cliente pide desde su celular y el pedido llega a la comanda con el número
+   * de mesa. Se vende aparte, como los otros dos.
+   */
+  mesasEnabled: boolean("mesas_enabled").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
 });
@@ -100,6 +106,45 @@ export const totems = mysqlTable(
     index("totems_location_idx").on(t.locationId),
   ],
 );
+
+/**
+ * Las mesas del salón de una sucursal, ubicadas en una grilla por el dueño
+ * (sección Salón). El QR de cada mesa lleva a /m/{token}: un token aleatorio y
+ * no el número, para que renumerar una mesa no invalide el QR ya impreso y
+ * para que nadie pida "desde la mesa 8" cambiando un número en la URL.
+ */
+export const diningTables = mysqlTable(
+  "dining_tables",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    locationId: int("location_id").notNull(),
+    number: int("number").notNull(),
+    seats: int("seats").notNull(),
+    shape: mysqlEnum("shape", ["redonda", "cuadrada", "rectangular"]).notNull(),
+    /** Celda de la grilla del salón donde está la esquina superior izquierda. */
+    x: int("x").notNull(),
+    y: int("y").notNull(),
+    token: varchar("token", { length: 24 }).notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("dining_tables_location_number_uq").on(t.locationId, t.number),
+    unique("dining_tables_token_uq").on(t.token),
+    index("dining_tables_location_idx").on(t.locationId),
+  ],
+);
+
+/** Configuración del pedido en mesa, una fila por empresa. */
+export const mesaSettings = mysqlTable("mesa_settings", {
+  companyId: int("company_id").primaryKey(),
+  /**
+   * Con true el pedido de mesa entra directo a la cocina, como el del tótem.
+   * Con false espera en "Por aceptar", como el online, para frenar pedidos de
+   * broma desde una mesa.
+   */
+  autoAccept: boolean("auto_accept").notNull().default(true),
+});
 
 // Usuarios propios. superadmin: companyId/locationId null; owner/encargado: ligados
 // a una empresa. locationId queda como local por defecto (legacy): el alcance real
@@ -657,7 +702,14 @@ export const orders = mysqlTable(
      * online que el cliente abre en su celular. Un pedido online espera que
      * alguien del local lo acepte (`acceptedAt`) antes de ir a la cocina.
      */
-    channel: mysqlEnum("channel", ["totem", "online"]).notNull().default("totem"),
+    channel: mysqlEnum("channel", ["totem", "online", "mesa"]).notNull().default("totem"),
+    /** Mesa de la que salió un pedido del canal mesa. */
+    tableId: int("table_id"),
+    /**
+     * Número de la mesa, congelado como el nombre en `order_items`: si después
+     * se renumera o se borra la mesa, el pedido sigue diciendo "Mesa 7".
+     */
+    tableNumber: int("table_number"),
     /**
      * Cliente registrado al que pertenece el pedido (perfil global por teléfono).
      * Nullable: el tótem no registra, y el online solo liga si el cliente aceptó
@@ -755,6 +807,7 @@ export const orders = mysqlTable(
   (t) => [
     index("orders_location_idx").on(t.locationId),
     index("orders_totem_idx").on(t.totemId),
+    index("orders_table_idx").on(t.tableId),
     index("orders_customer_idx").on(t.customerId),
     // El número se repite todos los días, así que la unicidad es por jornada.
     // Sigue siendo la red de seguridad: el número se asigna con order_sequences,
