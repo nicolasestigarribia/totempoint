@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `README.md` describes the product and how to run it.
 
-`PARA-NICOLAS.md` is a handoff briefing in Spanish: the business rules and invariants that must not be changed, and the work still pending. Keep it in sync when either of those moves.
+The pending work lives in **Known gaps** at the end of this file; keep it current when something there gets done or a new gap appears.
 
 ## Team agents
 
@@ -102,7 +102,7 @@ A third channel, sold as its own module (`companies.mesas_enabled`, toggled by t
 - **Accept automatically or wait** is the owner's switch (`mesa_settings.auto_accept`, per company, default on). On: the order is inserted with `accepted_at` and goes straight to the kitchen columns like a totem order. Off: it waits in "Por aceptar" like an online order (`acceptOnlineOrder` and `setOrderStatus` take both channels).
 - An unpaid **Mercado Pago** mesa order stays out of the kitchen even when auto-accepted, and expires after 30 minutes like the online one (`esperandoPagoOnline` covers both).
 - The menu screen is shared: `MenuOnline` (`src/components/online/MenuOnline.tsx`) serves `/p/...` and `/m/...` through a `canal` prop, and `CarritoPartes` holds the cart lines both carts render. Don't fork them.
-- `bun run src/db/migrate-mesas.ts`, then `migrate-salon-tamanio.ts` and `migrate-panel-sections.ts`, create all of it. Not yet: several rooms per branch, joining tables or a running bill per table, and printing.
+- `bun run src/db/migrate-mesas.ts`, then `migrate-salon-tamanio.ts` and `migrate-panel-sections.ts`, create all of it. What's still missing is under Known gaps.
 
 ### Totem cover and behaviour
 
@@ -180,7 +180,7 @@ Write entries with `registrarAuditoria(user, {...})` from `src/lib/audit/registr
 
 ### Routing (TanStack Start file-based)
 
-See `src/routes/README.md` for the file-naming convention (`$id` dynamic, `{-$cat}` optional, `$` splat, `_layout`, `__root.tsx`). `src/routeTree.gen.ts` is auto-generated — never hand-edit it. The only app shell/layout is `__root.tsx`; do not create Next/Remix-style `src/pages/` or `app/` directories.
+See `src/routes/README.md` for the file-naming convention (`$id` dynamic, `{-$cat}` optional, `$` splat, `_layout`, `__root.tsx`). `src/routeTree.gen.ts` is auto-generated — never hand-edit it; if the dev server starts throwing odd `routesById` errors after adding a route, restart it. The only app shell/layout is `__root.tsx`; do not create Next/Remix-style `src/pages/` or `app/` directories.
 
 ### SSR error handling
 
@@ -207,6 +207,12 @@ Built with the Dockerfile (bun for install/build → `node:22-slim` runtime runn
 ## Known gaps (next steps)
 
 Verified working end to end: business signup → owner login → cover setup → image upload → catalog on the totem → cart → checkout → order in the DB → kitchen panel. What is still missing:
+
+- **Printed tickets.** Two different papers: the customer's (business name, big order number, **verification code**, date and time, items, total, paid or pay at the counter) and the kitchen's (same number and code, time, items to prepare, payment status highlighted so nothing leaves unpaid). The code is 4 **random** characters per order stored in `orders`: numbers restart at 1 every day, so without it anyone can say "I'm order 3" at the counter, and a code derived from the number could be computed. A browser can't drive a thermal printer and Railway can't reach the shop's network, so the simple path is an 80 mm page printed by Chrome in kiosk mode (`--kiosk-printing`), with a local ESC/POS agent later if needed. The kitchen ticket must print by itself when the order arrives, so the kitchen screen stays open on the machine with the printer. Online and table orders aren't printed at all yet: the totem prints at the end of its own flow, and they never pass through a tablet; the natural place is the kitchen, on accepting.
+- **Online ordering, still missing:** an "en camino" status for delivery; a WhatsApp bot answering with the link and announcing status changes; a real Mercado Pago charge (it was only tested with test credentials — do a small real payment with the business's `APP_USR-` token before a customer relies on it). Opening/closing the channel is owner-only; if the cashier should do it, it becomes a delegable section (and `user_permissions.section` grows).
+- **Table ordering, still missing:** testing the editor on a real tablet (finger drag) and a real Mercado Pago payment from a table; several rooms per branch, joining tables and a running bill per table; notifying the waiter on their phone when an order is ready.
+- **Products of a single branch** (PDF point 5): the catalog is the company's; a branch can't have something exclusive or choose what it inherits.
+- **Kitchen statuses, pending the product owner's decision.** The PDF (point 9) asks for two (Pendiente / Entregado); the system has `recibido`, `preparacion`, `entregado`, `cancelado` and is in use, so it wasn't touched. Whether three steps are worth it depends on someone in the real kitchen moving them — ask the client before changing it.
 
 - The slug **is** editable, but only by the superadmin (`updateBusinessSlug`), because changing it breaks the previous link and any printed QR. The full totem URL and its QR show in the Portada section (`TotemLinkCard`). A company left without an owner is no longer a dead end either: `assignBusinessOwner` creates one.
 - **Mercado Pago charges per company, into the company's own account.** Each owner pastes their access token in the Cobros section; it lives in `payment_settings`, never leaves the server, and `getTotemMenu` only exposes a boolean so the totem knows whether to offer the button. Paying is a QR on the totem screen that the customer scans with their phone (`/t/$empresa/$local/$totem/pagar/$orderId`), built from a Checkout Pro preference. The order is saved **before** asking Mercado Pago for the preference, so if Mercado Pago is down the order is still taken and the counter can charge cash.

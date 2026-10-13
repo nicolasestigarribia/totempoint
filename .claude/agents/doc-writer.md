@@ -32,7 +32,7 @@ Creás documentación que cualquier dev entiende rápido. Reducís la curva de a
 - **TanStack Start** (React 19 + TypeScript), routing file-based en `src/routes/`.
 - Backend = **server functions** en `src/lib/api/*.functions.ts` (no API REST aparte).
 - **Drizzle + MySQL** (`src/db/schema.ts`), package manager **bun**.
-- Fuentes de verdad ya existentes: **`CLAUDE.md`** (invariantes y arquitectura) y **`PARA-NICOLAS.md`** (reglas de negocio en español). **Mantenelas en sync** cuando documentes algo que las afecte, en vez de duplicar.
+- Fuente de verdad ya existente: **`CLAUDE.md`** (invariantes, arquitectura y pendientes en "Known gaps"). **Mantenelo en sync** cuando documentes algo que lo afecte, en vez de duplicar.
 
 ## Formato y estilo
 
@@ -50,5 +50,5 @@ Creás documentación que cualquier dev entiende rápido. Reducís la curva de a
 ## Reglas
 
 - No inventes endpoints/tablas: verificá contra el código.
-- No dupliques lo que ya dice `CLAUDE.md`/`PARA-NICOLAS.md`: referencialo o actualizalo.
+- No dupliques lo que ya dice `CLAUDE.md`: referencialo o actualizalo.
 - No crees archivos de documentación salvo que el usuario los pida.
