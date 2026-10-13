@@ -479,6 +479,111 @@ input[type="number"] {
   }
 }
 
+/* El menú del pedido online y en mesa: los movimientos del tótem.
+   - .revela: la tarjeta entra cuando llega a la pantalla, no al cargar la
+     página; si no, las de abajo ya terminaron de animarse cuando el cliente
+     llega a verlas. La clase .visible la pone useRevelar.
+   - .entra-vista: la lista llega desde la derecha al tocar una categoría.
+   - .salta: el − cantidad + aparece con un rebote al agregar el primero.
+   - .sube-barra: la barra del pedido entra desde abajo.
+   - .foto-viva: la foto se acerca al tocar la tarjeta.
+   - .ken-burns: la foto de la categoría se acerca despacio, sin parar. */
+.revela {
+  opacity: 0;
+  transform: translateY(28px) scale(0.97);
+  transition:
+    opacity 550ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 550ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.revela.visible {
+  opacity: 1;
+  transform: none;
+}
+.titulo-seccion span {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms;
+}
+.titulo-seccion.visible span {
+  transform: none;
+}
+@keyframes entra-vista {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.entra-vista {
+  animation: entra-vista 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes salta {
+  0% {
+    transform: scale(0.75);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.salta {
+  animation: salta 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes sube-barra {
+  from {
+    opacity: 0;
+    transform: translateY(110%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.sube-barra {
+  animation: sube-barra 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.foto-viva img {
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.foto-viva:active img,
+.foto-viva:hover img {
+  transform: scale(1.07);
+}
+@keyframes ken-burns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.14) translate(-2%, 1%);
+  }
+}
+.ken-burns {
+  animation: ken-burns 14s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .revela,
+  .titulo-seccion span {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .entra-vista,
+  .salta,
+  .sube-barra,
+  .ken-burns {
+    animation: none;
+  }
+  .foto-viva:active img,
+  .foto-viva:hover img {
+    transform: none;
+  }
+}
+
 /* La portada del pedido online (/p/{empresa}): luces del color de la marca
    que se mueven despacio, una grilla que se desvanece y un anillo que gira
    alrededor del logo. Quietas si el teléfono pide reducir el movimiento. */
