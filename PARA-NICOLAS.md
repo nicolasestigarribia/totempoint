@@ -295,7 +295,7 @@ La etapa 1 está hecha y probada de punta a punta (envío y retiro, aceptar y re
 ### Pedido en mesa — versión de prueba
 
 Hecho y probado contra la base de test (2026-10-13): módulo "Mesas" en el superadmin, sección
-**Salón** (arrastrar mesas, número, lugares, forma, QR por mesa e impresión), el pedido desde
+**Salón** (arrastrar y estirar mesas, agrandar o achicar el salón, número, lugares, forma, QR por mesa e impresión; el tamaño de una mesa no depende de sus lugares), el pedido desde
 `/m/{token}` con el mismo `tomarPedido`, "Mesa N" en la comanda, y el switch de aceptar solos o
 esperar. Reglas: el QR lleva un token y no el número; el pedido congela `table_number`; un pedido
 de mesa con Mercado Pago sin pagar no llega a la cocina. Falta:

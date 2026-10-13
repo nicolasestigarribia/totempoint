@@ -124,6 +124,13 @@ export const diningTables = mysqlTable(
     /** Celda de la grilla del salón donde está la esquina superior izquierda. */
     x: int("x").notNull(),
     y: int("y").notNull(),
+    /**
+     * Cuántas celdas ocupa, de ancho y de largo. Lo decide el dueño en el
+     * editor y no depende de los lugares: una mesa de 4 puede ser una barra
+     * larga o una mesa cuadrada grande.
+     */
+    w: int("w").notNull(),
+    h: int("h").notNull(),
     token: varchar("token", { length: 24 }).notNull(),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -134,6 +141,16 @@ export const diningTables = mysqlTable(
     index("dining_tables_location_idx").on(t.locationId),
   ],
 );
+
+/**
+ * El tamaño del salón de cada sucursal, en celdas de la grilla. Sin fila, el
+ * salón tiene el tamaño por defecto (`COLUMNAS` × `FILAS` en src/lib/salon.ts).
+ */
+export const diningRooms = mysqlTable("dining_rooms", {
+  locationId: int("location_id").primaryKey(),
+  columns: int("grid_columns").notNull(),
+  rows: int("grid_rows").notNull(),
+});
 
 /** Configuración del pedido en mesa, una fila por empresa. */
 export const mesaSettings = mysqlTable("mesa_settings", {
