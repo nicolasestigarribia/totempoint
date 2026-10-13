@@ -700,6 +700,7 @@ function AdminPage() {
               branding={branding}
               panelClass={PANEL}
               onEditPortada={() => setSection("portada")}
+              esDueno={isOwner}
             />
           </ReadOnlyContext.Provider>
         </div>
@@ -715,12 +716,14 @@ function SectionContent({
   branding,
   panelClass,
   onEditPortada,
+  esDueno,
 }: {
   section: SectionId;
   business: MyBusiness;
   branding: BrandingProps;
   panelClass: string;
   onEditPortada: () => void;
+  esDueno: boolean;
 }) {
   switch (section) {
     case "empresa":
@@ -757,7 +760,7 @@ function SectionContent({
     case "online":
       return <OnlineSection panelClass={panelClass} />;
     case "salon":
-      return <SalonSection panelClass={panelClass} />;
+      return <SalonSection panelClass={panelClass} esDueno={esDueno} />;
     case "totems":
       return (
         <TotemsSection panelClass={panelClass} business={business} onEditPortada={onEditPortada} />

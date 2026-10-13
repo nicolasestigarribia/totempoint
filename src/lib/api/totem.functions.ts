@@ -2835,6 +2835,14 @@ export const getMesaMenu = createServerFn({ method: "GET" })
     };
   });
 
+/**
+ * Cuántos pedidos puede tener una mesa sin entregar a la vez. El QR es público
+ * y con la aceptación automática el pedido va directo a la cocina: sin un
+ * tope, una foto del QR alcanza para mandar pedidos sin fin desde afuera. Una
+ * mesa real rara vez tiene más de un par en curso.
+ */
+const MAX_PEDIDOS_ABIERTOS_POR_MESA = 4;
+
 export const createMesaOrder = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -2848,6 +2856,21 @@ export const createMesaOrder = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
     const r = await resolverMesa(data.token);
+    const [{ abiertos }] = await db
+      .select({ abiertos: sql<number>`COUNT(*)` })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.tableId, r.mesa.id),
+          inArray(orders.status, ["recibido", "preparacion"]),
+          sql`${orders.createdAt} > NOW() - INTERVAL 6 HOUR`,
+        ),
+      );
+    if (Number(abiertos) >= MAX_PEDIDOS_ABIERTOS_POR_MESA) {
+      throw new Error(
+        "Esta mesa ya tiene varios pedidos en curso. Esperá a que lleguen o pedile al mozo",
+      );
+    }
     if (data.paymentMethod === "mercadopago" && !(await empresaCobraConMP(r.company.id))) {
       throw new Error("Este comercio no está cobrando con Mercado Pago. Elegí pagar en efectivo");
     }
