@@ -1,20 +1,25 @@
 /**
- * Da de alta "De Garage", un bar de cerveza artesanal, con todo lo suyo:
- * empresa, dueño, negocio, catálogo con fotos, combos y la portada del tótem.
+ * Da de alta "Demo", la empresa de prueba: un bar de cerveza artesanal con
+ * todo lo suyo —empresa, dueño, sucursal, tótem, catálogo con fotos, combos,
+ * portada— y los tres módulos prendidos (tótem, pedido online y mesas), para
+ * probar cualquier cosa sin tocar los datos de un cliente.
  *
- * El menú sale de la carta real del bar (para picar, para beber, tragos), con
- * sus precios. La identidad también: verde sobre negro, que es como se ve su
- * cartelería, y el logo redibujado como SVG —un logo de stock sería el logo de
- * otro, y la imagen original es de ellos, no nuestra para redistribuir—.
+ * No lleva el nombre de ningún local real a propósito: es la que se muestra y
+ * se rompe probando.
  *
  * Las fotos vienen de Pexels (licencia libre, uso comercial sin atribución) y
  * se guardan en `images` igual que una subida desde el panel, así que se
- * sirven por /img/:id y el dueño puede reemplazarlas sin tocar código.
+ * sirven por /img/:id y se pueden reemplazar sin tocar código.
  *
- * Correr con:  bun run src/db/seed-degarage.ts
- * Es idempotente: si la empresa ya existe, le rehace el catálogo y la portada.
+ * El dueño es `demo` / `demo123`. Esa contraseña no cumple la regla de
+ * `password-policy.ts` (8 caracteres): se acepta solo acá, para que la demo
+ * se pueda dictar. Por eso el script no corre contra producción.
+ *
+ * Correr con:  bun run src/db/seed-demo.ts
+ * Es idempotente: si la empresa ya existe, le rehace el catálogo y la portada
+ * y no toca al dueño.
  */
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./index";
 import {
   companies,
@@ -29,11 +34,15 @@ import {
   comboProducts,
   images,
   totemSettings,
+  onlineSettings,
 } from "./schema";
 import { hashPassword } from "@/lib/auth/password";
+import { cargarMotivosBase } from "@/lib/stock/motivos-base";
 
-const SLUG = "de-garage";
-const NOMBRE = "De Garage";
+const SLUG = "demo";
+const NOMBRE = "Demo";
+const USUARIO = "demo";
+const CLAVE = "demo123";
 const VERDE = "#3FBF4F";
 
 // ---------- Fotos ----------
@@ -96,28 +105,13 @@ async function foto(companyId: number, key: FotoKey): Promise<string | null> {
   return ruta;
 }
 
-/**
- * El logo, redibujado: aro verde con el monograma DG y el texto alrededor,
- * como el original del bar. Va en SVG para que se vea nítido en la tablet y
- * en el QR impreso por igual.
- */
+/** El logo: aro verde sobre negro con "DEMO". En SVG, nítido en la tablet y en el QR. */
 function logoSvg(): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
-  <circle cx="120" cy="120" r="120" fill="#0d0f0d"/>
-  <circle cx="120" cy="120" r="108" fill="none" stroke="${VERDE}" stroke-width="5"/>
-
-  <!-- Monograma DG: dos cuadrados encastrados, como el del bar. A 64 píxeles
-       esto es lo único que se llega a leer, así que se lleva el centro. -->
-  <g fill="none" stroke="${VERDE}" stroke-width="11" stroke-linejoin="round">
-    <rect x="62" y="74" width="66" height="68" rx="6"/>
-    <rect x="112" y="74" width="66" height="68" rx="6"/>
-    <path d="M 178 108 h -26"/>
-  </g>
-
-  <text x="120" y="186" text-anchor="middle" fill="${VERDE}"
-        font-family="Georgia, serif" font-size="27" font-weight="bold" letter-spacing="3">DE GARAGE</text>
-  <text x="120" y="207" text-anchor="middle" fill="${VERDE}" opacity="0.75"
-        font-family="Georgia, serif" font-size="11" letter-spacing="1.5">CERVEZA ARTESANAL</text>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <circle cx="100" cy="100" r="96" fill="#111"/>
+  <circle cx="100" cy="100" r="86" fill="none" stroke="${VERDE}" stroke-width="6"/>
+  <text x="100" y="118" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+        font-weight="900" font-size="52" fill="${VERDE}">DEMO</text>
 </svg>`;
 }
 
@@ -337,6 +331,9 @@ const COMBOS: ComboSeed[] = [
 
 // ---------- Alta ----------
 
+/** La demo tiene todo: es donde se prueba cualquier canal. */
+const MODULOS = { totemEnabled: true, onlineOrdering: true, mesasEnabled: true };
+
 async function empresa(): Promise<number> {
   const [existente] = await db
     .select({ id: companies.id })
@@ -348,14 +345,14 @@ async function empresa(): Promise<number> {
     console.log(`La empresa ya existía (id ${existente.id}): se le rehace el catálogo.`);
     await db
       .update(companies)
-      .set({ name: NOMBRE, primaryColor: VERDE, active: true })
+      .set({ ...MODULOS, name: NOMBRE, primaryColor: VERDE, active: true })
       .where(eq(companies.id, existente.id));
     return existente.id;
   }
 
   const [{ id }] = await db
     .insert(companies)
-    .values({ name: NOMBRE, slug: SLUG, primaryColor: VERDE, active: true })
+    .values({ ...MODULOS, name: NOMBRE, slug: SLUG, primaryColor: VERDE, active: true })
     .$returningId();
   console.log(`Empresa creada (id ${id}).`);
   return id;
@@ -372,10 +369,10 @@ async function negocioYDuenio(companyId: number) {
   if (!locationId) {
     const [{ id }] = await db
       .insert(locations)
-      .values({ companyId, name: "De Garage", slug: "de-garage", active: true })
+      .values({ companyId, name: NOMBRE, slug: SLUG, active: true })
       .$returningId();
     locationId = id;
-    console.log("Negocio creado.");
+    console.log("Sucursal creada.");
   }
 
   // Sin una fila en `totems` la URL no resuelve y el demo queda inservible:
@@ -393,16 +390,16 @@ async function negocioYDuenio(companyId: number) {
   const [duenio] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.username, "degarage"))
+    .where(eq(users.username, USUARIO))
     .limit(1);
 
   if (!duenio) {
     const [{ id: userId }] = await db
       .insert(users)
       .values({
-        email: "degarage@totempoint.com",
-        username: "degarage",
-        passwordHash: await hashPassword("DeGarage2026"),
+        email: "demo@totempoint.com",
+        username: USUARIO,
+        passwordHash: await hashPassword(CLAVE),
         companyId,
         locationId,
         active: true,
@@ -410,9 +407,28 @@ async function negocioYDuenio(companyId: number) {
       .$returningId();
     await db.insert(userRoles).values({ userId, role: "owner" });
     await db.insert(userLocations).values({ userId, locationId });
-    console.log("Dueño creado: degarage / DeGarage2026 (cambiala desde Mi cuenta).");
+    console.log(`Dueño creado: ${USUARIO} / ${CLAVE}.`);
   } else {
     console.log("El dueño ya existía, no se toca.");
+  }
+
+  // Pedido online con retiro y efectivo: el envío necesita marcar el punto de
+  // la sucursal en el mapa, y eso se hace desde el panel.
+  const [online] = await db
+    .select({ id: onlineSettings.id })
+    .from(onlineSettings)
+    .where(eq(onlineSettings.locationId, locationId))
+    .limit(1);
+  if (!online) {
+    await db.insert(onlineSettings).values({
+      companyId,
+      locationId,
+      enabled: true,
+      pickupEnabled: true,
+      deliveryEnabled: false,
+      cashEnabled: true,
+    });
+    console.log("Pedido online prendido (retiro y efectivo).");
   }
 
   return locationId;
@@ -444,9 +460,21 @@ async function limpiarCatalogo(companyId: number) {
 }
 
 async function main() {
+  // Un dueño con contraseña débil no puede quedar en la base real.
+  const [[base]] = (await db.execute(sql`SELECT DATABASE() AS nombre`)) as unknown as [
+    { nombre: string }[],
+  ];
+  if (base.nombre === "railway") {
+    console.error("La demo no se carga en producción: su contraseña es débil a propósito.");
+    process.exit(1);
+  }
+
   const companyId = await empresa();
   await negocioYDuenio(companyId);
   await limpiarCatalogo(companyId);
+  // Sin los motivos base, la sección Stock no deja cargar ni el stock inicial.
+  const motivos = await cargarMotivosBase(companyId);
+  if (motivos > 0) console.log(`${motivos} motivos de movimiento cargados.`);
 
   // Logo
   const [{ id: logoId }] = await db
@@ -533,7 +561,7 @@ async function main() {
     heroImageUrl: portada,
     eyebrow: "Bar y recarga de cerveza artesanal",
     title: "Birra",
-    titleAccent: "de garage",
+    titleAccent: "de la casa",
     subtitle:
       "Tirada del día, recargas de botellón y algo para picar. Pedí acá y retirá en la barra.",
     ctaLabel: "Arrancar",
@@ -555,7 +583,9 @@ async function main() {
   }
   console.log("Portada configurada.");
 
-  console.log(`\nListo. El tótem queda en /t/${SLUG}/de-garage/1`);
+  console.log(
+    `\nListo. Tótem: /t/${SLUG}/${SLUG}/1 · Online: /p/${SLUG}/${SLUG} · Panel: ${USUARIO} / ${CLAVE}`,
+  );
   process.exit(0);
 }
 

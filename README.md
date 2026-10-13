@@ -49,11 +49,11 @@ deja registrar nada a mano:
 bun run src/db/seed-action-codes.ts <slug>
 ```
 
-Hay dos empresas de demostración ya armadas, cada una con su script:
-`seed-primorosas.ts` (sanguchería de miga, cálida y con recetas) y
-`seed-degarage.ts` (bar de cerveza artesanal, verde sobre negro). La segunda da
-de alta la empresa entera —dueño incluido— si todavía no existe, así que sirve
-para ver el tótem con otra identidad sin tocar nada del panel.
+Para probar sin tocar los datos de un cliente está la empresa **Demo**
+(`seed-demo.ts`): un bar de cerveza artesanal con carta, fotos, combos, portada
+y los tres módulos prendidos. Crea la empresa entera si no existe, dueño
+incluido (`demo` / `demo123`), y se niega a correr contra producción.
+`seed-primorosas.ts` arma la carta de una sanguchería de miga, con recetas.
 
 ## Deploy
 
