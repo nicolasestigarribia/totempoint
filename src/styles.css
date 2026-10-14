@@ -486,7 +486,7 @@ input[type="number"] {
    - .entra-vista: la lista llega desde la derecha al tocar una categoría.
    - .salta: el − cantidad + aparece con un rebote al agregar el primero.
    - .sube-barra: la barra del pedido entra desde abajo.
-   - .foto-viva: la foto se acerca al tocar la tarjeta.
+   - .foto-viva: la foto se acerca al tocar la tarjeta, como en el tótem (110%).
    - .ken-burns: la foto de la categoría se acerca despacio, sin parar. */
 .revela {
   opacity: 0;
@@ -548,11 +548,11 @@ input[type="number"] {
   animation: sube-barra 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .foto-viva img {
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .foto-viva:active img,
 .foto-viva:hover img {
-  transform: scale(1.07);
+  transform: scale(1.1);
 }
 @keyframes ken-burns {
   from {
