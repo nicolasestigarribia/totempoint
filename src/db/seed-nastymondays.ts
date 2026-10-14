@@ -12,9 +12,8 @@
  * Instagram, chica (100 px): hay que pedirles el archivo.
  *
  * El dueño es `nastymondays`. En la base de pruebas su contraseña es
- * `nasty123`, que no cumple la regla de `password-policy.ts` y se acepta solo
- * ahí. En producción hay que pasarle una en NASTY_CLAVE que la cumpla, o no
- * corre; y no se imprime.
+ * `nasty123`. En producción hay que pasarla explícita en NASTY_CLAVE y debe
+ * cumplir la regla de `password-policy.ts`, o no corre; y no se imprime.
  *
  * Correr con:  bun run src/db/seed-nastymondays.ts
  * En producción:
