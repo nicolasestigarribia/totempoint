@@ -101,14 +101,20 @@ function CombosPage() {
                     </ul>
                   )}
 
-                  <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-                    <span className="font-display text-3xl" style={{ color: accent }}>
+                  {/* Si el precio y el botón no entran en una línea (tarjeta angosta,
+                      precio largo), el botón baja y ocupa todo el ancho: nunca
+                      se sale de la tarjeta. */}
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
+                    <span
+                      className="whitespace-nowrap font-display text-3xl"
+                      style={{ color: accent }}
+                    >
                       {formatPrice(c.price)}
                     </span>
 
                     {inCart > 0 ? (
                       <div
-                        className="flex items-center gap-1 rounded-2xl p-1"
+                        className="ml-auto flex items-center gap-1 rounded-2xl p-1"
                         style={{ background: accent ?? "var(--primary)" }}
                       >
                         <button
@@ -157,7 +163,7 @@ function CombosPage() {
                             regalo: c.regalo,
                           })
                         }
-                        className="flex h-14 items-center gap-2 rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
+                        className="flex h-14 grow items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
                         style={{ background: accent ?? "var(--primary)" }}
                       >
                         <Plus className="h-5 w-5" />
