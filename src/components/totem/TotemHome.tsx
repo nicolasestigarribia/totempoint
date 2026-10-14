@@ -95,9 +95,7 @@ function StartButton({
         {data.ctaLabel}
       </span>
       {cargando ? (
-        <Loader2
-          className={`animate-spin text-white ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`}
-        />
+        <Loader2 className={`animate-spin text-white ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`} />
       ) : (
         <ChevronRight
           className={`text-white transition group-hover:translate-x-1 ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`}
@@ -232,11 +230,18 @@ function Completo({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) 
 function Split({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
+      {/* La foto va absoluta: en el flujo, una vertical medía su alto natural,
+          estiraba la fila más allá de la pantalla y el panel de al lado
+          centraba el texto en esa altura, con el botón cortado abajo. */}
       <div className="relative min-h-[35dvh] flex-1 overflow-hidden lg:min-h-dvh">
         {data.heroImageUrl ? (
-          <img src={data.heroImageUrl} alt="" className="respira h-full w-full object-cover" />
+          <img
+            src={data.heroImageUrl}
+            alt=""
+            className="respira absolute inset-0 h-full w-full object-cover"
+          />
         ) : (
-          <div className="h-full w-full bg-muted" />
+          <div className="absolute inset-0 bg-muted" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent lg:bg-gradient-to-r" />
       </div>
