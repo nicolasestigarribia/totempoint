@@ -52,7 +52,9 @@ function MenuCategoryPage() {
   useTotemIdleReset(nav);
 
   // Carrusel de categorías: en la tablet se desplaza con el dedo; en la PC, con
-  // las flechas o la rueda del mouse (que acá mueve en horizontal).
+  // las flechas o la rueda del mouse (que acá mueve en horizontal). Las flechas
+  // llevan z-20: el texto de cada tarjeta es `relative z-10` y les quedaba
+  // encima, así que el clic caía en la tarjeta.
   const carruselRef = useRef<HTMLDivElement>(null);
   const scrollCarrusel = (dir: number) =>
     carruselRef.current?.scrollBy({ left: dir * 320, behavior: "smooth" });
@@ -170,7 +172,7 @@ function MenuCategoryPage() {
               type="button"
               aria-label="Categorías anteriores"
               onClick={() => scrollCarrusel(-1)}
-              className="absolute left-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/80 p-1.5 text-muted-foreground shadow-card backdrop-blur transition hover:text-foreground sm:flex"
+              className="absolute left-0 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/80 p-1.5 text-muted-foreground shadow-card backdrop-blur transition hover:text-foreground sm:flex"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -178,7 +180,7 @@ function MenuCategoryPage() {
               type="button"
               aria-label="Más categorías"
               onClick={() => scrollCarrusel(1)}
-              className="absolute right-0 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/80 p-1.5 text-muted-foreground shadow-card backdrop-blur transition hover:text-foreground sm:flex"
+              className="absolute right-0 top-1/2 z-20 hidden -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/80 p-1.5 text-muted-foreground shadow-card backdrop-blur transition hover:text-foreground sm:flex"
             >
               <ChevronRight className="h-5 w-5" />
             </button>

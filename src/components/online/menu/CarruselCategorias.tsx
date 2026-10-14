@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { FondoCategoria, type CategoriaVisible } from "@/components/online/menu/GrillaCategorias";
 
 /**
@@ -38,6 +38,13 @@ export function CarruselCategorias({
     });
   }, [activa]);
 
+  // En la PC no hay dedo: flechas a los costados y la rueda del mouse, que
+  // acá mueve en horizontal. En el teléfono las flechas no se muestran.
+  const mover = (dir: number) =>
+    tira.current?.scrollBy({ left: dir * tira.current.clientWidth * 0.7, behavior: "smooth" });
+  const flecha =
+    "absolute top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:text-foreground sm:flex";
+
   return (
     <nav aria-label="Categorías" className={`sticky top-16 z-20 bg-background ${className}`}>
       <div className="mx-auto flex w-full max-w-2xl items-center gap-2 py-2 pl-4">
@@ -47,36 +54,57 @@ export function CarruselCategorias({
           aria-label="Ver todas las categorías"
           className="flex h-16 w-10 shrink-0 items-center justify-center rounded-2xl border border-border bg-card/60"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" />
         </button>
-        <div
-          ref={tira}
-          className="no-scrollbar relative flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 pr-4"
-        >
-          {categorias.map((c) => {
-            const esta = c.id === activa;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                data-cat={c.id}
-                aria-current={esta ? "true" : undefined}
-                onClick={() => onElegir(c.id)}
-                className={`relative flex h-16 w-32 shrink-0 flex-col justify-end overflow-hidden rounded-2xl text-left transition ${
-                  esta
-                    ? "-translate-y-0.5 scale-[1.03] border-2"
-                    : "border border-border/60 opacity-75"
-                }`}
-                style={esta ? { borderColor: accent } : undefined}
-              >
-                <FondoCategoria foto={c.foto} accent={accent} />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/5" />
-                <span className="relative z-10 truncate px-2 pb-1.5 font-display text-lg leading-none text-white">
-                  {c.nombre}
-                </span>
-              </button>
-            );
-          })}
+        <div className="relative min-w-0 flex-1">
+          <div
+            ref={tira}
+            onWheel={(e) => {
+              if (e.deltaY !== 0) tira.current?.scrollBy({ left: e.deltaY });
+            }}
+            className="no-scrollbar relative flex gap-2 overflow-x-auto py-1 pr-4"
+          >
+            {categorias.map((c) => {
+              const esta = c.id === activa;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  data-cat={c.id}
+                  aria-current={esta ? "true" : undefined}
+                  onClick={() => onElegir(c.id)}
+                  className={`relative flex h-16 w-32 shrink-0 flex-col justify-end overflow-hidden rounded-2xl text-left transition ${
+                    esta
+                      ? "-translate-y-0.5 scale-[1.03] border-2"
+                      : "border border-border/60 opacity-75"
+                  }`}
+                  style={esta ? { borderColor: accent } : undefined}
+                >
+                  <FondoCategoria foto={c.foto} accent={accent} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/5" />
+                  <span className="relative z-10 truncate px-2 pb-1.5 font-display text-lg leading-none text-white">
+                    {c.nombre}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            aria-label="Categorías anteriores"
+            onClick={() => mover(-1)}
+            className={`${flecha} left-1`}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Más categorías"
+            onClick={() => mover(1)}
+            className={`${flecha} right-5`}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
         </div>
       </div>
     </nav>
