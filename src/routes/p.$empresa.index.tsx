@@ -7,6 +7,7 @@ import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { estadoHorario } from "@/lib/horario";
 import { PortadaCelular, type EstadoPortada } from "@/components/online/PortadaCelular";
 import { HojaPedir, useElegirSucursal, type PasoHoja } from "@/components/online/HojaPedir";
+import { CargaMarca } from "@/components/CargaMarca";
 
 /**
  * La portada del pedido online de la empresa: la misma pantalla de inicio del
@@ -52,11 +53,8 @@ function EmpresaPage() {
     if (hayEnvio && retiro.length > 0) setPaso("como");
     else if (hayEnvio) setPaso("envio");
     // Solo retiro y en un solo lugar: no hay nada que preguntar.
-    else if (retiro.length === 1) {
-      elegir.pedir(retiro[0], "mostrador", null);
-      return true;
-    } else setPaso("retiro");
-    return false;
+    else if (retiro.length === 1) elegir.pedir(retiro[0], "mostrador", null);
+    else setPaso("retiro");
   };
   const soloVer = () => (unica ? elegir.ver(unica) : setPaso("ver"));
 
@@ -75,7 +73,15 @@ function EmpresaPage() {
         onPedir={pedir}
         onSoloVer={soloVer}
       />
-      <HojaPedir empresa={empresa} paso={paso} onPaso={setPaso} />
+      <HojaPedir empresa={empresa} elegir={elegir} paso={paso} onPaso={setPaso} />
+      {elegir.yendo && (
+        <CargaMarca
+          logoUrl={empresa.portada.logoUrl}
+          nombre={empresa.portada.name}
+          texto="Preparando el menú…"
+          accent={empresa.accentColor}
+        />
+      )}
     </>
   );
 }

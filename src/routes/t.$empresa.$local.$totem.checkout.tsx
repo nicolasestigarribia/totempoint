@@ -16,6 +16,7 @@ import {
 } from "@/lib/totem-cart";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
+import { CargaMarca } from "@/components/CargaMarca";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/checkout")({
@@ -268,6 +269,14 @@ function CheckoutPage() {
             </button>
           </div>
         </form>
+        {sending && (
+          <CargaMarca
+            logoUrl={menu.logoUrl}
+            nombre={menu.name}
+            texto="Enviando tu pedido…"
+            accent={menu.accentColor}
+          />
+        )}
       </main>
     </div>
   );

@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/totem.functions";
 import { formatPrice } from "@/lib/totem-cart";
 import { mensajeDeError } from "@/lib/error-message";
+import { CargaMarca } from "@/components/CargaMarca";
 
 /**
  * Lo que el cliente puede arreglar solo: cambiar cómo paga o cancelar, mientras
@@ -205,6 +206,15 @@ export function AccionesPedido({
             </button>
           </div>
         </div>
+      )}
+
+      {ocupado && (
+        <CargaMarca
+          logoUrl={pedido.logoUrl}
+          nombre={pedido.companyName}
+          texto={abierto === "cancelar" ? "Cancelando tu pedido…" : "Cambiando cómo pagás…"}
+          accent={accent}
+        />
       )}
     </div>
   );

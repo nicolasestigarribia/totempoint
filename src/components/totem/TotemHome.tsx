@@ -5,6 +5,7 @@ import type { TotemHome as TotemHomeData } from "@/lib/api/totem.functions";
 import type { TotemNav } from "@/lib/totem-nav";
 import { themeVars } from "@/components/totem/useTotemTheme";
 import { TotemMotas } from "@/components/totem/TotemMotas";
+import { CargaMarca } from "@/components/CargaMarca";
 import {
   Badges,
   ContenidoBoton,
@@ -24,8 +25,8 @@ function StartButton({
   nav: TotemNav | null;
   size?: TamanioBoton;
 }) {
-  // El catálogo se pide al tocar; el primer arranque va a la base y tarda. El
-  // botón muestra que está trabajando para que nadie lo toque tres veces.
+  // El catálogo se pide al tocar; el primer arranque va a la base y tarda. La
+  // marca tapa la pantalla mientras tanto para que nadie lo toque tres veces.
   const [cargando, setCargando] = useState(false);
   const className = claseBoton(size, cargando);
   const style = estiloBoton(data);
@@ -43,16 +44,26 @@ function StartButton({
   }
 
   return (
-    <Link
-      to="/t/$empresa/$local/$totem/categorias"
-      params={nav}
-      className={className}
-      style={style}
-      aria-busy={cargando}
-      onClick={() => setCargando(true)}
-    >
-      {contenido}
-    </Link>
+    <>
+      <Link
+        to="/t/$empresa/$local/$totem/categorias"
+        params={nav}
+        className={className}
+        style={style}
+        aria-busy={cargando}
+        onClick={() => setCargando(true)}
+      >
+        {contenido}
+      </Link>
+      {cargando && (
+        <CargaMarca
+          logoUrl={data.logoUrl}
+          nombre={data.name}
+          texto="Preparando el menú…"
+          accent={data.accentColor || data.primaryColor}
+        />
+      )}
+    </>
   );
 }
 

@@ -84,10 +84,7 @@ function MesaPage({ token }: { token: string }) {
     return (
       <PortadaCelular
         datos={menu.portada}
-        onPedir={() => {
-          entrar();
-          return false;
-        }}
+        onPedir={entrar}
         aviso={
           <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
             <div

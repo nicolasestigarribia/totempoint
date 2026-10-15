@@ -25,6 +25,7 @@ import {
   cartTotal,
   formatPrice,
 } from "@/lib/totem-cart";
+import { CargaMarca } from "@/components/CargaMarca";
 import { mensajeDeError } from "@/lib/error-message";
 
 export const Route = createFileRoute("/p/$empresa/$local/carrito")({
@@ -662,6 +663,14 @@ function CarritoOnlinePage() {
             </button>
           </div>
         </div>
+        {enviando && (
+          <CargaMarca
+            logoUrl={menu.logoUrl}
+            nombre={menu.name}
+            texto={pago === "mercadopago" ? "Anotando tu pedido…" : "Enviando tu pedido…"}
+            accent={menu.accentColor}
+          />
+        )}
       </form>
     </div>
   );
