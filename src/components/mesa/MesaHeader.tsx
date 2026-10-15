@@ -14,6 +14,7 @@ export function MesaHeader({
   mesa,
   accent,
   volver,
+  onInicio,
 }: {
   token: string;
   name: string;
@@ -23,6 +24,8 @@ export function MesaHeader({
   accent: string;
   /** Con texto, muestra la flecha para volver al menú. */
   volver?: string;
+  /** El logo vuelve a la portada de la mesa. */
+  onInicio?: () => void;
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">
@@ -37,9 +40,19 @@ export function MesaHeader({
             <ArrowLeft className="h-5 w-5" />
           </Link>
         )}
-        {logoUrl && (
-          <img src={logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-        )}
+        {logoUrl &&
+          (onInicio ? (
+            <button
+              type="button"
+              onClick={onInicio}
+              aria-label="Ir al inicio"
+              className="shrink-0 rounded-full transition active:scale-95"
+            >
+              <img src={logoUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+            </button>
+          ) : (
+            <img src={logoUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+          ))}
         <div className="min-w-0">
           <p className="truncate font-display text-xl leading-tight">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{sucursal}</p>

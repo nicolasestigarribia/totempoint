@@ -173,7 +173,7 @@ const SECTIONS: SectionDef[] = [
     id: "portada",
     label: "Apariencia",
     icon: Palette,
-    desc: "Colores y letras con que tus clientes ven tu menú",
+    desc: "Colores, letras y pantalla de inicio de tu menú",
     group: "empresa",
     permission: "portada",
     parent: "totems",

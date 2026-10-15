@@ -1,11 +1,16 @@
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { getMesaMenuCached } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
 import { MenuOnline } from "@/components/online/MenuOnline";
+import { PortadaCelular } from "@/components/online/PortadaCelular";
+import { useTotemTheme } from "@/components/totem/useTotemTheme";
+import { acentoDe } from "@/components/totem/portada-partes";
 
 /**
- * Lo que abre el QR de una mesa: el menú en el celular del cliente. Es la
- * misma pantalla que el pedido online (`MenuOnline`), con la mesa arriba y sin
+ * Lo que abre el QR de una mesa: primero la portada del tótem en el teléfono,
+ * con la mesa a la vista, y al tocar Pedir el menú. El menú es la misma
+ * pantalla que el pedido online (`MenuOnline`), con la mesa arriba y sin
  * envío, mínimo ni horario.
  */
 export const Route = createFileRoute("/m/$token/")({
@@ -22,8 +27,93 @@ export const Route = createFileRoute("/m/$token/")({
   component: MesaMenuPage,
 });
 
+/**
+ * Las mesas cuya portada ya pasó el cliente. La portada se ve una vez: al
+ * volver del carrito el menú se monta de nuevo y no tiene que aparecer otra
+ * vez. En memoria para la navegación dentro de la app (sin parpadeo), y en
+ * sessionStorage para cuando recarga la página.
+ */
+const vistas = new Set<string>();
+const claveVista = (token: string) => `mesa-portada:${token}`;
+
 function MesaMenuPage() {
   const menu = Route.useLoaderData();
   const { token } = Route.useParams();
-  return <MenuOnline menu={menu} canal={{ tipo: "mesa", token, numero: menu.mesa }} />;
+  useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
+  const [enPortada, setEnPortada] = useState(() => !vistas.has(token));
+
+  // El servidor no ve sessionStorage ni el hash: se mira al montar. Con una
+  // categoría en el hash el cliente ya estaba en el menú (volvió con "atrás").
+  useEffect(() => {
+    let vista = !!window.location.hash;
+    try {
+      vista ||= sessionStorage.getItem(claveVista(token)) === "1";
+    } catch {
+      // Sin almacenamiento (modo privado): la portada se ve de nuevo al recargar.
+    }
+    if (vista) {
+      vistas.add(token);
+      setEnPortada(false);
+    }
+  }, [token]);
+
+  const entrar = () => {
+    vistas.add(token);
+    try {
+      sessionStorage.setItem(claveVista(token), "1");
+    } catch {
+      // Ver arriba.
+    }
+    setEnPortada(false);
+    window.scrollTo({ top: 0 });
+  };
+
+  if (enPortada) {
+    const pago =
+      menu.mercadoPago && menu.cash
+        ? " Pagás con Mercado Pago o en efectivo al mozo."
+        : menu.mercadoPago
+          ? " Pagás con Mercado Pago."
+          : " Pagás en efectivo al mozo.";
+    return (
+      <PortadaCelular
+        datos={menu.portada}
+        onPedir={() => {
+          entrar();
+          return false;
+        }}
+        aviso={
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl font-display text-2xl text-white"
+              style={{ background: acentoDe(menu.portada) ?? "var(--primary)" }}
+            >
+              {menu.mesa}
+            </div>
+            <div className="min-w-0">
+              <p className="font-display text-xl leading-tight">Estás en la mesa {menu.mesa}</p>
+              <p className="text-sm text-muted-foreground">
+                Pedí desde acá y te lo llevamos.{pago}
+              </p>
+            </div>
+          </div>
+        }
+      />
+    );
+  }
+
+  return (
+    <MenuOnline
+      menu={menu}
+      canal={{
+        tipo: "mesa",
+        token,
+        numero: menu.mesa,
+        onInicio: () => {
+          setEnPortada(true);
+          window.scrollTo({ top: 0 });
+        },
+      }}
+    />
+  );
 }

@@ -301,6 +301,57 @@ export interface TotemHome {
   accentColor: string | null;
 }
 
+/**
+ * Lo que dibuja una pantalla de inicio: la del tótem y la del celular (online
+ * y mesa) salen de la misma sección Portada del panel.
+ */
+export type PortadaDatos = Pick<
+  TotemHome,
+  | "name"
+  | "logoUrl"
+  | "primaryColor"
+  | "accentColor"
+  | "heroImageUrl"
+  | "eyebrow"
+  | "title"
+  | "titleAccent"
+  | "subtitle"
+  | "ctaLabel"
+  | "badge1"
+  | "badge2"
+>;
+
+function portadaDe(
+  company: typeof companies.$inferSelect,
+  s: typeof totemSettings.$inferSelect | null,
+): PortadaDatos {
+  return {
+    name: company.name,
+    logoUrl: company.logoUrl,
+    primaryColor: company.primaryColor,
+    accentColor: s?.accentColor ?? null,
+    heroImageUrl: s?.heroImageUrl ?? null,
+    eyebrow: s?.eyebrow ?? null,
+    title: s?.title?.trim() || company.name,
+    titleAccent: s?.titleAccent ?? null,
+    subtitle: s?.subtitle ?? null,
+    ctaLabel: s?.ctaLabel?.trim() || "Empezar pedido",
+    badge1: s?.badge1 ?? null,
+    badge2: s?.badge2 ?? null,
+  };
+}
+
+async function cargarPortada(companyId: number): Promise<PortadaDatos> {
+  const [row] = await db
+    .select({ company: companies, settings: totemSettings })
+    .from(companies)
+    .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  if (!row) throw new Error("No encontramos este comercio");
+  return portadaDe(row.company, row.settings);
+}
+
 // Los productos que el negocio no asignó a ninguna categoría se agrupan acá,
 // para que nunca queden invisibles en el tótem.
 export const UNCATEGORIZED = 0;
@@ -465,21 +516,10 @@ export const getTotemHome = createServerFn({ method: "GET" })
 
     const s = row.settings;
     return {
+      ...portadaDe(row.company, s),
       companyId: row.company.id,
-      name: row.company.name,
       slug: row.company.slug,
-      logoUrl: row.company.logoUrl,
-      primaryColor: row.company.primaryColor,
       template: (s?.template as TotemTemplate) ?? "clasico",
-      heroImageUrl: s?.heroImageUrl ?? null,
-      eyebrow: s?.eyebrow ?? null,
-      title: s?.title?.trim() || row.company.name,
-      titleAccent: s?.titleAccent ?? null,
-      subtitle: s?.subtitle ?? null,
-      ctaLabel: s?.ctaLabel?.trim() || "Empezar pedido",
-      badge1: s?.badge1 ?? null,
-      badge2: s?.badge2 ?? null,
-      accentColor: s?.accentColor ?? null,
       theme: s?.theme ?? "oscuro",
       fontTheme: s?.fontTheme ?? "impacto",
       corners: s?.corners ?? "redondeado",
@@ -2051,6 +2091,7 @@ export interface OnlineEmpresa {
   fontTheme: TotemMenu["fontTheme"];
   corners: TotemMenu["corners"];
   sucursales: SucursalOnline[];
+  portada: PortadaDatos;
 }
 
 /** Las sucursales de la empresa con el pedido online encendido y algo que ofrecer. */
@@ -2121,13 +2162,7 @@ export const getOnlineEmpresa = createServerFn({ method: "GET" })
   .inputValidator(z.object({ empresa: z.string().trim().min(1).max(60) }))
   .handler(async ({ data }): Promise<OnlineEmpresa> => {
     const [row] = await db
-      .select({
-        company: companies,
-        accentColor: totemSettings.accentColor,
-        theme: totemSettings.theme,
-        fontTheme: totemSettings.fontTheme,
-        corners: totemSettings.corners,
-      })
+      .select({ company: companies, settings: totemSettings })
       .from(companies)
       .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
       .where(eq(companies.slug, data.empresa))
@@ -2144,11 +2179,12 @@ export const getOnlineEmpresa = createServerFn({ method: "GET" })
       name: row.company.name,
       slug: row.company.slug,
       logoUrl: row.company.logoUrl,
-      accentColor: row.accentColor ?? row.company.primaryColor,
-      theme: row.theme ?? "oscuro",
-      fontTheme: row.fontTheme ?? "impacto",
-      corners: row.corners ?? "redondeado",
+      accentColor: row.settings?.accentColor ?? row.company.primaryColor,
+      theme: row.settings?.theme ?? "oscuro",
+      fontTheme: row.settings?.fontTheme ?? "impacto",
+      corners: row.settings?.corners ?? "redondeado",
       sucursales,
+      portada: portadaDe(row.company, row.settings),
     };
   });
 
@@ -2810,15 +2846,21 @@ async function resolverMesa(token: string) {
 /** El menú de una mesa: el del online sin envío, mínimo ni horario, y su número. */
 export interface MesaMenu extends OnlineMenu {
   mesa: number;
+  /** La pantalla de inicio, la misma de la sección Portada. */
+  portada: PortadaDatos;
 }
 
 export const getMesaMenu = createServerFn({ method: "GET" })
   .inputValidator(z.object(mesaInput))
   .handler(async ({ data }): Promise<MesaMenu> => {
     const r = await resolverMesa(data.token);
-    const menu = await armarMenu(r.company.id, r.location.id);
+    const [menu, portada] = await Promise.all([
+      armarMenu(r.company.id, r.location.id),
+      cargarPortada(r.company.id),
+    ]);
     return {
       ...menu,
+      portada,
       locationName: r.location.name,
       locationPhone: r.location.phone,
       locationAddress: r.location.address,

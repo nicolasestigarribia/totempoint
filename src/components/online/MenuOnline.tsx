@@ -53,7 +53,7 @@ import {
 /** Por qué canal se abrió el menú. */
 export type CanalMenu =
   | { tipo: "online"; empresa: string; local: string; soloVer: boolean }
-  | { tipo: "mesa"; token: string; numero: number };
+  | { tipo: "mesa"; token: string; numero: number; onInicio?: () => void };
 
 /** El link a "Tu pedido" de cada canal. */
 function IrAlPedido({
@@ -345,6 +345,7 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
               logoUrl={menu.logoUrl}
               mesa={canal.numero}
               accent={accent}
+              onInicio={canal.onInicio}
             />
           )}
 

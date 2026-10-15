@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Save, Monitor } from "lucide-react";
+import { Loader2, Save, Monitor, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { TotemHome } from "@/components/totem/TotemHome";
+import { themeVars } from "@/components/totem/useTotemTheme";
+import { PortadaCelular } from "@/components/online/PortadaCelular";
 import { PreviewFrame } from "@/components/admin/PreviewFrame";
 import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
 import { useReadOnly } from "@/components/admin/readonly";
@@ -159,9 +161,9 @@ export function PortadaSection({
     );
   }
 
-  // La apariencia (base, letras, esquinas, acento) es de la empresa: la usan el
-  // tótem y el pedido online. La portada (plantilla, imagen, textos) es solo
-  // del tótem, así que a una empresa sin ese módulo no se le muestra.
+  // La apariencia (base, letras, esquinas, acento) y la pantalla de inicio
+  // (foto, textos) son de la empresa: las usan el tótem, el pedido online y la
+  // mesa. Solo la plantilla y la vista previa grande son del tótem.
   const conTotem = business.totem_enabled;
 
   return (
@@ -171,8 +173,8 @@ export function PortadaSection({
           <h2 className="text-xl font-bold">Apariencia</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {conTotem
-              ? "Los colores y las letras de tu menú, en el tótem y en el pedido online, y la pantalla de inicio del tótem."
-              : "Los colores y las letras con que tus clientes ven tu menú en el pedido online."}
+              ? "Los colores, las letras y la pantalla de inicio de tu menú, en el tótem y en el celular."
+              : "Los colores, las letras y la pantalla de inicio con que tus clientes ven tu menú en el celular."}
           </p>
         </div>
         {conTotem && (
@@ -182,7 +184,7 @@ export function PortadaSection({
         )}
       </div>
 
-      <div className={`grid gap-6 ${conTotem ? "xl:grid-cols-2" : ""}`}>
+      <div className="grid gap-6 xl:grid-cols-2">
         <form onSubmit={handleSubmit} className={`space-y-6 p-6 ${panelClass}`}>
           {conTotem && (
             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
@@ -276,116 +278,116 @@ export function PortadaSection({
             </p>
           </div>
 
+          <h3 className="border-t border-white/10 pt-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            {conTotem ? "Pantalla de inicio · tótem, pedido online y mesa" : "Pantalla de inicio"}
+          </h3>
+
           {conTotem && (
-            <>
-              <h3 className="border-t border-white/10 pt-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                Pantalla de inicio del tótem
-              </h3>
-
-              <div className="space-y-2">
-                <Label>Plantilla</Label>
-                <Select
-                  value={form.template}
-                  onValueChange={(v) => set("template", v as TotemTemplate)}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TEMPLATES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {TEMPLATES.find((t) => t.value === form.template)?.hint}
-                </p>
-              </div>
-
-              <ImageUploadField
-                id="hero"
-                maxSide={LADO_MAXIMO.portada}
-                label="Imagen de portada"
-                value={form.heroImageUrl}
-                onChange={(url) => set("heroImageUrl", url)}
-              />
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="eyebrow">Volanta</Label>
-                  <Input
-                    id="eyebrow"
-                    value={form.eyebrow}
-                    onChange={(e) => set("eyebrow", e.target.value)}
-                    placeholder="Autoservicio premium"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="title">Título</Label>
-                  <Input
-                    id="title"
-                    value={form.title}
-                    onChange={(e) => set("title", e.target.value)}
-                    placeholder={business.name}
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="titleAccent">Segunda línea (en color)</Label>
-                  <Input
-                    id="titleAccent"
-                    value={form.titleAccent}
-                    onChange={(e) => set("titleAccent", e.target.value)}
-                    placeholder="PEPE"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="subtitle">Bajada</Label>
-                  <Input
-                    id="subtitle"
-                    value={form.subtitle}
-                    onChange={(e) => set("subtitle", e.target.value)}
-                    placeholder="Tocá la pantalla y armá tu pedido en segundos."
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cta">Texto del botón</Label>
-                  <Input
-                    id="cta"
-                    value={form.ctaLabel}
-                    onChange={(e) => set("ctaLabel", e.target.value)}
-                    required
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="badge1">Distintivo 1</Label>
-                  <Input
-                    id="badge1"
-                    value={form.badge1}
-                    onChange={(e) => set("badge1", e.target.value)}
-                    placeholder="Listo en 5 min"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="badge2">Distintivo 2</Label>
-                  <Input
-                    id="badge2"
-                    value={form.badge2}
-                    onChange={(e) => set("badge2", e.target.value)}
-                    placeholder="Pago en caja"
-                    className="h-11"
-                  />
-                </div>
-              </div>
-            </>
+            <div className="space-y-2">
+              <Label>Plantilla</Label>
+              <Select
+                value={form.template}
+                onValueChange={(v) => set("template", v as TotemTemplate)}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEMPLATES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {TEMPLATES.find((t) => t.value === form.template)?.hint}. En el celular la portada
+                es siempre vertical: foto arriba y botón al pie.
+              </p>
+            </div>
           )}
+          <>
+            <ImageUploadField
+              id="hero"
+              maxSide={LADO_MAXIMO.portada}
+              label="Imagen de portada"
+              value={form.heroImageUrl}
+              onChange={(url) => set("heroImageUrl", url)}
+            />
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="eyebrow">Volanta</Label>
+                <Input
+                  id="eyebrow"
+                  value={form.eyebrow}
+                  onChange={(e) => set("eyebrow", e.target.value)}
+                  placeholder="Autoservicio premium"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="title">Título</Label>
+                <Input
+                  id="title"
+                  value={form.title}
+                  onChange={(e) => set("title", e.target.value)}
+                  placeholder={business.name}
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="titleAccent">Segunda línea (en color)</Label>
+                <Input
+                  id="titleAccent"
+                  value={form.titleAccent}
+                  onChange={(e) => set("titleAccent", e.target.value)}
+                  placeholder="PEPE"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="subtitle">Bajada</Label>
+                <Input
+                  id="subtitle"
+                  value={form.subtitle}
+                  onChange={(e) => set("subtitle", e.target.value)}
+                  placeholder="Tocá la pantalla y armá tu pedido en segundos."
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cta">Texto del botón</Label>
+                <Input
+                  id="cta"
+                  value={form.ctaLabel}
+                  onChange={(e) => set("ctaLabel", e.target.value)}
+                  required
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="badge1">Distintivo 1</Label>
+                <Input
+                  id="badge1"
+                  value={form.badge1}
+                  onChange={(e) => set("badge1", e.target.value)}
+                  placeholder="Listo en 5 min"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="badge2">Distintivo 2</Label>
+                <Input
+                  id="badge2"
+                  value={form.badge2}
+                  onChange={(e) => set("badge2", e.target.value)}
+                  placeholder="Pago en caja"
+                  className="h-11"
+                />
+              </div>
+            </div>
+          </>
 
           {!readOnly && (
             <Button type="submit" disabled={saving} className="h-12 gap-2 px-8 font-bold">
@@ -395,23 +397,51 @@ export function PortadaSection({
           )}
         </form>
 
-        {conTotem && (
-          <div className={`space-y-4 p-6 ${panelClass}`}>
-            <div className="flex items-center gap-2">
-              <Monitor className="h-4 w-4 text-muted-foreground" />
-              <h3 className="font-bold">Vista previa</h3>
-            </div>
-            <PreviewFrame className="rounded-2xl border border-white/10">
-              {/* Sin nav: el botón se ve pero no navega. El iframe comparte el
+        <div className={`space-y-4 p-6 ${panelClass}`}>
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-bold">En el celular · pedido online y mesa</h3>
+          </div>
+          <div className="mx-auto max-w-[300px]">
+            <PreviewFrame
+              width={390}
+              height={800}
+              className="rounded-[2rem] border border-white/10"
+            >
+              {/* Sin acciones: el botón se ve pero no hace nada. */}
+              <div
+                className="totem-tipografia text-foreground"
+                style={
+                  themeVars(
+                    preview.accentColor,
+                    preview.theme,
+                    preview.fontTheme,
+                    preview.corners,
+                  ) as React.CSSProperties
+                }
+              >
+                <PortadaCelular datos={preview} />
+              </div>
+            </PreviewFrame>
+          </div>
+          {conTotem && (
+            <>
+              <div className="flex items-center gap-2 border-t border-white/10 pt-4">
+                <Monitor className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-bold">En el tótem</h3>
+              </div>
+              <PreviewFrame className="rounded-2xl border border-white/10">
+                {/* Sin nav: el botón se ve pero no navega. El iframe comparte el
                 router del panel, así que un clic acá te sacaba de la pantalla
                 que estás editando. */}
-              <TotemHome data={preview} nav={null} />
-            </PreviewFrame>
-            <p className="text-xs text-muted-foreground">
-              Los cambios se reflejan al instante, pero se aplican al tótem recién cuando guardás.
-            </p>
-          </div>
-        )}
+                <TotemHome data={preview} nav={null} />
+              </PreviewFrame>
+              <p className="text-xs text-muted-foreground">
+                Los cambios se reflejan al instante, pero se aplican al tótem recién cuando guardás.
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

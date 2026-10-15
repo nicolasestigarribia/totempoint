@@ -1,67 +1,19 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Sparkles, ChevronRight, Store, Loader2 } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { TotemHome as TotemHomeData } from "@/lib/api/totem.functions";
 import type { TotemNav } from "@/lib/totem-nav";
 import { themeVars } from "@/components/totem/useTotemTheme";
 import { TotemMotas } from "@/components/totem/TotemMotas";
-
-const FALLBACK_ACCENT = "var(--gold, #f5b800)";
-
-function Badges({ data, className = "" }: { data: TotemHomeData; className?: string }) {
-  const badges = [data.badge1, data.badge2].filter(Boolean) as string[];
-  if (badges.length === 0) return null;
-  return (
-    <div className={`flex flex-wrap gap-3 ${className}`}>
-      {badges.map((b) => (
-        <div
-          key={b}
-          className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-4 py-2 backdrop-blur"
-        >
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            {b}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * El logo con el nombre de la sucursal, y encima el eyebrow.
- *
- * `conEyebrow` existe porque la plantilla Clásica ya lo muestra como cartelito
- * aparte: repetirlo acá hacía que "Sanguchería de miga" apareciera dos veces
- * en la misma pantalla, a dos centímetros de distancia.
- */
-function Logo({ data, conEyebrow = true }: { data: TotemHomeData; conEyebrow?: boolean }) {
-  const accent = data.accentColor || data.primaryColor || undefined;
-  return (
-    <div className="flex items-center gap-4">
-      <div
-        className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-3xl shadow-glow"
-        style={{ background: accent ?? undefined }}
-      >
-        {data.logoUrl ? (
-          <img src={data.logoUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <Store className="h-8 w-8 text-white" />
-        )}
-      </div>
-      <div>
-        {conEyebrow && data.eyebrow && (
-          <div
-            className="text-xs font-semibold uppercase tracking-[0.3em]"
-            style={{ color: accent }}
-          >
-            {data.eyebrow}
-          </div>
-        )}
-        <div className="font-display text-2xl tracking-wide md:text-3xl">{data.name}</div>
-      </div>
-    </div>
-  );
-}
+import {
+  Badges,
+  ContenidoBoton,
+  Logo,
+  Title,
+  claseBoton,
+  estiloBoton,
+  type TamanioBoton,
+} from "@/components/totem/portada-partes";
 
 function StartButton({
   data,
@@ -70,39 +22,14 @@ function StartButton({
 }: {
   data: TotemHomeData;
   nav: TotemNav | null;
-  size?: "lg" | "xl";
+  size?: TamanioBoton;
 }) {
-  const accent = data.accentColor || data.primaryColor || undefined;
   // El catálogo se pide al tocar; el primer arranque va a la base y tarda. El
   // botón muestra que está trabajando para que nadie lo toque tres veces.
   const [cargando, setCargando] = useState(false);
-  const className = `late group flex w-full items-center justify-between gap-4 rounded-3xl transition hover:scale-[1.02] active:scale-[0.98] ${
-    size === "xl" ? "px-12 py-10" : "px-10 py-8"
-  } ${cargando ? "pointer-events-none opacity-90" : ""}`;
-  const style = {
-    background: accent ?? "var(--primary)",
-    // El halo late en el color de la marca, no en blanco.
-    "--halo": `color-mix(in oklab, ${accent ?? "var(--primary)"} 55%, transparent)`,
-  } as React.CSSProperties;
-
-  const contenido = (
-    <>
-      <span
-        className={`font-display uppercase tracking-wide text-white ${
-          size === "xl" ? "text-4xl md:text-5xl" : "text-3xl md:text-4xl"
-        }`}
-      >
-        {data.ctaLabel}
-      </span>
-      {cargando ? (
-        <Loader2 className={`animate-spin text-white ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`} />
-      ) : (
-        <ChevronRight
-          className={`text-white transition group-hover:translate-x-1 ${size === "xl" ? "h-10 w-10" : "h-8 w-8"}`}
-        />
-      )}
-    </>
-  );
+  const className = claseBoton(size, cargando);
+  const style = estiloBoton(data);
+  const contenido = <ContenidoBoton data={data} size={size} cargando={cargando} />;
 
   // Sin `nav` esto es la vista previa del panel: se ve igual pero no navega.
   // El iframe comparte el router con el panel, así que un clic acá sacaba al
@@ -126,20 +53,6 @@ function StartButton({
     >
       {contenido}
     </Link>
-  );
-}
-
-function Title({ data, className = "" }: { data: TotemHomeData; className?: string }) {
-  const accent = data.accentColor || data.primaryColor || FALLBACK_ACCENT;
-  return (
-    <h1 className={`font-display leading-[0.85] ${className}`}>
-      <span className="block">{data.title}</span>
-      {data.titleAccent && (
-        <span className="block" style={{ color: accent }}>
-          {data.titleAccent}
-        </span>
-      )}
-    </h1>
   );
 }
 
@@ -285,7 +198,7 @@ export function TotemHome({ data, nav }: { data: TotemHomeData; nav: TotemNav | 
     <div
       // La clase va acá además del documento: la vista previa del panel vive en
       // un iframe y monta esto sin pasar por el hook que la agrega arriba.
-      className="totem-tipografia"
+      className="totem-tipografia text-foreground"
       style={
         themeVars(data.accentColor, data.theme, data.fontTheme, data.corners) as React.CSSProperties
       }
