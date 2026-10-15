@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { getMesaMenuCached } from "@/lib/online-menu-cache";
 import { OnlineError } from "@/components/online/OnlineError";
@@ -37,15 +37,21 @@ const vistas = new Set<string>();
 const claveVista = (token: string) => `mesa-portada:${token}`;
 
 function MesaMenuPage() {
-  const menu = Route.useLoaderData();
   const { token } = Route.useParams();
+  // Otra mesa es otra portada: el estado arranca de cero.
+  return <MesaPage key={token} token={token} />;
+}
+
+function MesaPage({ token }: { token: string }) {
+  const menu = Route.useLoaderData();
   useTotemTheme(menu.accentColor, menu.theme, menu.fontTheme, menu.corners);
   const [enPortada, setEnPortada] = useState(() => !vistas.has(token));
 
-  // El servidor no ve sessionStorage ni el hash: se mira al montar. Con una
+  // El servidor no ve sessionStorage ni el hash: se mira al montar, antes de
+  // pintar, para que quien recarga no vea la portada un instante. Con una
   // categoría en el hash el cliente ya estaba en el menú (volvió con "atrás").
-  useEffect(() => {
-    let vista = !!window.location.hash;
+  useLayoutEffect(() => {
+    let vista = window.location.hash.startsWith("#categoria-");
     try {
       vista ||= sessionStorage.getItem(claveVista(token)) === "1";
     } catch {
