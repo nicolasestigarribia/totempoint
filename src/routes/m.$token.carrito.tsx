@@ -39,8 +39,8 @@ type Pago = "efectivo" | "mercadopago";
 
 /**
  * "Tu pedido" desde la mesa: lo pedido, cómo paga y nada más. Sin envío,
- * dirección ni teléfono: el mozo lo lleva a la mesa, y si es en efectivo lo
- * cobra ahí. Tampoco pide nombre: la mesa ya dice a quién llevárselo.
+ * dirección ni teléfono: el mozo lo lleva a la mesa, y si es en efectivo el
+ * cliente se acerca a pagar al mostrador. Tampoco pide nombre: la mesa ya dice a quién llevárselo.
  */
 function CarritoMesaPage() {
   const menu = Route.useLoaderData();
@@ -221,11 +221,11 @@ function CarritoMesaPage() {
               titulo="Efectivo"
             />
           </div>
-          {pago === "mercadopago" && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Al enviar el pedido pagás desde tu celular, y entra a la cocina apenas se acredita.
-            </p>
-          )}
+          <p className="mt-2 text-sm text-muted-foreground">
+            {pago === "mercadopago"
+              ? "Al enviar el pedido pagás desde tu celular, y entra a la cocina apenas se acredita."
+              : "Te acercás a pagar al mostrador cuando quieras."}
+          </p>
         </Bloque>
 
         <Bloque titulo="¿Algo más?">

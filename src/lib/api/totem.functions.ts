@@ -2866,7 +2866,7 @@ export const getMesaMenu = createServerFn({ method: "GET" })
       locationAddress: r.location.address,
       pickup: false,
       delivery: false,
-      // En la mesa siempre se puede pagar en efectivo: lo cobra el mozo.
+      // En la mesa siempre se puede pagar en efectivo: el cliente paga en el mostrador.
       cash: true,
       minOrder: "0.00",
       origin: null,

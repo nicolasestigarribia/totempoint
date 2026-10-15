@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import {
   CheckCircle2,
   ChefHat,
@@ -32,6 +32,11 @@ export const Route = createFileRoute("/m/$token/pedido/$tracking")({
 /** Cada cuánto se vuelve a preguntar. Más seguido mientras se espera un pago. */
 const REFRESCO_PAGO_MS = 4_000;
 const REFRESCO_MS = 10_000;
+/**
+ * Entregado, la pantalla vuelve sola al menú después de este tiempo: el
+ * cliente ya tiene lo suyo en la mesa y lo próximo es pedir otra cosa.
+ */
+const VUELTA_AL_MENU_S = 40;
 
 /**
  * El seguimiento de un pedido de mesa. Se actualiza solo y dice lo que le
@@ -56,6 +61,20 @@ function SeguimientoMesaPage() {
     );
     return () => clearInterval(id);
   }, [router, terminado, esperandoPago]);
+
+  const entregado = pedido.status === "entregado";
+  const navigate = useNavigate();
+  const [quedan, setQuedan] = useState(VUELTA_AL_MENU_S);
+  useEffect(() => {
+    if (!entregado) return;
+    const id = setInterval(() => setQuedan((q) => Math.max(0, q - 1)), 1000);
+    return () => clearInterval(id);
+  }, [entregado]);
+  useEffect(() => {
+    if (entregado && quedan === 0) {
+      void navigate({ to: "/m/$token", params: { token }, replace: true });
+    }
+  }, [entregado, quedan, navigate, token]);
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -114,7 +133,7 @@ function SeguimientoMesaPage() {
             {pedido.paymentStatus === "pagado"
               ? "Pagado"
               : pedido.paymentMethod === "efectivo"
-                ? "Le pagás al mozo cuando te lo traiga"
+                ? "Pagás en efectivo en el mostrador"
                 : "Pendiente de pago con Mercado Pago"}
           </p>
         </div>
@@ -126,6 +145,11 @@ function SeguimientoMesaPage() {
         >
           <Plus className="h-4 w-4" /> Pedir algo más
         </Link>
+        {entregado && (
+          <p className="mt-3 text-center text-sm text-muted-foreground" aria-live="polite">
+            Volvemos al menú en {quedan} s
+          </p>
+        )}
       </main>
     </div>
   );
@@ -137,7 +161,7 @@ function Estado({ pedido, accent }: { pedido: MesaOrderStatus; accent: string })
       <Tarjeta icono={<XCircle className="h-12 w-12 text-destructive" />} titulo="Pedido cancelado">
         {pedido.vencioSinPagar
           ? "No se terminó de pagar a tiempo. Si lo querés, hacelo de nuevo."
-          : "El local canceló el pedido. Consultá con el mozo."}
+          : "El local canceló el pedido. Consultá en el mostrador."}
       </Tarjeta>
     );
   }
