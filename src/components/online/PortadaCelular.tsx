@@ -43,51 +43,75 @@ export function PortadaCelular({
   onSoloVer?: () => void;
 }) {
   const accent = acentoDe(datos);
+  const conFoto = !!datos.heroImageUrl;
+  // Sin título cargado, el título grande es el nombre de la empresa.
+  const tituloEsNombre = datos.title === datos.name && !datos.titleAccent;
+
+  const pastilla = estado && (
+    <span className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-xs font-bold">
+      {estado.abierto ? (
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+        </span>
+      ) : (
+        <span className="h-2 w-2 rounded-full bg-amber-500" />
+      )}
+      {estado.texto}
+    </span>
+  );
 
   return (
-    <div className="relative flex min-h-svh flex-col overflow-hidden bg-background text-foreground lg:flex-row">
-      {/* En una compu (alguien que abrió el link en la PC) queda dividida
-          como la plantilla del tótem: la foto a un lado y el panel al otro. */}
-      <div className="relative h-[40svh] min-h-56 shrink-0 overflow-hidden lg:h-auto lg:min-h-svh lg:flex-1">
-        {datos.heroImageUrl ? (
+    <div
+      className={`relative flex min-h-svh flex-col overflow-hidden bg-background text-foreground ${
+        conFoto ? "lg:flex-row" : ""
+      }`}
+    >
+      {conFoto ? (
+        /* En una compu (alguien que abrió el link en la PC) queda dividida
+           como la plantilla del tótem: la foto a un lado y el panel al otro. */
+        <div className="relative h-[40svh] min-h-56 shrink-0 overflow-hidden lg:h-auto lg:min-h-svh lg:flex-1">
           <img
-            src={datos.heroImageUrl}
+            src={datos.heroImageUrl!}
             alt=""
             className="respira absolute inset-0 h-full w-full object-cover"
           />
-        ) : (
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `color-mix(in oklab, ${accent ?? "var(--primary)"} 45%, var(--background))`,
-            }}
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-background" />
-        {estado && (
-          <span className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-xs font-bold">
-            {estado.abierto ? (
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-            ) : (
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-            )}
-            {estado.texto}
-          </span>
-        )}
-      </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-background" />
+          {pastilla}
+        </div>
+      ) : (
+        /* Sin foto no hay una mitad vacía: el fondo es el del menú, luces del
+           color de la marca sobre una grilla, y todo va en una columna. */
+        <div
+          aria-hidden={!estado}
+          className="absolute inset-0 overflow-hidden"
+          style={{ "--portada-acento": accent } as React.CSSProperties}
+        >
+          <div className="portada-grilla" />
+          <div className="portada-luz -left-24 -top-24 h-80 w-80" />
+          <div className="portada-luz portada-luz-2 -right-20 top-1/3 h-72 w-72" />
+          {pastilla}
+        </div>
+      )}
 
       <TotemMotas accent={accent} />
 
-      <div className="relative z-10 mx-auto -mt-16 flex w-full max-w-md flex-1 flex-col gap-5 px-5 pb-6 lg:mt-0 lg:max-w-xl lg:justify-center lg:px-14 lg:py-10">
-        <Logo data={datos} />
+      <div
+        className={`relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-5 pb-6 ${
+          conFoto
+            ? "-mt-16 lg:mt-0 lg:max-w-xl lg:justify-center lg:px-14 lg:py-10"
+            : "pt-[22svh] lg:max-w-2xl lg:justify-center lg:pt-10"
+        }`}
+      >
+        <Logo data={datos} conNombre={!tituloEsNombre} />
         {/* El tamaño sigue al ancho: con la letra geométrica, "Empanadas" a 60px
-            no entra en un teléfono de 390. */}
+            no entra en un teléfono de 390, ni a 72px en media pantalla de una
+            compu. `anywhere` corta solo si igual no entra una palabra sola. */}
         <Title
           data={datos}
-          className="text-[clamp(2.25rem,13vw,3.75rem)] [overflow-wrap:anywhere] lg:text-7xl"
+          className={`text-[clamp(2.25rem,13vw,3.75rem)] [overflow-wrap:anywhere] ${
+            conFoto ? "lg:text-[clamp(3rem,4.6vw,4.5rem)]" : "lg:text-7xl"
+          }`}
         />
         {datos.subtitle && (
           <p className="text-balance text-base text-muted-foreground">{datos.subtitle}</p>

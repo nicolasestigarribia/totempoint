@@ -46,7 +46,16 @@ export function Badges({
  * aparte: repetirlo acá hacía que "Sanguchería de miga" apareciera dos veces
  * en la misma pantalla, a dos centímetros de distancia.
  */
-export function Logo({ data, conEyebrow = true }: { data: PortadaDatos; conEyebrow?: boolean }) {
+export function Logo({
+  data,
+  conEyebrow = true,
+  conNombre = true,
+}: {
+  data: PortadaDatos;
+  conEyebrow?: boolean;
+  /** Sin título propio, el título grande ya es el nombre: no se repite al lado. */
+  conNombre?: boolean;
+}) {
   const accent = acentoDe(data);
   return (
     <div className="flex items-center gap-4">
@@ -69,7 +78,9 @@ export function Logo({ data, conEyebrow = true }: { data: PortadaDatos; conEyebr
             {data.eyebrow}
           </div>
         )}
-        <div className="font-display text-2xl tracking-wide md:text-3xl">{data.name}</div>
+        {conNombre && (
+          <div className="font-display text-2xl tracking-wide md:text-3xl">{data.name}</div>
+        )}
       </div>
     </div>
   );
