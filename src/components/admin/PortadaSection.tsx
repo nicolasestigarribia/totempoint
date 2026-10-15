@@ -74,6 +74,7 @@ const EMPTY: MyTotemSettings = {
   fontTheme: "impacto",
   corners: "redondeado",
   heroImageUrl: "",
+  heroImageUrl2: "",
   eyebrow: "",
   title: "",
   titleAccent: "",
@@ -140,6 +141,7 @@ export function PortadaSection({
     primaryColor: business.primary_color,
     template: form.template,
     heroImageUrl: form.heroImageUrl || null,
+    heroImageUrl2: form.heroImageUrl2 || null,
     eyebrow: form.eyebrow || null,
     title: form.title.trim() || business.name,
     titleAccent: form.titleAccent || null,
@@ -307,13 +309,27 @@ export function PortadaSection({
             </div>
           )}
           <>
-            <ImageUploadField
-              id="hero"
-              maxSide={LADO_MAXIMO.portada}
-              label="Imagen de portada"
-              value={form.heroImageUrl}
-              onChange={(url) => set("heroImageUrl", url)}
-            />
+            <div className="grid gap-5 md:grid-cols-2">
+              <ImageUploadField
+                id="hero"
+                maxSide={LADO_MAXIMO.portada}
+                label="Imagen de portada"
+                value={form.heroImageUrl}
+                onChange={(url) => set("heroImageUrl", url)}
+              />
+              <div className="space-y-2">
+                <ImageUploadField
+                  id="hero2"
+                  maxSide={LADO_MAXIMO.portada}
+                  label="Segunda imagen (opcional)"
+                  value={form.heroImageUrl2}
+                  onChange={(url) => set("heroImageUrl2", url)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Con las dos cargadas, la portada las va alternando con un fundido.
+                </p>
+              </div>
+            </div>
 
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">

@@ -25,6 +25,7 @@ import { db } from "./index";
 const REFERENCIAS = [
   ["companies", "logo_url"],
   ["totem_settings", "hero_image_url"],
+  ["totem_settings", "hero_image_url_2"],
   ["categories", "photo_url"],
   ["products", "photo_url"],
   ["combos", "photo_url"],

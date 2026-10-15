@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ChevronRight, Loader2, Store } from "lucide-react";
 import type { PortadaDatos } from "@/lib/api/totem.functions";
 
@@ -10,6 +11,41 @@ import type { PortadaDatos } from "@/lib/api/totem.functions";
 const FALLBACK_ACCENT = "var(--gold, #f5b800)";
 
 export const acentoDe = (data: PortadaDatos) => data.accentColor || data.primaryColor || undefined;
+
+/** Las fotos cargadas de la portada, en orden. */
+export const fotosDe = (data: PortadaDatos) =>
+  [data.heroImageUrl, data.heroImageUrl2].filter((u): u is string => !!u);
+
+/** Cuánto se ve cada foto antes de fundirse en la siguiente. */
+const CADA_FOTO_MS = 6_000;
+
+/**
+ * La foto de la portada, o las fotos: con dos, se alternan con un fundido
+ * lento (las empanadas, el horno encendido, las empanadas…). Todas quedan
+ * cargadas una encima de otra y solo cambia la opacidad, así el cambio no
+ * espera a que baje la imagen. Cada una sigue respirando como la foto sola.
+ *
+ * Va dentro de un contenedor posicionado: las fotos lo cubren entero.
+ */
+export function FotosPortada({ fotos }: { fotos: string[] }) {
+  const [actual, setActual] = useState(0);
+  useEffect(() => {
+    if (fotos.length < 2) return;
+    const id = setInterval(() => setActual((i) => (i + 1) % fotos.length), CADA_FOTO_MS);
+    return () => clearInterval(id);
+  }, [fotos.length]);
+
+  return fotos.map((src, i) => (
+    <img
+      key={src}
+      src={src}
+      alt=""
+      className={`respira absolute inset-0 h-full w-full object-cover transition-opacity duration-[1500ms] ease-in-out ${
+        i === actual % fotos.length ? "opacity-100" : "opacity-0"
+      }`}
+    />
+  ));
+}
 
 export function Badges({
   data,

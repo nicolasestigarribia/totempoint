@@ -288,6 +288,8 @@ export interface TotemHome {
   primaryColor: string | null;
   template: TotemTemplate;
   heroImageUrl: string | null;
+  /** Con las dos fotos, la portada las alterna. */
+  heroImageUrl2: string | null;
   eyebrow: string | null;
   title: string;
   titleAccent: string | null;
@@ -312,6 +314,7 @@ export type PortadaDatos = Pick<
   | "primaryColor"
   | "accentColor"
   | "heroImageUrl"
+  | "heroImageUrl2"
   | "eyebrow"
   | "title"
   | "titleAccent"
@@ -331,6 +334,7 @@ function portadaDe(
     primaryColor: company.primaryColor,
     accentColor: s?.accentColor ?? null,
     heroImageUrl: s?.heroImageUrl ?? null,
+    heroImageUrl2: s?.heroImageUrl2 ?? null,
     eyebrow: s?.eyebrow ?? null,
     title: s?.title?.trim() || company.name,
     titleAccent: s?.titleAccent ?? null,

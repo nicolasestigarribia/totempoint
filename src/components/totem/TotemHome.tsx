@@ -9,9 +9,11 @@ import { CargaMarca } from "@/components/CargaMarca";
 import {
   Badges,
   ContenidoBoton,
+  FotosPortada,
   Logo,
   Title,
   claseBoton,
+  fotosDe,
   estiloBoton,
   type TamanioBoton,
 } from "@/components/totem/portada-partes";
@@ -73,13 +75,13 @@ function Clasico({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
   // pantalla (celular apaisado, tablet chica) hay que poder deslizar, no recortar.
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
-      {data.heroImageUrl && (
+      {fotosDe(data).length > 0 && (
         /* El recorte va en un envoltorio y no en el contenedor de la
            pantalla: al ampliarse, la foto se sale de la caja y aparece una
            barra de scroll horizontal, pero el contenedor tiene que seguir
            dejando deslizar hacia abajo si el contenido no entra. */
         <div className="absolute inset-0 overflow-hidden">
-          <img src={data.heroImageUrl} alt="" className="respira h-full w-full object-cover" />
+          <FotosPortada fotos={fotosDe(data)} />
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/40" />
@@ -122,13 +124,13 @@ function Clasico({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
 function Completo({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-center bg-background text-center">
-      {data.heroImageUrl && (
+      {fotosDe(data).length > 0 && (
         /* El recorte va en un envoltorio y no en el contenedor de la
            pantalla: al ampliarse, la foto se sale de la caja y aparece una
            barra de scroll horizontal, pero el contenedor tiene que seguir
            dejando deslizar hacia abajo si el contenido no entra. */
         <div className="absolute inset-0 overflow-hidden">
-          <img src={data.heroImageUrl} alt="" className="respira h-full w-full object-cover" />
+          <FotosPortada fotos={fotosDe(data)} />
         </div>
       )}
       <div className="absolute inset-0 bg-black/60" />
@@ -158,12 +160,8 @@ function Split({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
           estiraba la fila más allá de la pantalla y el panel de al lado
           centraba el texto en esa altura, con el botón cortado abajo. */}
       <div className="relative min-h-[35dvh] flex-1 overflow-hidden lg:min-h-dvh">
-        {data.heroImageUrl ? (
-          <img
-            src={data.heroImageUrl}
-            alt=""
-            className="respira absolute inset-0 h-full w-full object-cover"
-          />
+        {fotosDe(data).length > 0 ? (
+          <FotosPortada fotos={fotosDe(data)} />
         ) : (
           <div className="absolute inset-0 bg-muted" />
         )}
