@@ -38,5 +38,6 @@ function OnlineMenuPage() {
   const menu = Route.useLoaderData();
   const { empresa, local } = Route.useParams();
   const soloVer = Route.useSearch().ver === true;
-  return <MenuOnline menu={menu} canal={{ tipo: "online", empresa, local, soloVer }} />;
+  // Otra sucursal es otro menú: al cambiarla desde la hoja, arranca de cero.
+  return <MenuOnline key={local} menu={menu} canal={{ tipo: "online", empresa, local, soloVer }} />;
 }

@@ -24,6 +24,7 @@ import {
   seccionDelHash,
 } from "@/lib/menu-online";
 import { OnlineHeader } from "@/components/online/OnlineHeader";
+import { HojaSucursales } from "@/components/online/HojaSucursales";
 import { MesaHeader } from "@/components/mesa/MesaHeader";
 import { useHorario } from "@/components/online/useHorario";
 import { SoloVer } from "@/components/online/menu/solo-ver";
@@ -168,6 +169,7 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
 
   // El buscador: con texto, el menú se reemplaza por lo que coincide.
   const [busqueda, setBusqueda] = useState("");
+  const [cambiandoSucursal, setCambiandoSucursal] = useState(false);
   const resultados = useMemo(
     () => buscarEnMenu(busqueda, menu.combos, menu.products),
     [busqueda, menu.combos, menu.products],
@@ -322,7 +324,9 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
               sucursal={menu.locationName}
               logoUrl={menu.logoUrl}
               minimoLabel={minimo > 0 ? `Mínimo ${formatPrice(minimo)}` : undefined}
-              cambiarSucursal={menu.sucursalesOnline > 1}
+              onCambiarSucursal={
+                menu.sucursalesOnline > 1 ? () => setCambiandoSucursal(true) : undefined
+              }
             />
           ) : (
             <MesaHeader
@@ -529,6 +533,16 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
           )}
         </div>
       </div>
+      {canal.tipo === "online" && menu.sucursalesOnline > 1 && (
+        <HojaSucursales
+          abierta={cambiandoSucursal}
+          onAbierta={setCambiandoSucursal}
+          empresa={canal.empresa}
+          actual={canal.local}
+          soloVer={canal.soloVer}
+          marca={{ logoUrl: menu.logoUrl, nombre: menu.name, accent }}
+        />
+      )}
     </SoloVer.Provider>
   );
 }
