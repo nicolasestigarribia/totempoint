@@ -129,13 +129,11 @@ function SeguimientoMesaPage() {
             <span>Total</span>
             <span>{formatPrice(Number(pedido.total))}</span>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {pedido.paymentStatus === "pagado"
-              ? "Pagado"
-              : pedido.paymentMethod === "efectivo"
-                ? "Pagás en efectivo en el mostrador"
-                : "Pendiente de pago con Mercado Pago"}
-          </p>
+          {(pedido.paymentStatus === "pagado" || pedido.paymentMethod === "mercadopago") && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {pedido.paymentStatus === "pagado" ? "Pagado" : "Pendiente de pago con Mercado Pago"}
+            </p>
+          )}
         </div>
 
         <Link

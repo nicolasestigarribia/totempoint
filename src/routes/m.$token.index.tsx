@@ -80,7 +80,7 @@ function MesaPage({ token }: { token: string }) {
         ? " Pagás con Mercado Pago o en efectivo en el mostrador."
         : menu.mercadoPago
           ? " Pagás con Mercado Pago."
-          : " Pagás en efectivo en el mostrador.";
+          : "";
     return (
       <PortadaCelular
         datos={menu.portada}

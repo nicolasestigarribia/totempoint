@@ -12,7 +12,6 @@ import {
   Radio,
   Clock,
   Eye,
-  Armchair,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { OnlineMenu } from "@/lib/api/totem.functions";
@@ -85,18 +84,6 @@ function IrAlPedido({
     >
       {children}
     </Link>
-  );
-}
-
-/** La franja de datos del pedido en mesa: cómo paga y que se lo llevan. */
-function InfoDeMesa({ menu }: { menu: OnlineMenu }) {
-  const pagos = [menu.mercadoPago && "Mercado Pago", menu.cash && "efectivo"].filter(Boolean);
-  return (
-    <p className="mx-auto mt-3 flex w-full max-w-2xl items-center gap-2 px-4 text-sm text-muted-foreground">
-      <Armchair className="h-4 w-4 shrink-0" />
-      Pedí desde acá y te lo llevamos a la mesa
-      {pagos.length > 0 && ` · pagás con ${pagos.join(" o ")}`}
-    </p>
   );
 }
 
@@ -349,9 +336,7 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
             />
           )}
 
-          {canal.tipo === "mesa" ? (
-            <InfoDeMesa menu={menu} />
-          ) : canal.soloVer ? (
+          {canal.tipo === "mesa" ? null : canal.soloVer ? (
             <div className="mx-auto mt-3 flex w-full max-w-2xl items-center gap-3 px-4">
               <p className="flex flex-1 items-center gap-1.5 text-sm text-muted-foreground">
                 <Eye className="h-4 w-4 shrink-0" /> Estás viendo el menú
