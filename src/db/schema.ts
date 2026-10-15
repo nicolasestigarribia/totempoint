@@ -342,8 +342,6 @@ export const totemSettings = mysqlTable(
     /** Qué tan redondeadas van las esquinas. Cambia bastante el carácter. */
     corners: mysqlEnum("corners", ["redondeado", "suave", "recto"]).notNull().default("redondeado"),
     heroImageUrl: varchar("hero_image_url", { length: 500 }),
-    /** Segunda foto: con las dos, la portada las alterna con un fundido. */
-    heroImageUrl2: varchar("hero_image_url_2", { length: 500 }),
     eyebrow: varchar("eyebrow", { length: 60 }),
     title: varchar("title", { length: 60 }),
     titleAccent: varchar("title_accent", { length: 60 }),

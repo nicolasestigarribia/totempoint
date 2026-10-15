@@ -3,12 +3,10 @@ import { TotemMotas } from "@/components/totem/TotemMotas";
 import {
   Badges,
   ContenidoBoton,
-  FotosPortada,
   Logo,
   Title,
   acentoDe,
   claseBoton,
-  fotosDe,
   estiloBoton,
 } from "@/components/totem/portada-partes";
 
@@ -45,8 +43,7 @@ export function PortadaCelular({
   onSoloVer?: () => void;
 }) {
   const accent = acentoDe(datos);
-  const fotos = fotosDe(datos);
-  const conFoto = fotos.length > 0;
+  const conFoto = !!datos.heroImageUrl;
   // Sin título cargado, el título grande es el nombre de la empresa.
   const tituloEsNombre = datos.title === datos.name && !datos.titleAccent;
 
@@ -74,7 +71,11 @@ export function PortadaCelular({
         /* En una compu (alguien que abrió el link en la PC) queda dividida
            como la plantilla del tótem: la foto a un lado y el panel al otro. */
         <div className="relative h-[40svh] min-h-56 shrink-0 overflow-hidden lg:h-auto lg:min-h-svh lg:flex-1">
-          <FotosPortada fotos={fotos} />
+          <img
+            src={datos.heroImageUrl!}
+            alt=""
+            className="respira absolute inset-0 h-full w-full object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-background" />
           {pastilla}
         </div>

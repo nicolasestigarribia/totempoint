@@ -87,7 +87,6 @@ export interface MyTotemSettings {
   /** Qué tan redondeadas van las cajas. */
   corners: "redondeado" | "suave" | "recto";
   heroImageUrl: string;
-  heroImageUrl2: string;
   eyebrow: string;
   title: string;
   titleAccent: string;
@@ -116,7 +115,6 @@ export const getMyTotemSettings = createServerFn({ method: "GET" })
       fontTheme: s?.fontTheme ?? "impacto",
       corners: s?.corners ?? "redondeado",
       heroImageUrl: s?.heroImageUrl ?? "",
-      heroImageUrl2: s?.heroImageUrl2 ?? "",
       eyebrow: s?.eyebrow ?? "",
       title: s?.title ?? "",
       titleAccent: s?.titleAccent ?? "",
@@ -139,7 +137,6 @@ export const updateMyTotemSettings = createServerFn({ method: "POST" })
         .default("impacto"),
       corners: z.enum(["redondeado", "suave", "recto"]).default("redondeado"),
       heroImageUrl: z.string().trim().max(500),
-      heroImageUrl2: z.string().trim().max(500).default(""),
       eyebrow: z.string().trim().max(60),
       title: z.string().trim().max(60),
       titleAccent: z.string().trim().max(60),
@@ -168,7 +165,6 @@ export const updateMyTotemSettings = createServerFn({ method: "POST" })
       fontTheme: data.fontTheme,
       corners: data.corners,
       heroImageUrl: data.heroImageUrl || null,
-      heroImageUrl2: data.heroImageUrl2 || null,
       eyebrow: data.eyebrow || null,
       title: data.title || null,
       titleAccent: data.titleAccent || null,
