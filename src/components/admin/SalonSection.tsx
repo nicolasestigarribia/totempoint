@@ -921,6 +921,18 @@ function PanelMesa({
     setTimeout(() => setCopiado(false), 1500);
   };
 
+  const botonBorrar = !soloVer && (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="justify-start gap-2 text-destructive hover:text-destructive"
+      onClick={onBorrar}
+    >
+      <Trash2 className="h-4 w-4" />
+      Eliminar mesa
+    </Button>
+  );
+
   return (
     <div className={`space-y-4 p-5 ${panelClass}`}>
       <div className="flex items-center gap-2">
@@ -996,38 +1008,31 @@ function PanelMesa({
       <div className="space-y-2 border-t border-border pt-4">
         <Label>QR de la mesa</Label>
         {url && origin ? (
-          <>
-            <div className="w-fit rounded-xl bg-white p-3">
+          // Los botones al costado del QR, para que el panel no se haga largo.
+          <div className="flex items-start gap-3">
+            <div className="w-fit shrink-0 rounded-xl bg-white p-3">
               <QRCodeSVG value={url} size={160} marginSize={1} />
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={copiar}>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Button variant="outline" size="sm" className="justify-start gap-2" onClick={copiar}>
                 {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 Copiar link
               </Button>
-              <Button variant="outline" size="sm" className="gap-2" asChild>
+              <Button variant="outline" size="sm" className="justify-start gap-2" asChild>
                 <a href={url} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4" />
                   Abrir
                 </a>
               </Button>
+              {botonBorrar}
             </div>
-          </>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">Guardá el salón para generar su QR.</p>
         )}
       </div>
 
-      {!soloVer && (
-        <Button
-          variant="ghost"
-          className="w-full gap-2 text-destructive hover:text-destructive"
-          onClick={onBorrar}
-        >
-          <Trash2 className="h-4 w-4" />
-          Eliminar mesa
-        </Button>
-      )}
+      {!(url && origin) && botonBorrar}
     </div>
   );
 }
