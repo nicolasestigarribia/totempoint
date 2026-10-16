@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { QRCodeSVG } from "qrcode.react";
+import { QrConLogo } from "@/components/QrConLogo";
 import { toast } from "sonner";
 import {
   Armchair,
@@ -513,7 +513,7 @@ export function SalonSection({
             .map((m) => (
               <div key={m.clave} className="tarjeta">
                 <p className="mesa">Mesa {m.number}</p>
-                <QRCodeSVG value={urlDeMesa(origin, m.token!)} size={256} marginSize={1} />
+                <QrConLogo value={urlDeMesa(origin, m.token!)} size={256} marginSize={1} />
                 <p className="ayuda">Escaneá para ver el menú y pedir</p>
               </div>
             ))}
@@ -1011,7 +1011,7 @@ function PanelMesa({
           // Los botones al costado del QR, para que el panel no se haga largo.
           <div className="flex items-start gap-3">
             <div className="w-fit shrink-0 rounded-xl bg-white p-3">
-              <QRCodeSVG value={url} size={160} marginSize={1} />
+              <QrConLogo value={url} size={160} marginSize={1} />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Button variant="outline" size="sm" className="justify-start gap-2" onClick={copiar}>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { QRCodeSVG } from "qrcode.react";
+import { QrConLogo } from "@/components/QrConLogo";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -659,7 +659,7 @@ function LinkOnline({
         </div>
         {/* Fondo blanco fijo: un QR sobre el panel oscuro no lo lee ninguna cámara. */}
         <div className="mx-auto shrink-0 rounded-2xl bg-white p-3 sm:mx-0">
-          <QRCodeSVG value={url} size={140} level="M" />
+          <QrConLogo value={url} size={140} />
         </div>
       </div>
       {soloVerPath && (
@@ -683,11 +683,7 @@ function LinkOnline({
             </a>
           </div>
           <div className="mx-auto shrink-0 rounded-2xl bg-white p-3 sm:mx-0">
-            <QRCodeSVG
-              value={origin ? `${origin}${soloVerPath}` : soloVerPath}
-              size={120}
-              level="M"
-            />
+            <QrConLogo value={origin ? `${origin}${soloVerPath}` : soloVerPath} size={120} />
           </div>
         </div>
       )}

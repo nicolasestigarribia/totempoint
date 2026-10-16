@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { QrConLogo } from "@/components/QrConLogo";
 import { Copy, Check, ExternalLink, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -87,7 +87,7 @@ export function TotemLinkCard({
 
         {/* Fondo blanco fijo: un QR sobre el panel oscuro no lo lee ninguna cámara. */}
         <div className="mx-auto shrink-0 rounded-2xl bg-white p-3 sm:mx-0">
-          <QRCodeSVG value={url} size={148} level="M" />
+          <QrConLogo value={url} size={148} />
         </div>
       </div>
     </div>

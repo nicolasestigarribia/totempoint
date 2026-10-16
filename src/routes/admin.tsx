@@ -46,6 +46,7 @@ import { canViewSection, canEditSection } from "@/lib/auth/permissions";
 import { exitBusiness } from "@/lib/api/platform.functions";
 import { getMyBusiness, updateMyBusiness, type MyBusiness } from "@/lib/api/business.functions";
 import { ReadOnlyContext } from "@/components/admin/readonly";
+import { LogoQrContext } from "@/components/qr-logo";
 import { LocalesSection } from "@/components/admin/LocalesSection";
 import { CategoriasSection } from "@/components/admin/CategoriasSection";
 import { ProductosSection } from "@/components/admin/ProductosSection";
@@ -693,16 +694,18 @@ function AdminPage() {
           </div>
         </div>
         <div className="p-6 md:p-8">
-          <ReadOnlyContext.Provider value={readOnly}>
-            <SectionContent
-              section={section}
-              business={business!}
-              branding={branding}
-              panelClass={PANEL}
-              onEditPortada={() => setSection("portada")}
-              esDueno={isOwner}
-            />
-          </ReadOnlyContext.Provider>
+          <LogoQrContext.Provider value={business?.logo_url || null}>
+            <ReadOnlyContext.Provider value={readOnly}>
+              <SectionContent
+                section={section}
+                business={business!}
+                branding={branding}
+                panelClass={PANEL}
+                onEditPortada={() => setSection("portada")}
+                esDueno={isOwner}
+              />
+            </ReadOnlyContext.Provider>
+          </LogoQrContext.Provider>
         </div>
       </main>
     </div>
