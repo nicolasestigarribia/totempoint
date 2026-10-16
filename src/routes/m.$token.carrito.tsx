@@ -213,13 +213,15 @@ function CarritoMesaPage() {
                 titulo="Mercado Pago"
               />
             )}
-            <Opcion
-              activa={pago === "efectivo"}
-              accent={accent}
-              onClick={() => setPago("efectivo")}
-              icono={Banknote}
-              titulo="Efectivo"
-            />
+            {menu.cash && (
+              <Opcion
+                activa={pago === "efectivo"}
+                accent={accent}
+                onClick={() => setPago("efectivo")}
+                icono={Banknote}
+                titulo="Efectivo"
+              />
+            )}
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             {pago === "mercadopago"

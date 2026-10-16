@@ -8,6 +8,7 @@ import { requireEdit, requireOwner, requireView } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { assertLocationAccess, companyIdOf } from "@/lib/auth/scope";
 import { registrarAuditoria } from "@/lib/audit/registrar";
+import { tokenDeEmpresa } from "@/lib/payments/verificar";
 import {
   COLUMNAS,
   FILAS,
@@ -47,6 +48,10 @@ export interface PlanoSalon {
   filas: number;
   /** De la empresa, no de la sucursal: si los pedidos de mesa se aceptan solos. */
   autoAccept: boolean;
+  /** De la empresa: si en la mesa se puede elegir pagar en efectivo. */
+  efectivo: boolean;
+  /** Si la empresa cobra con Mercado Pago: sin eso no se puede apagar el efectivo. */
+  mercadoPago: boolean;
 }
 
 async function assertModuloMesas(user: SessionUser): Promise<void> {
@@ -60,13 +65,22 @@ async function assertModuloMesas(user: SessionUser): Promise<void> {
   }
 }
 
-async function autoAcceptDe(companyId: number): Promise<boolean> {
-  const [s] = await db
-    .select({ autoAccept: mesaSettings.autoAccept })
-    .from(mesaSettings)
-    .where(eq(mesaSettings.companyId, companyId))
-    .limit(1);
-  return s?.autoAccept ?? true;
+async function ajustesMesa(companyId: number) {
+  const [[s], token] = await Promise.all([
+    db
+      .select({ autoAccept: mesaSettings.autoAccept, cash: mesaSettings.cashEnabled })
+      .from(mesaSettings)
+      .where(eq(mesaSettings.companyId, companyId))
+      .limit(1),
+    tokenDeEmpresa(companyId),
+  ]);
+  const mercadoPago = token !== null;
+  return {
+    autoAccept: s?.autoAccept ?? true,
+    // Igual que en la mesa: sin Mercado Pago el efectivo vuelve aunque esté apagado.
+    efectivo: (s?.cash ?? true) || !mercadoPago,
+    mercadoPago,
+  };
 }
 
 async function nombreDeSucursal(locationId: number): Promise<string> {
@@ -112,7 +126,7 @@ export const getSalon = createServerFn({ method: "GET" })
       mesas: await leerMesas(data.locationId),
       columnas: sala?.columnas ?? COLUMNAS,
       filas: sala?.filas ?? FILAS,
-      autoAccept: await autoAcceptDe(companyIdOf(user)),
+      ...(await ajustesMesa(companyIdOf(user))),
     };
   });
 
@@ -261,6 +275,35 @@ export const setMesaAutoAccept = createServerFn({ method: "POST" })
       summary: data.autoAccept
         ? "Los pedidos de mesa ahora entran solos a la cocina"
         : "Los pedidos de mesa ahora esperan que alguien los acepte",
+    });
+    return { ok: true };
+  });
+
+/**
+ * Apagar el efectivo deja la mesa solo con Mercado Pago, así nadie se levanta
+ * sin pagar. Tiene que quedar una forma de pago: sin Mercado Pago no se apaga.
+ * Es de toda la empresa, como la aceptación automática: lo cambia el dueño.
+ */
+export const setMesaEfectivo = createServerFn({ method: "POST" })
+  .middleware([requireOwner])
+  .inputValidator(z.object({ efectivo: z.boolean() }))
+  .handler(async ({ context, data }) => {
+    const user = context.user as SessionUser;
+    await assertModuloMesas(user);
+    const companyId = companyIdOf(user);
+    if (!data.efectivo && (await tokenDeEmpresa(companyId)) === null) {
+      throw new Error("Para cobrar solo con Mercado Pago, primero conectá Mercado Pago en Cobros");
+    }
+    await db
+      .insert(mesaSettings)
+      .values({ companyId, cashEnabled: data.efectivo })
+      .onDuplicateKeyUpdate({ set: { cashEnabled: data.efectivo } });
+    await registrarAuditoria(user, {
+      category: "pedidos",
+      action: "salon.efectivo",
+      summary: data.efectivo
+        ? "Los pedidos de mesa ahora se pueden pagar en efectivo"
+        : "Los pedidos de mesa ahora se pagan solo con Mercado Pago",
     });
     return { ok: true };
   });

@@ -161,6 +161,11 @@ export const mesaSettings = mysqlTable("mesa_settings", {
    * broma desde una mesa.
    */
   autoAccept: boolean("auto_accept").notNull().default(true),
+  /**
+   * Con false la mesa solo cobra con Mercado Pago: nadie se levanta sin pagar.
+   * Si Mercado Pago deja de andar, el efectivo vuelve solo (como en el online).
+   */
+  cashEnabled: boolean("cash_enabled").notNull().default(true),
 });
 
 // Usuarios propios. superadmin: companyId/locationId null; owner/encargado: ligados

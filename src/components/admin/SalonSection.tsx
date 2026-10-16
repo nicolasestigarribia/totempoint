@@ -41,7 +41,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useReadOnly } from "@/components/admin/readonly";
 import { listLocations, type LocationRow } from "@/lib/api/locations.functions";
-import { getSalon, saveSalon, setMesaAutoAccept, type MesaRow } from "@/lib/api/salon.functions";
+import {
+  getSalon,
+  saveSalon,
+  setMesaAutoAccept,
+  setMesaEfectivo,
+  type MesaRow,
+} from "@/lib/api/salon.functions";
 import { mensajeDeError } from "@/lib/error-message";
 import {
   COLUMNAS,
@@ -110,12 +116,15 @@ export function SalonSection({
   const fetchSalon = useServerFn(getSalon);
   const doSave = useServerFn(saveSalon);
   const doAutoAccept = useServerFn(setMesaAutoAccept);
+  const doEfectivo = useServerFn(setMesaEfectivo);
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [locationId, setLocationId] = useState<number | null>(null);
   const [mesas, setMesas] = useState<MesaEditor[]>([]);
   const [salon, setSalon] = useState<Salon>({ columnas: COLUMNAS, filas: FILAS });
   const [autoAccept, setAutoAccept] = useState(true);
+  const [efectivo, setEfectivo] = useState(true);
+  const [mercadoPago, setMercadoPago] = useState(false);
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
   const [sinGuardar, setSinGuardar] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -159,6 +168,8 @@ export function SalonSection({
         setSalon({ columnas: salon.columnas, filas: salon.filas });
         setIdsConocidos(salon.mesas.map((m) => m.id));
         setAutoAccept(salon.autoAccept);
+        setEfectivo(salon.efectivo);
+        setMercadoPago(salon.mercadoPago);
         setSeleccionada(null);
         setSinGuardar(false);
       } catch (err) {
@@ -295,6 +306,21 @@ export function SalonSection({
     }
   };
 
+  const cambiarEfectivo = async (valor: boolean) => {
+    setEfectivo(valor);
+    try {
+      await doEfectivo({ data: { efectivo: valor } });
+      toast.success(
+        valor
+          ? "Desde la mesa se puede pagar en efectivo"
+          : "Desde la mesa se paga solo con Mercado Pago",
+      );
+    } catch (err) {
+      setEfectivo(!valor);
+      toast.error(mensajeDeError(err, "No se pudo cambiar"));
+    }
+  };
+
   const imprimir = () => {
     const guardadas = mesas.filter((m) => m.token && m.active);
     const hoja = document.getElementById("salon-qrs-para-imprimir");
@@ -405,6 +431,26 @@ export function SalonSection({
           {autoAccept
             ? "Entran directo a la cocina, como los del tótem."
             : "Esperan en «Por aceptar» de la comandera hasta que alguien los acepte."}
+        </span>
+      </div>
+
+      <div className={`flex flex-wrap items-center gap-3 p-4 ${panelClass}`}>
+        <Switch
+          id="mesa-efectivo"
+          checked={efectivo}
+          onCheckedChange={cambiarEfectivo}
+          // Siempre tiene que quedar una forma de pago: sin Mercado Pago, el efectivo no se apaga.
+          disabled={soloVer || !esDueno || !mercadoPago}
+        />
+        <Label htmlFor="mesa-efectivo" className="cursor-pointer">
+          Aceptar pago en efectivo en la mesa
+        </Label>
+        <span className="text-xs text-muted-foreground">
+          {!mercadoPago
+            ? "Conectá Mercado Pago en Cobros para poder cobrar solo con Mercado Pago."
+            : efectivo
+              ? "El cliente elige Mercado Pago o efectivo, y el efectivo lo paga en el mostrador."
+              : "Solo Mercado Pago: el pedido entra a la cocina cuando se acredita el pago."}
         </span>
       </div>
 

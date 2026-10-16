@@ -2819,6 +2819,7 @@ async function resolverMesa(token: string) {
         mesasEnabled: companies.mesasEnabled,
       },
       autoAccept: mesaSettings.autoAccept,
+      cashEnabled: mesaSettings.cashEnabled,
     })
     .from(diningTables)
     .innerJoin(locations, eq(locations.id, diningTables.locationId))
@@ -2840,8 +2841,16 @@ async function resolverMesa(token: string) {
     location: row.location,
     mesa: { id: row.mesa.id, number: row.mesa.number },
     autoAccept: row.autoAccept ?? true,
+    cashEnabled: row.cashEnabled ?? true,
   };
 }
+
+/**
+ * Si en la mesa se paga en efectivo: lo decide el dueño, pero sin Mercado Pago
+ * el efectivo vuelve aunque lo haya apagado, para que siempre quede una forma.
+ */
+const mesaAceptaEfectivo = (cashEnabled: boolean, mercadoPago: boolean) =>
+  cashEnabled || !mercadoPago;
 
 /** El menú de una mesa: el del online sin envío, mínimo ni horario, y su número. */
 export interface MesaMenu extends OnlineMenu {
@@ -2866,8 +2875,7 @@ export const getMesaMenu = createServerFn({ method: "GET" })
       locationAddress: r.location.address,
       pickup: false,
       delivery: false,
-      // En la mesa siempre se puede pagar en efectivo: el cliente paga en el mostrador.
-      cash: true,
+      cash: mesaAceptaEfectivo(r.cashEnabled, menu.mercadoPago),
       minOrder: "0.00",
       origin: null,
       tiers: [],
@@ -2913,8 +2921,12 @@ export const createMesaOrder = createServerFn({ method: "POST" })
         "Esta mesa ya tiene varios pedidos en curso. Esperá a que lleguen o pedile al mozo",
       );
     }
-    if (data.paymentMethod === "mercadopago" && !(await empresaCobraConMP(r.company.id))) {
+    const mp = await empresaCobraConMP(r.company.id);
+    if (data.paymentMethod === "mercadopago" && !mp) {
       throw new Error("Este comercio no está cobrando con Mercado Pago. Elegí pagar en efectivo");
+    }
+    if (data.paymentMethod === "efectivo" && !mesaAceptaEfectivo(r.cashEnabled, mp)) {
+      throw new Error("Desde la mesa se paga con Mercado Pago");
     }
     const tomado = await tomarPedido({
       company: r.company,
