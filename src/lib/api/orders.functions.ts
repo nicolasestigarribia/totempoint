@@ -36,6 +36,8 @@ export interface KitchenOrderItem {
   extras: { name: string; quantity: number }[];
   /** El pan con que se hace ("blanco" / "negro"); null si no tiene. */
   pan: string | null;
+  /** El tamaño ("Grande"); null si se vende en uno solo. */
+  tamanio: string | null;
   /** Los gustos elegidos en un combo a elección: lo que hay que armar. */
   elecciones: { grupo: string; name: string; quantity: number }[];
 }
@@ -370,6 +372,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
             .filter((e) => e.orderItemId === i.id)
             .map((e) => ({ name: e.ingredientName, quantity: e.quantity })),
           pan: i.pan,
+          tamanio: i.tamanio,
           elecciones: elegidos
             .filter((e) => e.orderItemId === i.id)
             .map((e) => ({ grupo: e.grupo, name: e.name, quantity: e.quantity })),

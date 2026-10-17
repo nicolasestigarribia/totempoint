@@ -726,7 +726,10 @@ function RepetirPedido({
   if (lineas.length === 0) return null;
   // Con los precios y el regalo de hoy: es lo que va a pagar si lo repite.
   const total = cartTotal(lineas);
-  const resumen = lineas.map((l) => `${l.quantity}× ${l.name}${l.pan ? ` (pan ${l.pan})` : ""}`);
+  const resumen = lineas.map(
+    (l) =>
+      `${l.quantity}× ${l.name}${l.tamanio ? ` ${l.tamanio.toLowerCase()}` : ""}${l.pan ? ` (pan ${l.pan})` : ""}`,
+  );
 
   const repetir = () => {
     useCarrito.setState({ slug: cartKey, items: lineas });

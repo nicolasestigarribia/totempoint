@@ -6,6 +6,7 @@ import { MAX_POR_LINEA } from "@/lib/pedido-reglas";
 import { partirNombre } from "@/lib/menu-online";
 import { ElegirGustos } from "@/components/online/ElegirGustos";
 import { ElegirPan } from "@/components/totem/ElegirPan";
+import { ElegirTamanio } from "@/components/totem/ElegirTamanio";
 import { SoloVer } from "@/components/online/menu/solo-ver";
 import { useRevelar } from "@/components/online/menu/useRevelar";
 import {
@@ -248,9 +249,14 @@ export function TarjetaProducto({
   // En los que se hacen en blanco o negro, el − / + maneja el pan marcado.
   const [panElegido, setPanElegido] = useState<Pan>("blanco");
   const pan = p.pan === "ambos" ? panElegido : undefined;
+  // En los que vienen en más de un tamaño, el − / + maneja el marcado, y el
+  // precio a la vista es el de ese tamaño.
+  const [tamanioElegido, setTamanioElegido] = useState(p.tamanios[0]?.nombre ?? "");
+  const tamanio = p.tamanios.find((t) => t.nombre === tamanioElegido) ?? p.tamanios[0];
+  const precio = tamanio?.precio ?? p.price;
   // El − / + maneja la versión sin cambios; las personalizadas se editan en
   // "Tu pedido", donde se ven una por una.
-  const clave = itemKey("producto", p.id, [], [], pan);
+  const clave = itemKey("producto", p.id, [], [], pan, [], tamanio?.nombre);
   const enCarrito = useEnCarrito(
     cartKey,
     (items) => items.find((i) => claveDe(i) === clave)?.quantity ?? 0,
@@ -273,18 +279,40 @@ export function TarjetaProducto({
         </>
       }
       opciones={
-        p.pan &&
-        (soloVer ? (
-          <p className="text-xs text-muted-foreground">
-            {p.pan === "ambos" ? "En pan blanco o negro" : `En pan ${p.pan}`}
-          </p>
-        ) : (
-          <ElegirPan pan={p.pan} elegido={panElegido} onElegir={setPanElegido} accent={accent} />
-        ))
+        (p.pan || p.tamanios.length > 0) && (
+          <div className="flex flex-col gap-1.5">
+            {p.tamanios.length > 0 &&
+              (soloVer ? (
+                <p className="text-xs text-muted-foreground">
+                  {p.tamanios.map((t) => `${t.nombre} ${formatPrice(t.precio)}`).join(" · ")}
+                </p>
+              ) : (
+                <ElegirTamanio
+                  tamanios={p.tamanios}
+                  elegido={tamanio?.nombre ?? ""}
+                  onElegir={setTamanioElegido}
+                  accent={accent}
+                />
+              ))}
+            {p.pan &&
+              (soloVer ? (
+                <p className="text-xs text-muted-foreground">
+                  {p.pan === "ambos" ? "En pan blanco o negro" : `En pan ${p.pan}`}
+                </p>
+              ) : (
+                <ElegirPan
+                  pan={p.pan}
+                  elegido={panElegido}
+                  onElegir={setPanElegido}
+                  accent={accent}
+                />
+              ))}
+          </div>
+        )
       }
       pie={
         <>
-          <Precio valor={p.price} accent={accent} />
+          <Precio valor={precio} accent={accent} />
           {!soloVer && (
             <Cantidad
               clave={clave}
@@ -296,9 +324,10 @@ export function TarjetaProducto({
                   kind: "producto",
                   refId: p.id,
                   name: p.name,
-                  price: p.price,
+                  price: precio,
                   photoUrl: p.photoUrl,
                   pan,
+                  tamanio: tamanio?.nombre,
                   regalo: regaloDeProducto(p),
                 })
               }

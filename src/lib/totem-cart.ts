@@ -35,6 +35,12 @@ export interface TotemCartEleccion {
 /** El pan que eligió el cliente, en los productos que se hacen en blanco o negro. */
 export type Pan = "blanco" | "negro";
 
+/** Un tamaño en que se vende un producto ("Grande", $29.000). */
+export interface Tamanio {
+  nombre: string;
+  precio: string;
+}
+
 export interface TotemCartItem {
   kind: TotemCartKind;
   /** Id del producto o del combo, según kind. */
@@ -58,6 +64,11 @@ export interface TotemCartItem {
    * "ambos"` en el menú). Sin pan es un producto que no tiene esa elección.
    */
   pan?: Pan;
+  /**
+   * El tamaño elegido ("Grande"), solo en los productos que se venden en más
+   * de uno. El precio de la línea es el de ese tamaño.
+   */
+  tamanio?: string;
   /**
    * Lo que suma para "cada 12, 2 de regalo" UNA unidad de esta línea: un
    * sándwich de miga suma 1, el combo "12 clásicos" suma 12. Vacío o ausente =
@@ -84,6 +95,7 @@ export const itemKey = (
   extras: TotemCartExtra[] = [],
   pan?: Pan,
   elecciones: TotemCartEleccion[] = [],
+  tamanio?: string,
 ) => {
   const sacados = removed
     .map((r) => r.id)
@@ -98,6 +110,8 @@ export const itemKey = (
   if (agregados) clave += `-mas${agregados}`;
   // Uno en pan blanco y otro en negro son dos líneas, como con o sin tomate.
   if (pan) clave += `-pan${pan}`;
+  // Una grande y una chica son dos líneas, cada una con su precio.
+  if (tamanio) clave += `-tam${tamanio}`;
   // Dos "Regaladas" con gustos distintos son dos líneas, no cantidad 2.
   const gustos = elecciones
     .map((e) => `${e.grupo}:${e.productId}x${e.quantity}`)
@@ -109,8 +123,11 @@ export const itemKey = (
 
 /** La clave de una línea ya armada. */
 export const claveDe = (
-  i: Pick<TotemCartItem, "kind" | "refId" | "removed" | "extras" | "pan" | "elecciones">,
-) => itemKey(i.kind, i.refId, i.removed, i.extras, i.pan, i.elecciones);
+  i: Pick<
+    TotemCartItem,
+    "kind" | "refId" | "removed" | "extras" | "pan" | "elecciones" | "tamanio"
+  >,
+) => itemKey(i.kind, i.refId, i.removed, i.extras, i.pan, i.elecciones, i.tamanio);
 
 // Colapsa NaN/Infinity a un fallback: un precio o cantidad corrupta (dato viejo
 // migrado, string no numérico) no debe contaminar el total con "$NaN".
@@ -176,6 +193,8 @@ export interface ItemVigente {
   extras?: { id: number; price: string }[];
   /** Lo que suma para el regalo una unidad, según el menú de ahora. */
   regalo?: UnidadesConRegalo[];
+  /** Los tamaños con su precio de ahora, si se vende en más de uno. */
+  tamanios?: Tamanio[];
 }
 
 export const useTotemCart = create<CartState>()(
@@ -188,7 +207,15 @@ export const useTotemCart = create<CartState>()(
           const items = s.slug === slug ? s.items : [];
           const removed = item.removed ?? [];
           const extras = item.extras ?? [];
-          const clave = itemKey(item.kind, item.refId, removed, extras, item.pan, item.elecciones);
+          const clave = itemKey(
+            item.kind,
+            item.refId,
+            removed,
+            extras,
+            item.pan,
+            item.elecciones,
+            item.tamanio,
+          );
           const found = items.find((i) => claveDe(i) === clave);
           return {
             slug,
@@ -219,6 +246,7 @@ export const useTotemCart = create<CartState>()(
             extras,
             linea.pan,
             linea.elecciones,
+            linea.tamanio,
           );
           if (nuevaClave === claveVieja) return s;
           const resto = s.items.filter((i) => claveDe(i) !== claveVieja);
@@ -254,8 +282,18 @@ export const useTotemCart = create<CartState>()(
             });
             const regalo = v.regalo ?? [];
             const regaloCambio = JSON.stringify(regalo) !== JSON.stringify(i.regalo ?? []);
+            // Con tamaño, el precio es el de ese tamaño. Si el tamaño ya no
+            // existe se deja el de la línea: el checkout lo va a rechazar. Si
+            // el producto dejó de venderse por tamaños, la línea pasa a ser la
+            // común, a su precio: es lo que el servidor va a cobrar.
+            const sinTamanios = (v.tamanios ?? []).length === 0;
+            const tamanio = sinTamanios ? undefined : i.tamanio;
+            const price = tamanio
+              ? (v.tamanios?.find((t) => t.nombre === tamanio)?.precio ?? i.price)
+              : v.price;
             if (
-              i.price === v.price &&
+              i.tamanio === tamanio &&
+              i.price === price &&
               i.name === v.name &&
               i.photoUrl === v.photoUrl &&
               !extrasCambio &&
@@ -263,7 +301,7 @@ export const useTotemCart = create<CartState>()(
             )
               return i;
             cambio = true;
-            return { ...i, price: v.price, name: v.name, photoUrl: v.photoUrl, extras, regalo };
+            return { ...i, price, tamanio, name: v.name, photoUrl: v.photoUrl, extras, regalo };
           });
           // Misma referencia si nada cambió: no dispara re-render de más.
           return cambio ? { items } : s;
@@ -291,6 +329,7 @@ export const useTotemCart = create<CartState>()(
             removed: (i.removed as TotemCartRemoval[]) ?? [],
             extras: (i.extras as TotemCartExtra[]) ?? [],
             pan: (i.pan as Pan | undefined) ?? undefined,
+            tamanio: (i.tamanio as string | undefined) ?? undefined,
           })),
         };
       },
@@ -346,6 +385,7 @@ interface ProductoVigente {
   photoUrl: string | null;
   extras: { id: number; price: string }[];
   regalo: { cada: number; cantidad: number } | null;
+  tamanios: Tamanio[];
 }
 
 interface ComboVigente {
@@ -371,6 +411,7 @@ export function vigentesDeMenu(products: ProductoVigente[], combos: ComboVigente
       photoUrl: p.photoUrl,
       extras: p.extras.map((e) => ({ id: e.id, price: e.price })),
       regalo: regaloDeProducto(p),
+      tamanios: p.tamanios,
     })),
     ...combos.map((c) => ({
       kind: "combo" as const,

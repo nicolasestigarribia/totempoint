@@ -100,6 +100,7 @@ function CarritoMesaPage() {
             removedIngredientIds: i.removed.map((x) => x.id),
             extras: i.extras.map((x) => ({ id: x.id, quantity: x.quantity })),
             pan: i.pan,
+            tamanio: i.tamanio,
             elecciones: i.elecciones?.map((x) => ({
               grupo: x.grupo,
               productId: x.productId,

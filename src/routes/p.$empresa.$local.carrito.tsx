@@ -283,6 +283,7 @@ function CarritoOnlinePage() {
             removedIngredientIds: i.removed.map((r) => r.id),
             extras: i.extras.map((x) => ({ id: x.id, quantity: x.quantity })),
             pan: i.pan,
+            tamanio: i.tamanio,
             elecciones: i.elecciones?.map((e) => ({
               grupo: e.grupo,
               productId: e.productId,

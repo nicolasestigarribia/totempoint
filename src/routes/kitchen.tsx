@@ -237,6 +237,13 @@ function LineasPedido({
               ))}
             </ul>
           )}
+          {/* El tamaño, en lo que se hace en más de uno: una chica por una
+              grande es una pizza equivocada. */}
+          {i.tamanio && (
+            <span className="mt-0.5 block pl-5 text-xs font-bold uppercase tracking-wide text-sky-300">
+              {i.tamanio}
+            </span>
+          )}
           {/* El pan, para el que arma la bandeja: un blanco por un negro es
               un sándwich equivocado. */}
           {i.pan && (

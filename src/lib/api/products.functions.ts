@@ -37,10 +37,44 @@ export interface ProductRow {
   customizable: boolean;
   /** Pan del sándwich: fijo ("blanco"/"negro"), a elección ("ambos") o null. */
   pan: "blanco" | "negro" | "ambos" | null;
+  /** Tamaños con su precio (pizza grande / chica). Vacío = un solo tamaño. */
+  tamanios: { nombre: string; precio: string }[];
   unit: string | null;
   unitsPerBulk: string;
   ingredients: ProductIngredientRow[];
 }
+
+/**
+ * Los tamaños de un producto: nombre y precio de cada uno, el primero es el que
+ * viene marcado. Sin repetir nombres, que es lo que distingue una línea de otra
+ * en el carrito.
+ */
+const tamaniosInput = z
+  .array(
+    z.object({
+      nombre: z.string().trim().min(1, "Cada tamaño necesita un nombre").max(40),
+      precio: z.coerce
+        .number()
+        .positive("Cada tamaño necesita un precio")
+        .finite()
+        .max(100_000_000),
+    }),
+  )
+  .max(8)
+  .refine(
+    (ts) => new Set(ts.map((t) => t.nombre.toLowerCase())).size === ts.length,
+    "Hay dos tamaños con el mismo nombre",
+  )
+  .optional();
+
+/** Los tamaños como se guardan; null si no tiene. */
+const tamaniosParaGuardar = (ts: { nombre: string; precio: number }[] | undefined) =>
+  ts && ts.length > 0 ? ts.map((t) => ({ nombre: t.nombre, precio: t.precio.toFixed(2) })) : null;
+
+const describirTamanios = (ts: { nombre: string; precio: string }[] | null) =>
+  ts && ts.length > 0
+    ? ts.map((t) => `${t.nombre} ${pesosAuditoria(t.precio)}`).join(", ")
+    : "sin tamaños";
 
 const ingredientInput = z.object({
   ingredientId: z.number().int(),
@@ -155,6 +189,7 @@ async function loadProductRow(productId: number, companyId: number): Promise<Pro
       stockable: products.stockable,
       customizable: products.customizable,
       pan: products.pan,
+      tamanios: products.tamanios,
       unit: products.unit,
       unitsPerBulk: products.unitsPerBulk,
     })
@@ -183,6 +218,7 @@ async function loadProductRow(productId: number, companyId: number): Promise<Pro
 
   return {
     ...row,
+    tamanios: row.tamanios ?? [],
     ingredients: ings.map((i) => ({
       ingredientId: i.ingredientId,
       name: i.name,
@@ -216,6 +252,7 @@ export const listProducts = createServerFn({ method: "GET" })
         stockable: products.stockable,
         customizable: products.customizable,
         pan: products.pan,
+        tamanios: products.tamanios,
         unit: products.unit,
         unitsPerBulk: products.unitsPerBulk,
       })
@@ -266,6 +303,7 @@ export const listProducts = createServerFn({ method: "GET" })
 
     return rows.map((r) => ({
       ...r,
+      tamanios: r.tamanios ?? [],
       ingredients: byProduct.get(r.id) ?? [],
     }));
   });
@@ -283,6 +321,7 @@ export const createProduct = createServerFn({ method: "POST" })
       stockable: z.boolean().optional(),
       customizable: z.boolean().optional(),
       pan: z.enum(["blanco", "negro", "ambos"]).nullable().optional(),
+      tamanios: tamaniosInput,
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().finite().optional(),
       ingredients: z.array(ingredientInput).optional(),
@@ -298,7 +337,9 @@ export const createProduct = createServerFn({ method: "POST" })
     const name = data.name.trim();
     const description = data.description?.trim() ? data.description.trim() : null;
     const photoUrl = data.photoUrl?.trim() ? data.photoUrl.trim() : null;
-    const price = String(data.price);
+    // Con tamaños, el precio del producto es el del primero ("desde").
+    const tamanios = tamaniosParaGuardar(data.tamanios);
+    const price = tamanios ? tamanios[0].precio : String(data.price);
     const sort = data.sort ?? 0;
     const stockable = data.stockable ?? false;
     const unit = data.unit?.trim() ? data.unit.trim() : null;
@@ -320,6 +361,7 @@ export const createProduct = createServerFn({ method: "POST" })
         // sacarle: el interruptor no puede quedar encendido en ese caso.
         customizable: stockable ? false : (data.customizable ?? false),
         pan: data.pan ?? null,
+        tamanios,
         unit,
         unitsPerBulk,
       })
@@ -357,6 +399,7 @@ export const updateProduct = createServerFn({ method: "POST" })
       stockable: z.boolean().optional(),
       customizable: z.boolean().optional(),
       pan: z.enum(["blanco", "negro", "ambos"]).nullable().optional(),
+      tamanios: tamaniosInput,
       unit: z.string().trim().max(20).optional(),
       unitsPerBulk: z.number().positive().finite().optional(),
       ingredients: z.array(ingredientInput).optional(),
@@ -368,11 +411,21 @@ export const updateProduct = createServerFn({ method: "POST" })
 
     // Verifica ownership del producto.
     const [existing] = await db
-      .select({ id: products.id, name: products.name, price: products.price })
+      .select({
+        id: products.id,
+        name: products.name,
+        price: products.price,
+        tamanios: products.tamanios,
+      })
       .from(products)
       .where(and(eq(products.id, data.id), eq(products.companyId, user.companyId)))
       .limit(1);
     if (!existing) throw new Error("Producto no encontrado");
+    // Si no vienen, no se tocan: un llamado que no conoce los tamaños no los
+    // borra. Con tamaños, el precio del producto es el del primero.
+    const tamanios =
+      data.tamanios !== undefined ? tamaniosParaGuardar(data.tamanios) : existing.tamanios;
+    const precio = tamanios && tamanios.length > 0 ? tamanios[0].precio : String(data.price);
 
     const categoryId = await assertCategoryOwned(data.categoryId, user.companyId);
     const ingList = await validateIngredients(data.ingredients, user.companyId);
@@ -382,7 +435,7 @@ export const updateProduct = createServerFn({ method: "POST" })
       .set({
         name: data.name.trim(),
         description: data.description?.trim() ? data.description.trim() : null,
-        price: String(data.price),
+        price: precio,
         categoryId,
         photoUrl: data.photoUrl?.trim() ? data.photoUrl.trim() : null,
         active: data.active,
@@ -391,6 +444,7 @@ export const updateProduct = createServerFn({ method: "POST" })
         customizable: data.stockable ? false : (data.customizable ?? false),
         // Si no viene, no se toca: un llamado que no conoce el pan no lo borra.
         ...(data.pan !== undefined ? { pan: data.pan } : {}),
+        ...(data.tamanios !== undefined ? { tamanios } : {}),
         unit: data.unit?.trim() ? data.unit.trim() : null,
         unitsPerBulk: String(data.unitsPerBulk ?? 1),
       })
@@ -398,14 +452,28 @@ export const updateProduct = createServerFn({ method: "POST" })
 
     // El precio base es el que paga el cliente en toda sucursal sin precio
     // propio: cambiarlo es de lo primero que alguien quiere poder rastrear.
-    if (Number(existing.price) !== Number(data.price)) {
+    if (Number(existing.price) !== Number(precio)) {
       await registrarAuditoria(user, {
         category: "precios",
         action: "precio.base",
         summary:
           `Cambió el precio base del producto ${data.name.trim()}: ` +
-          `${pesosAuditoria(existing.price)} → ${pesosAuditoria(data.price)}`,
-        details: { productoId: data.id, antes: existing.price, despues: String(data.price) },
+          `${pesosAuditoria(existing.price)} → ${pesosAuditoria(precio)}`,
+        details: { productoId: data.id, antes: existing.price, despues: precio },
+      });
+    }
+    // Los precios de cada tamaño son precios: se auditan igual.
+    if (
+      data.tamanios !== undefined &&
+      JSON.stringify(existing.tamanios ?? null) !== JSON.stringify(tamanios)
+    ) {
+      await registrarAuditoria(user, {
+        category: "precios",
+        action: "precio.tamanios",
+        summary:
+          `Cambió los tamaños del producto ${data.name.trim()}: ` +
+          `${describirTamanios(existing.tamanios)} → ${describirTamanios(tamanios)}`,
+        details: { productoId: data.id, antes: existing.tamanios, despues: tamanios },
       });
     }
 

@@ -134,6 +134,9 @@ function SeguimientoPage() {
               <li key={idx} className="flex justify-between gap-3">
                 <span>
                   {i.quantity}× {i.name}
+                  {i.tamanio && (
+                    <span className="block text-xs text-muted-foreground">{i.tamanio}</span>
+                  )}
                   {i.pan && (
                     <span className="block text-xs text-muted-foreground">Pan {i.pan}</span>
                   )}

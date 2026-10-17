@@ -26,6 +26,8 @@ export interface TicketItem {
   extras?: { name: string; quantity: number }[];
   /** El pan con que se hace ("blanco" / "negro"). */
   pan?: string | null;
+  /** El tamaño ("Grande"). */
+  tamanio?: string | null;
   /** Los gustos elegidos en un combo a elección. */
   elecciones?: { name: string; quantity: number }[];
 }
@@ -216,6 +218,10 @@ export function buildTicket(data: TicketData): Uint8Array {
     const der = formatearPrecio(it.unitPrice * it.quantity);
     texto(lineaDoble(izq, der, ancho));
     nl();
+    if (it.tamanio) {
+      texto(`   ${it.tamanio}`);
+      nl();
+    }
     if (it.pan) {
       texto(`   pan ${it.pan}`);
       nl();

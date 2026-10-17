@@ -16,6 +16,7 @@ import {
   type Pan,
 } from "@/lib/totem-cart";
 import { ElegirPan } from "@/components/totem/ElegirPan";
+import { ElegirTamanio } from "@/components/totem/ElegirTamanio";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -64,6 +65,12 @@ function MenuCategoryPage() {
   const panDe = (p: TotemProduct): Pan | undefined =>
     p.pan === "ambos" ? (panes[p.id] ?? "blanco") : undefined;
 
+  // El tamaño marcado en cada tarjeta, en los que vienen en más de uno. Viene
+  // marcado el primero; el precio a la vista es el de ese tamaño.
+  const [tamanios, setTamanios] = useState<Record<number, string>>({});
+  const tamanioDe = (p: TotemProduct) =>
+    p.tamanios.find((t) => t.nombre === tamanios[p.id]) ?? p.tamanios[0];
+
   // Desde el menú siempre se agrega el producto tal cual: sacar ingredientes se
   // hace después, con el botón de editar del carrito. El − / + de la tarjeta
   // maneja la versión sin cambios; las personalizadas se ven una por una en el
@@ -73,10 +80,11 @@ function MenuCategoryPage() {
       kind: "producto",
       refId: p.id,
       name: p.name,
-      price: p.price,
+      price: tamanioDe(p)?.precio ?? p.price,
       photoUrl: p.photoUrl,
       removed: [],
       pan: panDe(p),
+      tamanio: tamanioDe(p)?.nombre,
       regalo: regaloDeProducto(p),
     });
 
@@ -204,14 +212,21 @@ function MenuCategoryPage() {
         <div className={`grid gap-5 ${gridColsFor(items.length)}`}>
           {items.map((p, i) => {
             const pan = panDe(p);
+            const tamanio = tamanioDe(p);
             // Todas las variantes del producto, con cambios y sin cambios. Si
-            // se elige pan, las del pan marcado: el − / + maneja ese.
+            // se elige pan o tamaño, las del marcado: el − / + maneja ese.
             const inCart = cart
-              .filter((i) => i.kind === "producto" && i.refId === p.id && (!pan || i.pan === pan))
+              .filter(
+                (i) =>
+                  i.kind === "producto" &&
+                  i.refId === p.id &&
+                  (!pan || i.pan === pan) &&
+                  (!tamanio || i.tamanio === tamanio.nombre),
+              )
               .reduce((n, i) => n + i.quantity, 0);
             // El − / + de la tarjeta maneja la versión sin cambios; las
             // personalizadas se editan en el carrito, donde se ven separadas.
-            const claveSinCambios = itemKey("producto", p.id, [], [], pan);
+            const claveSinCambios = itemKey("producto", p.id, [], [], pan, [], tamanio?.nombre);
             return (
               <article
                 key={p.id}
@@ -242,6 +257,13 @@ function MenuCategoryPage() {
                   {p.description && (
                     <p className="text-sm text-muted-foreground">{p.description}</p>
                   )}
+                  <ElegirTamanio
+                    tamanios={p.tamanios}
+                    elegido={tamanio?.nombre ?? ""}
+                    onElegir={(nuevo) => setTamanios((ts) => ({ ...ts, [p.id]: nuevo }))}
+                    accent={accent ?? "var(--primary)"}
+                    grande
+                  />
                   <ElegirPan
                     pan={p.pan}
                     elegido={panes[p.id] ?? "blanco"}
@@ -257,7 +279,7 @@ function MenuCategoryPage() {
                       className="whitespace-nowrap font-display text-3xl"
                       style={{ color: accent }}
                     >
-                      {formatPrice(p.price)}
+                      {formatPrice(tamanio?.precio ?? p.price)}
                     </span>
                     {inCart > 0 ? (
                       // Con unidades en el pedido el botón se abre en − cantidad +:

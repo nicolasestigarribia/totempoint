@@ -127,6 +127,11 @@ function CarritoPage() {
 
                     <div className="min-w-[160px] flex-1">
                       <h2 className="font-display text-2xl leading-tight">{i.name}</h2>
+                      {i.tamanio && (
+                        <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                          {i.tamanio}
+                        </p>
+                      )}
                       {i.pan && (
                         <p className="mt-0.5 text-sm font-medium text-muted-foreground">
                           Pan {i.pan}
@@ -171,6 +176,7 @@ function CarritoPage() {
                             removed: i.removed,
                             extras: i.extras,
                             pan: i.pan,
+                            tamanio: i.tamanio,
                             regalo: i.regalo,
                           })
                         }

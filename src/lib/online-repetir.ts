@@ -91,6 +91,7 @@ export function rearmarPedido(
         removed: [],
         extras: [],
         pan: undefined,
+        tamanio: undefined,
         elecciones: c.grupos.length > 0 ? elecciones : undefined,
       });
       continue;
@@ -100,12 +101,24 @@ export function rearmarPedido(
       faltan.push(i.name);
       continue;
     }
+    // El tamaño que pidió, con el precio de hoy. Si ese tamaño ya no existe,
+    // que lo vuelva a elegir: no le cambiamos una chica por una grande.
+    // Si ya no se vende por tamaños, va como el producto común.
+    let tamanio: { nombre: string; precio: string } | undefined;
+    if (p.tamanios.length > 0) {
+      tamanio = i.tamanio ? p.tamanios.find((t) => t.nombre === i.tamanio) : p.tamanios[0];
+      if (!tamanio) {
+        faltan.push(`${p.name} ${i.tamanio ?? ""}`.trim());
+        continue;
+      }
+    }
     const removibles = new Set(p.removables.map((r) => r.id));
     const extras = new Map(p.extras.map((e) => [e.id, e]));
     lineas.push({
       ...i,
       name: p.name,
-      price: p.price,
+      price: tamanio?.precio ?? p.price,
+      tamanio: tamanio?.nombre,
       photoUrl: p.photoUrl,
       regalo: regaloDeProducto(p),
       // El pan elegido solo si el producto se sigue haciendo en los dos.

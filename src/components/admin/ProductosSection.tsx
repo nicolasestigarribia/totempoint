@@ -71,6 +71,8 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   const [stockable, setStockable] = useState(false);
   const [customizable, setCustomizable] = useState(false);
   const [pan, setPan] = useState<"blanco" | "negro" | "ambos" | null>(null);
+  // Tamaños en edición: texto tal como se escribe, se valida al guardar.
+  const [tamanios, setTamanios] = useState<{ nombre: string; precio: string }[]>([]);
   const [unit, setUnit] = useState("");
   const [unitsPerBulk, setUnitsPerBulk] = useState("1");
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
@@ -134,6 +136,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setStockable(false);
     setCustomizable(false);
     setPan(null);
+    setTamanios([]);
     setUnit("");
     setUnitsPerBulk("1");
     setDraftIngredients([]);
@@ -152,6 +155,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setStockable(row.stockable);
     setCustomizable(row.customizable);
     setPan(row.pan);
+    setTamanios(row.tamanios.map((t) => ({ nombre: t.nombre, precio: String(Number(t.precio)) })));
     setUnit(row.unit ?? "");
     setUnitsPerBulk(row.unitsPerBulk ?? "1");
     setDraftIngredients(
@@ -228,7 +232,18 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       toast.error("El nombre es requerido");
       return;
     }
-    const priceValue = Number.parseFloat(price);
+    // Con tamaños, cada uno necesita nombre y precio, y el precio del producto
+    // es el del primero.
+    const tamaniosValidos = tamanios.map((t) => ({
+      nombre: t.nombre.trim(),
+      precio: Number.parseFloat(t.precio),
+    }));
+    if (tamaniosValidos.some((t) => !t.nombre || !(t.precio > 0))) {
+      toast.error("Cada tamaño necesita nombre y precio");
+      return;
+    }
+    const priceValue =
+      tamaniosValidos.length > 0 ? tamaniosValidos[0].precio : Number.parseFloat(price);
     if (Number.isNaN(priceValue)) {
       toast.error("El precio es requerido");
       return;
@@ -282,6 +297,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             stockable,
             customizable,
             pan,
+            tamanios: tamaniosValidos,
             unit: unitVal,
             unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
@@ -299,6 +315,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             stockable,
             customizable,
             pan,
+            tamanios: tamaniosValidos,
             unit: unitVal,
             unitsPerBulk: uxbVal,
             ingredients: ingredientsPayload,
@@ -366,7 +383,11 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       header: "Precio",
       sortable: true,
       sortAccessor: (r) => Number(r.price),
-      cell: (r) => <span className="text-muted-foreground">${r.price}</span>,
+      cell: (r) => (
+        <span className="text-muted-foreground">
+          {r.tamanios.length > 0 ? `desde $${r.price}` : `$${r.price}`}
+        </span>
+      ),
     },
     {
       key: "active",
@@ -514,18 +535,98 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="product-price">Precio</Label>
-                <Input
-                  id="product-price"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  inputMode="decimal"
-                  value={price}
-                  placeholder="0.00"
-                  onChange={(e) => setPrice(e.target.value)}
-                />
+              {tamanios.length === 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="product-price">Precio</Label>
+                  <Input
+                    id="product-price"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={price}
+                    placeholder="0.00"
+                    onChange={(e) => setPrice(e.target.value)}
+                  />
+                </div>
+              )}
+              {/* Tamaños: lo que se vende en más de uno (pizza grande o chica),
+                  cada uno con su precio. El cliente elige en la tarjeta. */}
+              <div className="space-y-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label>Tamaños</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {tamanios.length > 0
+                        ? "El cliente elige el tamaño en la tarjeta. El primero viene marcado."
+                        : "Si se vende en más de un tamaño (grande / chica), cargalos acá con su precio."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1"
+                    disabled={tamanios.length >= 8}
+                    onClick={() =>
+                      setTamanios((ts) =>
+                        ts.length === 0
+                          ? [
+                              { nombre: "Grande", precio: price },
+                              { nombre: "Chica", precio: "" },
+                            ]
+                          : [...ts, { nombre: "", precio: "" }],
+                      )
+                    }
+                  >
+                    <Plus className="h-4 w-4" /> {tamanios.length === 0 ? "Tamaños" : "Otro"}
+                  </Button>
+                </div>
+                {tamanios.map((t, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      aria-label={`Nombre del tamaño ${i + 1}`}
+                      value={t.nombre}
+                      maxLength={40}
+                      placeholder="Grande"
+                      className="h-9 flex-1"
+                      onChange={(e) =>
+                        setTamanios((ts) =>
+                          ts.map((x, k) => (k === i ? { ...x, nombre: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <Input
+                      aria-label={`Precio del tamaño ${i + 1}`}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={t.precio}
+                      placeholder="Precio"
+                      className="h-9 w-32"
+                      onChange={(e) =>
+                        setTamanios((ts) =>
+                          ts.map((x, k) => (k === i ? { ...x, precio: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Quitar el tamaño ${i + 1}`}
+                      onClick={() => {
+                        // Al quitar el último, el precio del producto queda el
+                        // del que estaba primero.
+                        if (tamanios.length === 1) setPrice(tamanios[0].precio);
+                        setTamanios((ts) => ts.filter((_, k) => k !== i));
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
               <div className="flex items-center justify-between rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
                 <div>

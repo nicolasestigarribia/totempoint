@@ -38,11 +38,7 @@ function money(n: number): string {
 }
 
 // Devuelve el precio base del ítem si pertenece a la empresa; si no, corta.
-async function basePriceOf(
-  itemType: ItemType,
-  itemId: number,
-  companyId: number,
-): Promise<string> {
+async function basePriceOf(itemType: ItemType, itemId: number, companyId: number): Promise<string> {
   if (itemType === "product") {
     const [p] = await db
       .select({ price: products.price })
@@ -107,27 +103,43 @@ export const getLocationPricing = createServerFn({ method: "GET" })
       )
       .where(eq(combos.companyId, companyId));
 
-    const toRow = (itemType: ItemType) => (r: {
-      id: number;
-      name: string;
-      categoryName?: string | null;
-      basePrice: string;
-      override: string | null;
-    }): PriceRow => ({
-      itemType,
-      itemId: r.id,
-      name: r.name,
-      categoryName: r.categoryName ?? null,
-      basePrice: r.basePrice,
-      override: r.override,
-      effectivePrice: r.override ?? r.basePrice,
-    });
+    const toRow =
+      (itemType: ItemType) =>
+      (r: {
+        id: number;
+        name: string;
+        categoryName?: string | null;
+        basePrice: string;
+        override: string | null;
+      }): PriceRow => ({
+        itemType,
+        itemId: r.id,
+        name: r.name,
+        categoryName: r.categoryName ?? null,
+        basePrice: r.basePrice,
+        override: r.override,
+        effectivePrice: r.override ?? r.basePrice,
+      });
 
     return {
       products: prodRows.map(toRow("product")),
       combos: comboRows.map(toRow("combo")),
     };
   });
+
+/**
+ * Los productos que se venden por tamaños (pizza grande / chica). Su precio es
+ * el de cada tamaño, que se carga en Productos: un precio por sucursal no se
+ * aplicaría, así que no se deja cargar uno que el cliente nunca pagaría.
+ */
+async function productosConTamanios(companyId: number, ids: number[]): Promise<Set<number>> {
+  if (ids.length === 0) return new Set();
+  const filas = await db
+    .select({ id: products.id, tamanios: products.tamanios })
+    .from(products)
+    .where(and(eq(products.companyId, companyId), inArray(products.id, ids)));
+  return new Set(filas.filter((f) => (f.tamanios ?? []).length > 0).map((f) => f.id));
+}
 
 // Escribe el override (o lo borra si price === null) y registra la auditoría.
 async function applyPrice(
@@ -138,6 +150,15 @@ async function applyPrice(
   itemId: number,
   newPrice: number | null,
 ): Promise<{ antes: string; despues: string } | null> {
+  if (
+    itemType === "product" &&
+    newPrice !== null &&
+    (await productosConTamanios(companyId, [itemId])).size > 0
+  ) {
+    throw new Error(
+      "Este producto se vende por tamaños: su precio se cambia en Productos, tamaño por tamaño",
+    );
+  }
   const base = await basePriceOf(itemType, itemId, companyId);
 
   const [current] = await db
@@ -308,8 +329,20 @@ export const bulkAdjustPrices = createServerFn({ method: "POST" })
       );
     const overrideById = new Map(overrides.map((o) => [o.itemId, o.price]));
 
+    // Los que se venden por tamaños quedan afuera: su precio no es por sucursal.
+    const porTamanio =
+      data.itemType === "product"
+        ? await productosConTamanios(companyId, data.itemIds)
+        : new Set<number>();
+    const ajustables = data.itemIds.filter((id) => !porTamanio.has(id));
+    if (ajustables.length === 0) {
+      throw new Error(
+        "Los productos elegidos se venden por tamaños: su precio se cambia en Productos",
+      );
+    }
+
     const cambios: { itemId: number; antes: string; despues: string }[] = [];
-    for (const itemId of data.itemIds) {
+    for (const itemId of ajustables) {
       const effective = Number(overrideById.get(itemId) ?? baseById.get(itemId));
       const next =
         data.mode === "unit" ? data.value : Math.max(0, effective * (1 + data.value / 100));

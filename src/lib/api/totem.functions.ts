@@ -127,6 +127,13 @@ function diaDeHoy(): string {
   return `${ahora.getFullYear()}-${mes}-${dia}`;
 }
 
+/** Los tamaños de un producto tal como se venden: con nombre y precio válido. */
+function tamaniosDe(
+  t: { nombre: string; precio: string }[] | null,
+): { nombre: string; precio: string }[] {
+  return (t ?? []).filter((x) => x.nombre?.trim() && Number(x.precio) > 0);
+}
+
 // Override de precio por local para un conjunto de ítems (producto o combo).
 // Ausencia = usa el precio base. Devuelve un mapa itemId -> precio override.
 async function priceOverrides(
@@ -403,6 +410,11 @@ export interface TotemProduct {
    * "negro" si se hace solo en ese (se muestra, no se elige); null si no aplica.
    */
   pan: "blanco" | "negro" | "ambos" | null;
+  /**
+   * Los tamaños en que se vende ("Grande" / "Chica"), cada uno con su precio;
+   * el primero viene marcado. Vacío = un solo tamaño, a `price`.
+   */
+  tamanios: { nombre: string; precio: string }[];
   /** "Cada 12, 2 de regalo", si su categoría lo tiene. */
   regalo: ReglaRegalo | null;
 }
@@ -657,6 +669,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
         photoUrl: products.photoUrl,
         customizable: products.customizable,
         pan: products.pan,
+        tamanios: products.tamanios,
         available: locationProducts.available,
       })
       .from(products)
@@ -741,26 +754,32 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
     : [];
 
   const reglas = await reglasDeRegalo(companyId);
-  const visibleProducts: TotemProduct[] = prods.map((p) => ({
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    photoUrl: p.photoUrl,
-    price: prodOverrides.get(p.id) ?? p.price,
-    categoryId: p.categoryId ?? UNCATEGORIZED,
-    pan: p.pan,
-    regalo: (p.categoryId !== null && reglas.get(p.categoryId)) || null,
-    removables: p.customizable
-      ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
-      : [],
-    // Sólo los que tienen precio y tope > 0: un extra sin precio o sin cupo no
-    // se puede ofrecer bien, así que no llega a la pantalla.
-    extras: p.customizable
-      ? agregables
-          .filter((a) => a.productId === p.id && a.price !== null && (a.max ?? 0) > 0)
-          .map((a) => ({ id: a.id, name: a.name, price: a.price!, max: a.max! }))
-      : [],
-  }));
+  const visibleProducts: TotemProduct[] = prods.map((p) => {
+    const tamanios = tamaniosDe(p.tamanios);
+    return {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      photoUrl: p.photoUrl,
+      // Con tamaños, el precio "desde" es el del primero: el precio por sucursal
+      // todavía no se aplica a los tamaños.
+      price: tamanios[0]?.precio ?? prodOverrides.get(p.id) ?? p.price,
+      categoryId: p.categoryId ?? UNCATEGORIZED,
+      pan: p.pan,
+      tamanios,
+      regalo: (p.categoryId !== null && reglas.get(p.categoryId)) || null,
+      removables: p.customizable
+        ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
+        : [],
+      // Sólo los que tienen precio y tope > 0: un extra sin precio o sin cupo no
+      // se puede ofrecer bien, así que no llega a la pantalla.
+      extras: p.customizable
+        ? agregables
+            .filter((a) => a.productId === p.id && a.price !== null && (a.max ?? 0) > 0)
+            .map((a) => ({ id: a.id, name: a.name, price: a.price!, max: a.max! }))
+        : [],
+    };
+  });
 
   const totemCategories: TotemCategory[] = cats.map((c) => ({
     id: c.id,
@@ -881,6 +900,9 @@ const lineaPedido = z.object({
   // El pan que eligió, solo en los productos que se hacen en blanco o negro.
   // En los demás se ignora: manda lo que diga el producto.
   pan: z.enum(["blanco", "negro"]).optional(),
+  // El tamaño que eligió ("Grande"), en lo que se vende en más de uno. El
+  // precio sale del tamaño en la base, no del celular.
+  tamanio: z.string().trim().max(40).optional(),
   // Los gustos de un combo a elección: de qué grupo, qué producto y cuántos.
   // Se validan abajo contra el combo; el cliente no decide qué se puede elegir.
   elecciones: z
@@ -1018,6 +1040,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
           categoryId: products.categoryId,
           customizable: products.customizable,
           pan: products.pan,
+          tamanios: products.tamanios,
         })
         .from(products)
         .where(
@@ -1283,10 +1306,26 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         unitPrice: comboOverrides.get(combo.id) ?? combo.price,
         quantity: item.quantity,
         pan: null,
+        tamanio: null,
       };
     }
     const product = productRows.find((r) => r.id === item.id)!;
-    const base = Number(prodOverrides.get(product.id) ?? product.price);
+    // Con tamaños, el precio es el del tamaño elegido. Un carrito viejo que no
+    // lo mande lleva el primero; uno que mande un tamaño que ya no existe se
+    // rechaza, para no cobrarle otra cosa que la que vio.
+    const tamanios = tamaniosDe(product.tamanios);
+    let tamanio: { nombre: string; precio: string } | null = null;
+    if (tamanios.length > 0) {
+      tamanio = item.tamanio
+        ? (tamanios.find((t) => t.nombre === item.tamanio) ?? null)
+        : tamanios[0];
+      if (!tamanio) {
+        throw new Error(
+          `${product.name} ya no viene en tamaño ${item.tamanio}. Sacalo de tu pedido y volvé a elegirlo`,
+        );
+      }
+    }
+    const base = Number(tamanio?.precio ?? prodOverrides.get(product.id) ?? product.price);
     // El precio unitario de la línea incluye los extras: una unidad de este
     // producto "con lo que le agregó" cuesta base + suma de los extras.
     const extras = extrasPorLinea.get(indice) ?? [];
@@ -1299,6 +1338,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       // Si se hace en los dos, el que eligió (blanco si un carrito viejo no
       // lo mandó); si se hace en uno solo, ese, diga lo que diga el celular.
       pan: product.pan === "ambos" ? (item.pan ?? "blanco") : product.pan,
+      tamanio: tamanio?.nombre ?? null,
     };
   });
 
@@ -1576,7 +1616,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
 
     const items = itemsParaMP(
       priced.map((x) => ({
-        title: x.productName,
+        title: x.tamanio ? `${x.productName} (${x.tamanio})` : x.productName,
         quantity: x.quantity,
         unitPrice: Number(x.unitPrice),
       })),
@@ -1733,6 +1773,8 @@ export interface TotemTicket {
     extras: { name: string; quantity: number }[];
     /** El pan con que se hace ("blanco" / "negro"); null si no tiene. */
     pan: string | null;
+    /** El tamaño ("Grande"); null si se vende en uno solo. */
+    tamanio: string | null;
     /** Los gustos elegidos en un combo a elección ("6 Humita"). */
     elecciones: { grupo: string; name: string; quantity: number }[];
   }[];
@@ -1879,6 +1921,7 @@ async function lineasDelPedido(orderId: number) {
       quantity: orderItems.quantity,
       unitPrice: orderItems.unitPrice,
       pan: orderItems.pan,
+      tamanio: orderItems.tamanio,
     })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
@@ -1926,6 +1969,7 @@ async function lineasDelPedido(orderId: number) {
       .filter((e) => e.orderItemId === it.id)
       .map((e) => ({ name: e.name, quantity: e.quantity })),
     pan: it.pan,
+    tamanio: it.tamanio,
     elecciones: eleccionRows
       .filter((e) => e.orderItemId === it.id)
       .map((e) => ({ grupo: e.grupo, name: e.name, quantity: e.quantity })),

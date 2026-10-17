@@ -84,6 +84,7 @@ function CheckoutPage() {
             removedIngredientIds: i.removed.map((r) => r.id),
             extras: i.extras.map((e) => ({ id: e.id, quantity: e.quantity })),
             pan: i.pan,
+            tamanio: i.tamanio,
           })),
         },
       });

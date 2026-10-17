@@ -83,6 +83,7 @@ export function LineasCarrito({
                     Ya no está a la venta: sacalo para seguir
                   </p>
                 )}
+                {i.tamanio && <p className="text-sm text-muted-foreground">{i.tamanio}</p>}
                 {i.pan && <p className="text-sm text-muted-foreground">Pan {i.pan}</p>}
                 {i.elecciones && i.elecciones.length > 0 && (
                   <p className="text-sm text-muted-foreground">
@@ -144,6 +145,7 @@ export function LineasCarrito({
                           removed: i.removed,
                           extras: i.extras,
                           pan: i.pan,
+                          tamanio: i.tamanio,
                           elecciones: i.elecciones,
                           regalo: i.regalo,
                         })

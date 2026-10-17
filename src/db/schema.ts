@@ -407,6 +407,11 @@ export const products = mysqlTable(
     // solo en uno (se informa, no se elige), "ambos" si el cliente elige al
     // pedirlo. Null = el producto no tiene pan que elegir (una bebida).
     pan: mysqlEnum("pan", ["blanco", "negro", "ambos"]),
+    // Los tamaños, en lo que se vende en más de uno (pizza grande / chica):
+    // cada uno con su precio. El primero es el que viene marcado. Vacío o null =
+    // un solo tamaño, al precio del producto. Con tamaños, `price` guarda el del
+    // primero, para ordenar y mostrar "desde".
+    tamanios: json("tamanios").$type<{ nombre: string; precio: string }[]>(),
     // Unidad y unidades por bulto: sólo aplican a productos stockable (reventa).
     unit: varchar("unit", { length: 20 }),
     unitsPerBulk: decimal("units_per_bulk", { precision: 10, scale: 2 }).notNull().default("1"),
@@ -959,6 +964,9 @@ export const orderItems = mysqlTable(
     // El pan con que se hace esta línea, congelado como el nombre: el que eligió
     // el cliente, o el único en que se hace el producto. Null si no tiene pan.
     pan: mysqlEnum("pan", ["blanco", "negro"]),
+    // El tamaño que eligió ("Grande"), congelado como el nombre y el precio.
+    // Null si el producto se vende en un solo tamaño.
+    tamanio: varchar("tamanio", { length: 40 }),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
 );
