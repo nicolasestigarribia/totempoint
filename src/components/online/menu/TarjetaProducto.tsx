@@ -79,22 +79,45 @@ function TarjetaGrande({
           enCarrito ? { borderColor: accent, boxShadow: `0 18px 40px -18px ${accent}` } : undefined
         }
       >
-        <div className="relative h-48 w-full overflow-hidden">
-          <FotoGrande url={foto} accent={accent} />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-          {numero && (
+        {foto ? (
+          <div className="relative h-48 w-full overflow-hidden">
+            <FotoGrande url={foto} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+            {numero && (
+              <span
+                className="absolute left-3 top-3 rounded-full px-2 py-1 text-xs font-black leading-none text-white"
+                style={{ background: accent }}
+                aria-label={`Número ${numero}`}
+              >
+                N°{numero}
+              </span>
+            )}
+            <h3 className="absolute inset-x-4 bottom-3 font-display text-3xl leading-none text-white drop-shadow-lg">
+              {resto}
+            </h3>
+          </div>
+        ) : (
+          // Sin foto, como un renglón de carta: el nombre grande con una línea
+          // de la marca al costado. Un bloque de color en lugar de la foto se
+          // leía como una imagen que no cargó.
+          <div className="relative flex items-start gap-2 px-4 pt-4">
             <span
-              className="absolute left-3 top-3 rounded-full px-2 py-1 text-xs font-black leading-none text-white"
+              aria-hidden
+              className="absolute left-0 top-4 h-7 w-1 rounded-r-full"
               style={{ background: accent }}
-              aria-label={`Número ${numero}`}
-            >
-              N°{numero}
-            </span>
-          )}
-          <h3 className="absolute inset-x-4 bottom-3 font-display text-3xl leading-none text-white drop-shadow-lg">
-            {resto}
-          </h3>
-        </div>
+            />
+            {numero && (
+              <span
+                className="mt-0.5 shrink-0 rounded-full px-2 py-1 text-xs font-black leading-none text-white"
+                style={{ background: accent }}
+                aria-label={`Número ${numero}`}
+              >
+                N°{numero}
+              </span>
+            )}
+            <h3 className="font-display text-3xl leading-none">{resto}</h3>
+          </div>
+        )}
         <div className="flex flex-1 flex-col gap-2 p-4">
           <div className="text-sm text-muted-foreground">{contenido}</div>
           {opciones}
@@ -107,17 +130,9 @@ function TarjetaGrande({
   );
 }
 
-/** La foto de la tarjeta; sin foto, un fondo con el color de la marca. */
-function FotoGrande({ url, accent }: { url: string | null; accent: string }) {
+/** La foto de la tarjeta, con un brillo mientras carga. */
+function FotoGrande({ url }: { url: string }) {
   const [cargada, setCargada] = useState(false);
-  if (!url) {
-    return (
-      <div
-        className="absolute inset-0 bg-card"
-        style={{ backgroundImage: `linear-gradient(135deg, ${accent}, transparent 75%)` }}
-      />
-    );
-  }
   return (
     <div className={`absolute inset-0 ${cargada ? "bg-muted" : "cargando-foto"}`}>
       <img

@@ -44,8 +44,11 @@ export function PortadaCelular({
 }) {
   const accent = acentoDe(datos);
   const conFoto = !!datos.heroImageUrl;
-  // Sin título cargado, el título grande es el nombre de la empresa.
-  const tituloEsNombre = datos.title === datos.name && !datos.titleAccent;
+  // Sin título cargado, el título grande es el nombre de la empresa. También
+  // lo es partido en dos colores ("La Musa" + "Pizzería"): no se repite al
+  // lado del logo.
+  const normal = (t: string) => t.trim().toLowerCase().replace(/\s+/g, " ");
+  const tituloEsNombre = normal(`${datos.title} ${datos.titleAccent ?? ""}`) === normal(datos.name);
 
   const pastilla = estado && (
     <span className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-xs font-bold">
