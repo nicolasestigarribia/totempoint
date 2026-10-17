@@ -165,7 +165,7 @@ function LoginPage() {
             conviene decir a quién pedírselo en vez de dejar un mensaje genérico. */}
         <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
           ¿Olvidaste tu contraseña? Si sos encargado, pedísela al dueño de tu empresa, que puede
-          cambiártela desde Operadores. Si sos el dueño, escribinos y te la restablecemos.
+          cambiártela desde Equipo. Si sos el dueño, escribinos y te la restablecemos.
         </p>
       </div>
     </div>

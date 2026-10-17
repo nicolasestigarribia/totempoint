@@ -323,7 +323,7 @@ export function OperadoresSection({ panelClass }: { panelClass: string }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-bold">Operadores</h3>
+          <h3 className="text-lg font-bold">Tu equipo</h3>
           <p className="text-sm text-muted-foreground">
             Encargados de tus sucursales. Cada uno ve solamente las sucursales que le asignes.
           </p>

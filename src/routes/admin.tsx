@@ -38,6 +38,8 @@ import {
   Globe,
   Palette,
   Armchair,
+  Home,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -65,6 +67,7 @@ import { PagosSection } from "@/components/admin/PagosSection";
 import { AuditoriaSection } from "@/components/admin/AuditoriaSection";
 import { OnlineSection } from "@/components/admin/OnlineSection";
 import { SalonSection } from "@/components/admin/SalonSection";
+import { InicioSection } from "@/components/admin/InicioSection";
 import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -75,6 +78,7 @@ export const Route = createFileRoute("/admin")({
 });
 
 type SectionId =
+  | "inicio"
   | "empresa"
   | "portada"
   | "categorias"
@@ -94,15 +98,24 @@ type SectionId =
   | "operadores"
   | "auditoria";
 
-type NavGroupId = "empresa" | "menu" | "sucursales" | "stock" | "caja";
+type NavGroupId = "inicio" | "ventas" | "menu" | "negocio" | "avanzado";
 
-/** Encabezados del nav, en el orden en que se muestran. */
-const NAV_GROUPS: { id: NavGroupId; label: string }[] = [
-  { id: "empresa", label: "Empresa" },
+/**
+ * Encabezados del nav, en el orden en que se muestran. Arriba lo de todos los
+ * días (vender, el menú), después la configuración del negocio, y al final lo
+ * avanzado —stock, ingredientes, auditoría—, que arranca cerrado: quien recién
+ * empieza no necesita ver dieciséis secciones para cambiar un precio.
+ */
+const NAV_GROUPS: { id: NavGroupId; label: string; ayuda?: string }[] = [
+  { id: "inicio", label: "" },
+  { id: "ventas", label: "Ventas" },
   { id: "menu", label: "Menú" },
-  { id: "sucursales", label: "Sucursales" },
-  { id: "stock", label: "Stock" },
-  { id: "caja", label: "Caja" },
+  { id: "negocio", label: "Mi negocio" },
+  {
+    id: "avanzado",
+    label: "Avanzado",
+    ayuda: "Stock, ingredientes, precios por sucursal y registros. No hace falta para vender.",
+  },
 ];
 
 interface SectionDef {
@@ -129,11 +142,18 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   {
+    id: "inicio",
+    label: "Inicio",
+    icon: Home,
+    desc: "Cómo viene el día, tu link para vender y lo que te falta",
+    group: "inicio",
+  },
+  {
     id: "empresa",
-    label: "Empresa",
+    label: "Datos y sucursales",
     icon: LayoutDashboard,
-    desc: "Marca, datos y sucursales de tu empresa",
-    group: "empresa",
+    desc: "Nombre, logo y sucursales de tu empresa",
+    group: "negocio",
     ownerOnly: true,
   },
   {
@@ -141,7 +161,7 @@ const SECTIONS: SectionDef[] = [
     label: "Tótems",
     icon: Monitor,
     desc: "Enlaces, QR y portada de cada tótem",
-    group: "empresa",
+    group: "negocio",
     ownerOnly: true,
     modulo: "totem",
   },
@@ -152,7 +172,7 @@ const SECTIONS: SectionDef[] = [
     label: "Pedido online",
     icon: Globe,
     desc: "El link para que tus clientes pidan desde el celular, con retiro o envío",
-    group: "empresa",
+    group: "negocio",
     ownerOnly: true,
     modulo: "online",
   },
@@ -162,7 +182,7 @@ const SECTIONS: SectionDef[] = [
     label: "Salón",
     icon: Armchair,
     desc: "Las mesas de cada sucursal y el QR con el que se pide desde la mesa",
-    group: "empresa",
+    group: "negocio",
     permission: "salon",
     modulo: "mesas",
   },
@@ -175,7 +195,7 @@ const SECTIONS: SectionDef[] = [
     label: "Apariencia",
     icon: Palette,
     desc: "Colores, letras y pantalla de inicio de tu menú",
-    group: "empresa",
+    group: "negocio",
     permission: "portada",
     parent: "totems",
   },
@@ -183,7 +203,7 @@ const SECTIONS: SectionDef[] = [
     id: "categorias",
     label: "Categorías",
     icon: FolderTree,
-    desc: "Categorías del menú",
+    desc: "Las secciones de tu menú: pizzas, empanadas, bebidas…",
     group: "menu",
     permission: "categorias",
   },
@@ -191,7 +211,7 @@ const SECTIONS: SectionDef[] = [
     id: "productos",
     label: "Productos",
     icon: Package,
-    desc: "Productos y precios",
+    desc: "Lo que vendés, con su precio y su foto. Desde acá también se pausa un producto",
     group: "menu",
     permission: "productos",
   },
@@ -199,7 +219,7 @@ const SECTIONS: SectionDef[] = [
     id: "combos",
     label: "Combos",
     icon: Boxes,
-    desc: "Combos armados con productos",
+    desc: "Promos que juntan varios productos a un precio",
     group: "menu",
     permission: "combos",
   },
@@ -208,31 +228,31 @@ const SECTIONS: SectionDef[] = [
     permission: "ingredientes",
     label: "Ingredientes",
     icon: Carrot,
-    desc: "Ingredientes de tus productos",
-    group: "menu",
+    desc: "Lo que lleva cada producto, para el stock y para que el cliente saque o agregue",
+    group: "avanzado",
   },
   {
     id: "disponibilidad",
     permission: "disponibilidad",
     label: "Disponibilidad",
     icon: Store,
-    desc: "Qué se muestra en cada sucursal",
-    group: "sucursales",
+    desc: "Qué se vende en cada sucursal, si tenés más de una",
+    group: "avanzado",
   },
   {
     id: "stock",
     label: "Stock",
     icon: Warehouse,
-    desc: "Stock de ingredientes por sucursal",
-    group: "stock",
+    desc: "Cuánto te queda de cada cosa en cada sucursal",
+    group: "avanzado",
     permission: "stock",
   },
   {
     id: "precios",
-    label: "Precios",
+    label: "Precios por sucursal",
     icon: DollarSign,
-    desc: "Precios de productos y combos por sucursal",
-    group: "sucursales",
+    desc: "Si una sucursal cobra distinto que las otras",
+    group: "avanzado",
     permission: "precios",
   },
   // Movimientos y sus motivos van con Stock y no con Caja: el libro es sobre
@@ -245,38 +265,38 @@ const SECTIONS: SectionDef[] = [
     label: "Movimientos",
     icon: ScrollText,
     desc: "Entradas y salidas de mercadería y de caja, con quién las cargó y por qué",
-    group: "stock",
+    group: "avanzado",
   },
   {
     id: "codigos",
-    label: "Motivos",
+    label: "Motivos de movimiento",
     icon: Tags,
     desc: "Los motivos que se eligen al cargar un movimiento: compra, rotura, retiro de caja…",
-    group: "stock",
+    group: "avanzado",
     permission: "codigos",
   },
   {
     id: "caja",
-    label: "Recaudación",
+    label: "Ventas y caja",
     icon: CircleDollarSign,
-    desc: "Lo cobrado por jornada o por rango de fechas",
-    group: "caja",
+    desc: "Cuánto vendiste y cuánto cobraste, por día o entre fechas",
+    group: "ventas",
     permission: "caja",
   },
   {
     id: "pagos",
-    label: "Cobros",
+    label: "Formas de cobro",
     icon: CreditCard,
-    desc: "Cómo te pagan tus clientes",
-    group: "caja",
+    desc: "Efectivo y Mercado Pago: cómo te pagan tus clientes",
+    group: "negocio",
     ownerOnly: true,
   },
   {
     id: "operadores",
-    label: "Operadores",
+    label: "Equipo",
     icon: Users,
-    desc: "Encargados y las sucursales que manejan",
-    group: "empresa",
+    desc: "Los usuarios de tu cocina y tus encargados, con lo que puede hacer cada uno",
+    group: "negocio",
     ownerOnly: true,
   },
   {
@@ -285,9 +305,32 @@ const SECTIONS: SectionDef[] = [
     label: "Auditoría",
     icon: History,
     desc: "Cambios de permisos, precios, cobros y accesos: quién, qué y cuándo",
-    group: "empresa",
+    group: "avanzado",
     ownerOnly: true,
   },
+];
+
+/** El orden dentro de cada grupo: lo que más se usa, primero. */
+const ORDEN_NAV: SectionId[] = [
+  "inicio",
+  "caja",
+  "productos",
+  "categorias",
+  "combos",
+  "online",
+  "totems",
+  "salon",
+  "portada",
+  "pagos",
+  "operadores",
+  "empresa",
+  "disponibilidad",
+  "precios",
+  "ingredientes",
+  "stock",
+  "movimientos",
+  "codigos",
+  "auditoria",
 ];
 
 // Superficie elevada para separar paneles del fondo oscuro
@@ -328,13 +371,31 @@ function AdminPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#000000");
 
-  const [section, setSection] = useState<SectionId>("empresa");
+  const [section, setSection] = useState<SectionId>("inicio");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<NavGroupId, boolean>>(
-    {} as Record<NavGroupId, boolean>,
-  );
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<NavGroupId, boolean>>({
+    avanzado: true,
+  } as Record<NavGroupId, boolean>);
+  // Lo que cada uno abrió o cerró queda en su navegador: quien usa el stock
+  // todos los días no tiene que abrir "Avanzado" cada vez.
+  useEffect(() => {
+    try {
+      const guardado = localStorage.getItem("panel-grupos");
+      if (guardado) setCollapsedGroups((prev) => ({ ...prev, ...JSON.parse(guardado) }));
+    } catch {
+      // Sin almacenamiento: queda como viene.
+    }
+  }, []);
   const toggleGroup = (id: NavGroupId) =>
-    setCollapsedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem("panel-grupos", JSON.stringify(next));
+      } catch {
+        // Sin almacenamiento: se olvida al recargar.
+      }
+      return next;
+    });
 
   // Auto-cierra el sidebar al achicar la ventana (< lg)
   useEffect(() => {
@@ -419,14 +480,16 @@ function AdminPage() {
   };
 
   const isOwner = roles.includes("owner") || roles.includes("superadmin");
-  const visibleSections = SECTIONS.filter((s) => {
-    if (s.modulo === "online" && !business?.online_ordering) return false;
-    if (s.modulo === "totem" && !business?.totem_enabled) return false;
-    if (s.modulo === "mesas" && !business?.mesas_enabled) return false;
-    if (s.ownerOnly) return isOwner;
-    if (!s.permission || isOwner) return true;
-    return canViewSection(permissions, s.permission);
-  });
+  const visibleSections = [...SECTIONS]
+    .sort((x, y) => ORDEN_NAV.indexOf(x.id) - ORDEN_NAV.indexOf(y.id))
+    .filter((s) => {
+      if (s.modulo === "online" && !business?.online_ordering) return false;
+      if (s.modulo === "totem" && !business?.totem_enabled) return false;
+      if (s.modulo === "mesas" && !business?.mesas_enabled) return false;
+      if (s.ownerOnly) return isOwner;
+      if (!s.permission || isOwner) return true;
+      return canViewSection(permissions, s.permission);
+    });
   // Una sección que se abre desde otra va al nav sólo si la de origen no se ve.
   const enNav = (s: SectionDef) => !s.parent || !visibleSections.some((v) => v.id === s.parent);
   const puedeVerComandera = isOwner || canViewSection(permissions, "comandera");
@@ -437,9 +500,7 @@ function AdminPage() {
   // un canal. Debajo de Tótems, o de Pedido online si la empresa no tiene
   // tótem. Antes iba siempre debajo de Tótems, y una empresa solo online se
   // quedaba sin forma de llegar a la comandera para aceptar sus pedidos.
-  const anclaComandera = visibleSections.find(
-    (s) => enNav(s) && (s.id === "totems" || s.id === "online" || s.id === "salon"),
-  )?.id;
+  // La comandera es lo primero de Ventas: ahí se atienden los pedidos.
   const current = SECTIONS.find((s) => s.id === section)!;
   const firstVisible = visibleSections.find(enNav)?.id;
   const volverA =
@@ -561,20 +622,43 @@ function AdminPage() {
         <nav className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
           {NAV_GROUPS.map((g) => {
             const items = visibleSections.filter((s) => enNav(s) && s.group === g.id);
-            if (items.length === 0) return null;
-            const collapsed = collapsedGroups[g.id];
+            const conComandera = g.id === "ventas" && puedeVerComandera;
+            if (items.length === 0 && !conComandera) return null;
+            // Inicio va suelto arriba, sin encabezado que lo pliegue.
+            const collapsed = g.label ? collapsedGroups[g.id] : false;
             return (
               <div key={g.id} className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(g.id)}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 transition hover:text-foreground"
-                >
-                  {g.label}
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${collapsed ? "-rotate-90" : ""}`}
-                  />
-                </button>
+                {g.label && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(g.id)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 transition hover:text-foreground"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {g.id === "avanzado" && <Settings2 className="h-3.5 w-3.5" />}
+                      {g.label}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                    />
+                  </button>
+                )}
+                {collapsed && g.ayuda && (
+                  <p className="px-3 text-[11px] leading-snug text-muted-foreground/60">
+                    {g.ayuda}
+                  </p>
+                )}
+                {!collapsed && conComandera && (
+                  /* La comandera no es una sección del panel sino otra
+                     pantalla (/kitchen): es donde se atienden los pedidos. */
+                  <a
+                    href="/kitchen"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
+                  >
+                    <ChefHat className="h-5 w-5" />
+                    Comandera (pedidos)
+                  </a>
+                )}
                 {!collapsed &&
                   items.map((s) => (
                     <Fragment key={s.id}>
@@ -594,22 +678,6 @@ function AdminPage() {
                         />
                         {s.label}
                       </button>
-                      {/*
-                        La comandera no es una sección del panel sino otra
-                        pantalla (/kitchen). Va debajo del primer canal que
-                        se vea (Tótems o Pedido online); sin este enlace, a
-                        quien le habilitan "Comandera" no le queda forma de
-                        llegar.
-                      */}
-                      {s.id === anclaComandera && puedeVerComandera && (
-                        <a
-                          href="/kitchen"
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
-                        >
-                          <ChefHat className="h-5 w-5" />
-                          Comandera
-                        </a>
-                      )}
                     </Fragment>
                   ))}
               </div>
@@ -625,19 +693,6 @@ function AdminPage() {
             Mi cuenta
           </a>
         </div>
-        {/* Fallback: quien ve Comandera pero no ve ninguna sección de canal
-            (un encargado, por ejemplo). */}
-        {puedeVerComandera && !anclaComandera && (
-          <div className="px-3 pb-1">
-            <a
-              href="/kitchen"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted/50 hover:text-foreground"
-            >
-              <ChefHat className="h-5 w-5" />
-              Comandera
-            </a>
-          </div>
-        )}
         <div className="border-t border-border p-3">
           <Button variant="outline" className="w-full gap-2" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
@@ -703,6 +758,12 @@ function AdminPage() {
                 panelClass={PANEL}
                 onEditPortada={() => setSection("portada")}
                 esDueno={isOwner}
+                onIr={(id) => {
+                  const destino = visibleSections.find((s) => s.id === id);
+                  if (destino) setSection(destino.id);
+                  else toast.error("No tenés acceso a esa sección");
+                }}
+                puedeComandera={puedeVerComandera}
               />
             </ReadOnlyContext.Provider>
           </LogoQrContext.Provider>
@@ -720,6 +781,8 @@ function SectionContent({
   panelClass,
   onEditPortada,
   esDueno,
+  onIr,
+  puedeComandera,
 }: {
   section: SectionId;
   business: MyBusiness;
@@ -727,8 +790,12 @@ function SectionContent({
   panelClass: string;
   onEditPortada: () => void;
   esDueno: boolean;
+  onIr: (seccion: string) => void;
+  puedeComandera: boolean;
 }) {
   switch (section) {
+    case "inicio":
+      return <InicioSection panelClass={panelClass} onIr={onIr} puedeComandera={puedeComandera} />;
     case "empresa":
       return (
         <div className="grid items-start gap-6 lg:grid-cols-2">
@@ -792,9 +859,6 @@ function BrandingForm({
         <div>
           <p className="text-xs uppercase tracking-widest text-muted-foreground">Empresa</p>
           <h2 className="mt-1 text-3xl font-bold tracking-tight">{business.name}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Slug: <code className="rounded bg-white/10 px-2 py-0.5">{business.slug}</code>
-          </p>
         </div>
         <span className="rounded-full bg-green-500/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-green-500">
           Activo
