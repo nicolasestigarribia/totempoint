@@ -19,6 +19,7 @@ import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { formatearDistancia } from "@/lib/delivery";
 import { AccionesPedido } from "@/components/online/AccionesPedido";
+import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 
 export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
   loader: ({ params }) =>
@@ -52,6 +53,7 @@ const horaDe = (d: Date) =>
  * para cuándo lo tiene.
  */
 function SeguimientoPage() {
+  useLiberarDesplazamiento();
   const pedido = Route.useLoaderData();
   const { empresa, local, token } = Route.useParams();
   const router = useRouter();

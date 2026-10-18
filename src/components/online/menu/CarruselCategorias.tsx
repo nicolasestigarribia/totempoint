@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { FondoCategoria, type CategoriaVisible } from "@/components/online/menu/GrillaCategorias";
 
 /**
@@ -19,6 +19,7 @@ export function CarruselCategorias({
   accent,
   onElegir,
   onVolver,
+  onBuscar,
   className = "",
 }: {
   categorias: CategoriaVisible[];
@@ -26,6 +27,8 @@ export function CarruselCategorias({
   accent: string;
   onElegir: (id: string) => void;
   onVolver: () => void;
+  /** Lleva al buscador, que queda arriba de todo y al bajar se pierde de vista. */
+  onBuscar?: () => void;
   className?: string;
 }) {
   const tira = useRef<HTMLDivElement>(null);
@@ -82,6 +85,16 @@ export function CarruselCategorias({
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
+          {onBuscar && (
+            <button
+              type="button"
+              onClick={onBuscar}
+              aria-label="Buscar en el menú"
+              className="flex h-16 w-10 shrink-0 items-center justify-center rounded-2xl border border-border bg-card/60"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+          )}
           <div className="relative min-w-0 flex-1">
             <div
               ref={tira}

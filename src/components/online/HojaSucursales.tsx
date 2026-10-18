@@ -73,7 +73,13 @@ export function HojaSucursales({
 
   return (
     <>
-      <Drawer open={abierta} onOpenChange={onAbierta} shouldScaleBackground={false}>
+      <Drawer
+        open={abierta}
+        onOpenChange={onAbierta}
+        shouldScaleBackground={false}
+        // Ver HojaPedir: sin tocar el body, la página no queda trabada.
+        noBodyStyles
+      >
         <DrawerContent className="max-h-[92svh] totem-tipografia">
           <DrawerDescription className="sr-only">
             Elegí otra sucursal para ver su menú.

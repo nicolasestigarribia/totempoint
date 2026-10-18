@@ -6,6 +6,7 @@ import { MenuOnline } from "@/components/online/MenuOnline";
 import { PortadaCelular } from "@/components/online/PortadaCelular";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { acentoDe } from "@/components/totem/portada-partes";
+import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 
 /**
  * Lo que abre el QR de una mesa: primero la portada del tótem en el teléfono,
@@ -37,6 +38,7 @@ const vistas = new Set<string>();
 const claveVista = (token: string) => `mesa-portada:${token}`;
 
 function MesaMenuPage() {
+  useLiberarDesplazamiento();
   const { token } = Route.useParams();
   // Otra mesa es otra portada: el estado arranca de cero.
   return <MesaPage key={token} token={token} />;

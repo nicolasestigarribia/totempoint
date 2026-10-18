@@ -49,6 +49,7 @@ import {
   regaloDelCarrito,
   useTotemCart as useCarrito,
 } from "@/lib/totem-cart";
+import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 
 /** Por qué canal se abrió el menú. */
 export type CanalMenu =
@@ -122,6 +123,8 @@ type Bloque =
  * el menú, el buscador y las tarjetas son los mismos.
  */
 export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu }) {
+  useLiberarDesplazamiento();
+  const buscador = useRef<HTMLInputElement>(null);
   const soloVer = canal.tipo === "online" && canal.soloVer;
   const cartKey =
     canal.tipo === "online" ? onlineCartKey(canal.empresa, canal.local) : mesaCartKey(canal.token);
@@ -400,6 +403,7 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
+                  ref={buscador}
                   value={busqueda}
                   onChange={(e) => cambiarBusqueda(e.target.value)}
                   placeholder="Buscar: roquefort, palta, 21…"
@@ -431,6 +435,12 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
               accent={accent}
               onElegir={irA}
               onVolver={volver}
+              onBuscar={() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                // El foco cuando ya llegó arriba: antes, el teclado del
+                // teléfono se abría con el campo todavía fuera de la pantalla.
+                window.setTimeout(() => buscador.current?.focus(), 450);
+              }}
             />
           )}
 

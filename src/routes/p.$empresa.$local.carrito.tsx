@@ -27,6 +27,7 @@ import {
 } from "@/lib/totem-cart";
 import { CargaMarca } from "@/components/CargaMarca";
 import { mensajeDeError } from "@/lib/error-message";
+import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 
 export const Route = createFileRoute("/p/$empresa/$local/carrito")({
   loader: ({ params }) => getOnlineMenuCached(params.empresa, params.local),
@@ -133,6 +134,7 @@ function formatearTelefono(raw: string): string {
 const telefonoValido = (raw: string) => telNacional(raw).length === 10;
 
 function CarritoOnlinePage() {
+  useLiberarDesplazamiento();
   const menu = Route.useLoaderData();
   const { empresa, local } = Route.useParams();
   const cartKey = onlineCartKey(empresa, local);

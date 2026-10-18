@@ -8,6 +8,7 @@ import { estadoHorario } from "@/lib/horario";
 import { PortadaCelular, type EstadoPortada } from "@/components/online/PortadaCelular";
 import { HojaPedir, useElegirSucursal, type PasoHoja } from "@/components/online/HojaPedir";
 import { CargaMarca } from "@/components/CargaMarca";
+import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 
 /**
  * La portada del pedido online de la empresa: la misma pantalla de inicio del
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/p/$empresa/")({
 });
 
 function EmpresaPage() {
+  useLiberarDesplazamiento();
   const empresa = Route.useLoaderData();
   useTotemTheme(empresa.accentColor, empresa.theme, empresa.fontTheme, empresa.corners);
   const elegir = useElegirSucursal(empresa);

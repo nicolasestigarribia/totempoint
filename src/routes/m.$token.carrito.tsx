@@ -22,6 +22,7 @@ import {
 } from "@/lib/totem-cart";
 import { CargaMarca } from "@/components/CargaMarca";
 import { mensajeDeError } from "@/lib/error-message";
+import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 
 export const Route = createFileRoute("/m/$token/carrito")({
   loader: ({ params }) => getMesaMenuCached(params.token),
@@ -43,6 +44,7 @@ type Pago = "efectivo" | "mercadopago";
  * cliente se acerca a pagar al mostrador. Tampoco pide nombre: la mesa ya dice a quién llevárselo.
  */
 function CarritoMesaPage() {
+  useLiberarDesplazamiento();
   const menu = Route.useLoaderData();
   const { token } = Route.useParams();
   const cartKey = mesaCartKey(token);

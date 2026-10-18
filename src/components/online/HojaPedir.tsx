@@ -54,6 +54,11 @@ export function HojaPedir({
       open={pasoPedido !== null}
       onOpenChange={(abierta) => !abierta && onPaso(null)}
       shouldScaleBackground={false}
+      // En el iPhone vaul fija el body con position: fixed y lo suelta al
+      // cerrar; si la hoja se desmonta abierta (se elige y se navega), la
+      // página siguiente quedaba trabada. El bloqueo de fondo lo sigue haciendo
+      // el diálogo, que sí se libera al desmontarse.
+      noBodyStyles
     >
       <DrawerContent className="max-h-[92svh] totem-tipografia">
         <DrawerDescription className="sr-only">
