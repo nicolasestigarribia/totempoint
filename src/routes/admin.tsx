@@ -896,6 +896,7 @@ function AdminPage() {
                   window.scrollTo({ top: 0 });
                 }}
                 puedeComandera={puedeVerComandera}
+                comoSuperadmin={actingCompanyId !== null}
               />
             </ReadOnlyContext.Provider>
           </LogoQrContext.Provider>
@@ -917,6 +918,7 @@ function SectionContent({
   puedeComandera,
   pestania,
   herramientas,
+  comoSuperadmin,
 }: {
   section: SectionId;
   business: MyBusiness;
@@ -928,12 +930,20 @@ function SectionContent({
   puedeComandera: boolean;
   pestania?: string;
   herramientas: HerramientaAvanzada[];
+  comoSuperadmin: boolean;
 }) {
   switch (section) {
     case "avanzado":
       return <AvanzadoSection herramientas={herramientas} panelClass={panelClass} onIr={onIr} />;
     case "inicio":
-      return <InicioSection panelClass={panelClass} onIr={onIr} puedeComandera={puedeComandera} />;
+      return (
+        <InicioSection
+          panelClass={panelClass}
+          onIr={onIr}
+          puedeComandera={puedeComandera}
+          sinBienvenida={comoSuperadmin}
+        />
+      );
     case "empresa":
       return (
         <div className="grid items-start gap-6 lg:grid-cols-2">

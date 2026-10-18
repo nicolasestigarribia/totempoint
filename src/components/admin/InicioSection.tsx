@@ -33,11 +33,14 @@ export function InicioSection({
   panelClass,
   onIr,
   puedeComandera,
+  sinBienvenida = false,
 }: {
   panelClass: string;
   /** Abre una sección del panel. */
   onIr: (seccion: string) => void;
   puedeComandera: boolean;
+  /** El superadmin visitando la empresa: la bienvenida es para el dueño. */
+  sinBienvenida?: boolean;
 }) {
   const fetchInicio = useServerFn(getInicio);
   const [datos, setDatos] = useState<Inicio | null>(null);
@@ -51,13 +54,15 @@ export function InicioSection({
         setDatos(d);
         // La bienvenida, la primera vez que el dueño entra desde este navegador.
         try {
-          if (d.pasos && !localStorage.getItem("panel-bienvenida-vista")) setBienvenida(true);
+          if (d.pasos && !sinBienvenida && !localStorage.getItem("panel-bienvenida-vista")) {
+            setBienvenida(true);
+          }
         } catch {
           // Sin almacenamiento: no se muestra sola; queda el link para verla.
         }
       })
       .catch((err) => toast.error(mensajeDeError(err, "No se pudo cargar el inicio")));
-  }, [fetchInicio]);
+  }, [fetchInicio, sinBienvenida]);
 
   const cerrarBienvenida = () => {
     setBienvenida(false);
