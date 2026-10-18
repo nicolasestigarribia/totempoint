@@ -70,6 +70,7 @@ import { AuditoriaSection } from "@/components/admin/AuditoriaSection";
 import { OnlineSection, type PestaniaOnline } from "@/components/admin/OnlineSection";
 import { SalonSection } from "@/components/admin/SalonSection";
 import { InicioSection } from "@/components/admin/InicioSection";
+import { AvanzadoSection, type HerramientaAvanzada } from "@/components/admin/AvanzadoSection";
 import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
 
 export const Route = createFileRoute("/admin")({
@@ -98,27 +99,38 @@ type SectionId =
   | "online"
   | "salon"
   | "operadores"
-  | "auditoria";
+  | "auditoria"
+  | "avanzado";
 
 type NavGroupId = "inicio" | "ventas" | "menu" | "negocio" | "avanzado";
 
 /**
- * Encabezados del nav, en el orden en que se muestran. Arriba lo de todos los
- * días (vender, el menú), después la configuración del negocio, y al final lo
- * avanzado —stock, ingredientes, auditoría—, que arranca cerrado: quien recién
- * empieza no necesita ver dieciséis secciones para cambiar un precio.
+ * Encabezados del nav, en el orden en que se muestran. El nav tiene solo lo
+ * necesario para vender; todo lo opcional (stock, recetas, combos, sucursales,
+ * equipo, registros) vive dentro de "Avanzado", una sola entrada al final que
+ * abre una página con cada herramienta.
  */
 const NAV_GROUPS: { id: NavGroupId; label: string; ayuda?: string }[] = [
   { id: "inicio", label: "" },
   { id: "ventas", label: "Ventas" },
   { id: "menu", label: "Menú" },
   { id: "negocio", label: "Mi negocio" },
-  {
-    id: "avanzado",
-    label: "Avanzado",
-    ayuda: "Stock, ingredientes, precios por sucursal y registros. No hace falta para vender.",
-  },
+  { id: "avanzado", label: "" },
 ];
+
+/** Bajo qué tema aparece cada herramienta en la página de Avanzado. */
+const TEMA_AVANZADO: Partial<Record<SectionId, string>> = {
+  combos: "Menú",
+  ingredientes: "Menú",
+  operadores: "Tu negocio",
+  empresa: "Tu negocio",
+  disponibilidad: "Si tenés varias sucursales",
+  precios: "Si tenés varias sucursales",
+  stock: "Stock y caja",
+  movimientos: "Stock y caja",
+  codigos: "Stock y caja",
+  auditoria: "Registros",
+};
 
 interface SectionDef {
   id: SectionId;
@@ -147,6 +159,8 @@ interface SectionDef {
  * despliega desde "¿Para qué sirve?" en el encabezado.
  */
 const AYUDA: Partial<Record<SectionId, string>> = {
+  avanzado:
+    "Acá está todo lo que no hace falta para vender. Entrá cuando lo necesites: para armar combos, controlar el stock, sumar a tu equipo, manejar varias sucursales o ver quién cambió qué.",
   inicio:
     "Es tu resumen: cuántos pedidos y cuánto vendiste hoy, el link para compartir con tus clientes y la lista de lo que te falta para vender. Tocá cualquier paso pendiente y te llevamos a donde se hace.",
   caja: "Acá ves cuánto vendiste en un día o entre dos fechas, separado en efectivo y Mercado Pago. Sirve para hacer la caja al cerrar: lo que dice acá tiene que coincidir con la plata del cajón.",
@@ -188,6 +202,13 @@ const AYUDA: Partial<Record<SectionId, string>> = {
 
 const SECTIONS: SectionDef[] = [
   {
+    id: "avanzado",
+    label: "Avanzado",
+    icon: Settings2,
+    desc: "Lo que no hace falta para vender: combos, stock, recetas, equipo, sucursales y registros",
+    group: "avanzado",
+  },
+  {
     id: "inicio",
     label: "Inicio",
     icon: Home,
@@ -201,6 +222,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Nombre, logo y sucursales de tu empresa",
     group: "negocio",
     ownerOnly: true,
+    parent: "avanzado",
   },
   {
     id: "totems",
@@ -268,6 +290,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Promos que juntan varios productos a un precio",
     group: "menu",
     permission: "combos",
+    parent: "avanzado",
   },
   {
     id: "ingredientes",
@@ -276,6 +299,7 @@ const SECTIONS: SectionDef[] = [
     icon: Carrot,
     desc: "Lo que lleva cada producto, para el stock y para que el cliente saque o agregue",
     group: "avanzado",
+    parent: "avanzado",
   },
   {
     id: "disponibilidad",
@@ -284,6 +308,7 @@ const SECTIONS: SectionDef[] = [
     icon: Store,
     desc: "Qué se vende en cada sucursal, si tenés más de una",
     group: "avanzado",
+    parent: "avanzado",
   },
   {
     id: "stock",
@@ -292,6 +317,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Cuánto te queda de cada cosa en cada sucursal",
     group: "avanzado",
     permission: "stock",
+    parent: "avanzado",
   },
   {
     id: "precios",
@@ -300,6 +326,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Si una sucursal cobra distinto que las otras",
     group: "avanzado",
     permission: "precios",
+    parent: "avanzado",
   },
   // Movimientos y sus motivos van con Stock y no con Caja: el libro es sobre
   // todo de mercadería (compras, roturas, vencidos). También anota retiros y
@@ -312,6 +339,7 @@ const SECTIONS: SectionDef[] = [
     icon: ScrollText,
     desc: "Entradas y salidas de mercadería y de caja, con quién las cargó y por qué",
     group: "avanzado",
+    parent: "avanzado",
   },
   {
     id: "codigos",
@@ -320,6 +348,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Los motivos que se eligen al cargar un movimiento: compra, rotura, retiro de caja…",
     group: "avanzado",
     permission: "codigos",
+    parent: "avanzado",
   },
   {
     id: "caja",
@@ -344,6 +373,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Los usuarios de tu cocina y tus encargados, con lo que puede hacer cada uno",
     group: "negocio",
     ownerOnly: true,
+    parent: "avanzado",
   },
   {
     // Es el registro de lo que hicieron los demás: no se delega.
@@ -353,6 +383,7 @@ const SECTIONS: SectionDef[] = [
     desc: "Cambios de permisos, precios, cobros y accesos: quién, qué y cuándo",
     group: "avanzado",
     ownerOnly: true,
+    parent: "avanzado",
   },
 ];
 
@@ -377,6 +408,7 @@ const ORDEN_NAV: SectionId[] = [
   "movimientos",
   "codigos",
   "auditoria",
+  "avanzado",
 ];
 
 // Superficie elevada para separar paneles del fondo oscuro
@@ -539,7 +571,8 @@ function AdminPage() {
       if (s.ownerOnly) return isOwner;
       if (!s.permission || isOwner) return true;
       return canViewSection(permissions, s.permission);
-    });
+    })
+    .filter((s, _i, todas) => s.id !== "avanzado" || todas.some((t) => t.parent === "avanzado"));
   // Una sección que se abre desde otra va al nav sólo si la de origen no se ve.
   const enNav = (s: SectionDef) => !s.parent || !visibleSections.some((v) => v.id === s.parent);
   const puedeVerComandera = isOwner || canViewSection(permissions, "comandera");
@@ -835,6 +868,15 @@ function AdminPage() {
                 onEditPortada={() => setSection("portada")}
                 esDueno={isOwner}
                 pestania={pestania}
+                herramientas={visibleSections
+                  .filter((s) => s.parent === "avanzado")
+                  .map((s) => ({
+                    id: s.id,
+                    label: s.label,
+                    desc: s.desc,
+                    icon: s.icon,
+                    tema: TEMA_AVANZADO[s.id] ?? "Otros",
+                  }))}
                 onIr={(ir) => {
                   const [id, sub] = ir.split(":");
                   const destino = visibleSections.find((s) => s.id === id);
@@ -867,6 +909,7 @@ function SectionContent({
   onIr,
   puedeComandera,
   pestania,
+  herramientas,
 }: {
   section: SectionId;
   business: MyBusiness;
@@ -877,8 +920,11 @@ function SectionContent({
   onIr: (seccion: string) => void;
   puedeComandera: boolean;
   pestania?: string;
+  herramientas: HerramientaAvanzada[];
 }) {
   switch (section) {
+    case "avanzado":
+      return <AvanzadoSection herramientas={herramientas} panelClass={panelClass} onIr={onIr} />;
     case "inicio":
       return <InicioSection panelClass={panelClass} onIr={onIr} puedeComandera={puedeComandera} />;
     case "empresa":
