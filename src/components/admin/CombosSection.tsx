@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Loader2, Boxes, X, Search, Eye } from "lucide-react";
+import { formatPrice } from "@/lib/totem-cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -282,7 +283,7 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
       header: "Precio",
       sortable: true,
       sortAccessor: (r) => Number(r.price),
-      cell: (r) => <span className="text-muted-foreground">${r.price}</span>,
+      cell: (r) => <span className="text-muted-foreground">{formatPrice(r.price)}</span>,
     },
     {
       key: "products",
@@ -302,8 +303,10 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
             disabled={readOnly}
             aria-label={r.active ? "Desactivar" : "Activar"}
           />
-          <span className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}>
-            {r.active ? "Activo" : "Inactivo"}
+          <span
+            className={`whitespace-nowrap text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}
+          >
+            {r.active ? "A la venta" : "Pausado"}
           </span>
         </div>
       ),
@@ -579,7 +582,9 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                     >
                       <span>
                         {p.name}
-                        <span className="ml-1 text-xs text-muted-foreground">(${p.price})</span>
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({formatPrice(p.price)})
+                        </span>
                       </span>
                       <Plus className="h-4 w-4 text-primary" />
                     </button>
@@ -602,7 +607,9 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                       >
                         <span className="flex-1 text-sm font-medium">
                           {d.name}
-                          <span className="ml-1 text-xs text-muted-foreground">(${d.price})</span>
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            ({formatPrice(d.price)})
+                          </span>
                         </span>
                         <Input
                           type="number"
@@ -661,12 +668,12 @@ export function CombosSection({ panelClass }: { panelClass: string }) {
                   <span className="font-medium">
                     <span className="text-muted-foreground">{p.quantity}×</span> {p.name}
                   </span>
-                  <span className="text-muted-foreground">${p.price}</span>
+                  <span className="text-muted-foreground">{formatPrice(p.price)}</span>
                 </div>
               ))}
               <div className="flex items-center justify-between px-3 pt-2 text-sm">
                 <span className="text-muted-foreground">Precio del combo</span>
-                <span className="font-semibold">${viewTarget?.price}</span>
+                <span className="font-semibold">{formatPrice(viewTarget?.price ?? 0)}</span>
               </div>
             </div>
           )}

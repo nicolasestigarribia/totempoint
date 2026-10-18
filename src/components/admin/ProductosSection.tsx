@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Loader2, Package, X, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Package, X, Search, ImageOff } from "lucide-react";
+import { formatPrice } from "@/lib/totem-cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -366,7 +367,27 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       header: "Nombre",
       sortable: true,
       sortAccessor: (r) => r.name.toLowerCase(),
-      cell: (r) => <span className="font-medium">{r.name}</span>,
+      // Con la foto al lado: se ubica más rápido, y salta a la vista cuál no tiene.
+      cell: (r) => (
+        <span className="flex items-center gap-3">
+          {r.photoUrl ? (
+            <img
+              src={r.photoUrl}
+              alt=""
+              loading="lazy"
+              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-white/15 text-muted-foreground"
+              title="Sin foto"
+            >
+              <ImageOff className="h-4 w-4" />
+            </span>
+          )}
+          <span className="font-medium">{r.name}</span>
+        </span>
+      ),
     },
     {
       key: "category",
@@ -389,7 +410,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       sortAccessor: (r) => Number(r.price),
       cell: (r) => (
         <span className="text-muted-foreground">
-          {r.tamanios.length > 0 ? `desde $${r.price}` : `$${r.price}`}
+          {r.tamanios.length > 0 ? `desde ${formatPrice(r.price)}` : formatPrice(r.price)}
         </span>
       ),
     },
@@ -406,8 +427,10 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
             disabled={readOnly}
             aria-label={r.active ? "Desactivar" : "Activar"}
           />
-          <span className={`text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}>
-            {r.active ? "Activo" : "Inactivo"}
+          <span
+            className={`whitespace-nowrap text-xs ${r.active ? "text-green-400" : "text-muted-foreground"}`}
+          >
+            {r.active ? "A la venta" : "Pausado"}
           </span>
         </div>
       ),
@@ -499,8 +522,8 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="activos">Activos</SelectItem>
-                <SelectItem value="inactivos">Inactivos</SelectItem>
+                <SelectItem value="activos">A la venta</SelectItem>
+                <SelectItem value="inactivos">Pausados</SelectItem>
               </SelectContent>
             </Select>
           </>
