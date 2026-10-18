@@ -120,7 +120,6 @@ const NAV_GROUPS: { id: NavGroupId; label: string; ayuda?: string }[] = [
 
 /** Bajo qué tema aparece cada herramienta en la página de Avanzado. */
 const TEMA_AVANZADO: Partial<Record<SectionId, string>> = {
-  combos: "Menú",
   ingredientes: "Menú",
   operadores: "Tu negocio",
   empresa: "Tu negocio",
@@ -290,7 +289,6 @@ const SECTIONS: SectionDef[] = [
     desc: "Promos que juntan varios productos a un precio",
     group: "menu",
     permission: "combos",
-    parent: "avanzado",
   },
   {
     id: "ingredientes",

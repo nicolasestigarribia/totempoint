@@ -76,7 +76,13 @@ export function GrillaCategorias({
             />
             <div className="relative z-10 flex items-end justify-between gap-2 p-3">
               <div className="min-w-0">
-                <span className="block font-display text-2xl leading-none text-white">
+                {/* En las de media pantalla, una palabra larga ("Empanadas") a 24 px
+                    se metía debajo de la flecha: ahí va más chica. */}
+                <span
+                  className={`block break-words font-display leading-none text-white ${
+                    i === 0 ? "text-2xl" : "text-[clamp(1.05rem,5vw,1.5rem)]"
+                  }`}
+                >
                   {c.nombre}
                 </span>
                 <span className="mt-1 block text-xs text-white/70">

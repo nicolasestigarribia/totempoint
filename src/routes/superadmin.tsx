@@ -29,6 +29,8 @@ import {
   Globe,
   Armchair,
   Bug,
+  Search,
+  ExternalLink,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -111,6 +113,7 @@ function SuperadminPage() {
   const [section, setSection] = useState<SectionId>("negocios");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rows, setRows] = useState<BusinessRow[]>([]);
+  const [busqueda, setBusqueda] = useState("");
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -225,7 +228,7 @@ function SuperadminPage() {
           password: editPassword || null,
         },
       });
-      toast.success("Credenciales actualizadas");
+      toast.success("Acceso del dueño actualizado");
       setEditRow(null);
       await reload();
     } catch (err: unknown) {
@@ -276,7 +279,7 @@ function SuperadminPage() {
     setSavingSlug(true);
     try {
       await changeSlug({ data: { companyId: slugRow.id, slug: slugValue } });
-      toast.success("Dirección actualizada");
+      toast.success("Link actualizado");
       setSlugRow(null);
       await reload();
     } catch (err: unknown) {
@@ -554,154 +557,174 @@ function SuperadminPage() {
                 </Dialog>
               </div>
 
-              <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-lg">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-                    <tr>
-                      <th className="px-6 py-4">Empresa</th>
-                      <th className="hidden px-6 py-4 md:table-cell">Administrador</th>
-                      <th className="px-6 py-4">Módulos</th>
-                      <th className="px-6 py-4">Estado</th>
-                      <th className="px-6 py-4 text-right">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">
-                          Todavía no hay empresas.
-                        </td>
-                      </tr>
-                    )}
-                    {rows.map((b) => (
-                      <tr key={b.id} className="border-t border-border">
-                        <td className="px-4 py-4 md:px-6">
-                          <p className="font-semibold">{b.name}</p>
-                          <code className="text-xs text-muted-foreground">{b.slug}</code>
-                          {b.admin_email && (
-                            <p className="text-xs text-muted-foreground md:hidden">
-                              {b.admin_email}
-                            </p>
-                          )}
-                        </td>
-                        <td className="hidden px-6 py-4 text-muted-foreground md:table-cell">
-                          {b.admin_email ? (
-                            <div className="flex flex-col">
-                              <span>{b.admin_email}</span>
-                              {b.admin_username && (
-                                <code className="text-xs text-muted-foreground/70">
-                                  @{b.admin_username}
-                                </code>
-                              )}
-                            </div>
-                          ) : (
-                            "Sin administrador"
-                          )}
-                        </td>
-                        <td className="px-4 py-4 md:px-6">
-                          {/* Cada módulo se prende y se apaga por separado: se
-                              venden aparte, y una empresa puede tener uno solo. */}
-                          <div className="flex flex-col gap-1.5">
-                            {(
-                              [
-                                { id: "totem", label: "Tótem", icon: Monitor, on: b.totem_enabled },
-                                {
-                                  id: "online",
-                                  label: "Online",
-                                  icon: Globe,
-                                  on: b.online_ordering,
-                                },
-                                {
-                                  id: "mesas",
-                                  label: "Mesas",
-                                  icon: Armchair,
-                                  on: b.mesas_enabled,
-                                },
-                              ] as const
-                            ).map((m) => (
-                              <button
-                                key={m.id}
-                                type="button"
-                                onClick={() => handleModulo(b, m.id)}
-                                disabled={cambiandoModulo !== null}
-                                aria-pressed={m.on}
-                                title={m.on ? `Quitar ${m.label}` : `Habilitar ${m.label}`}
-                                className={`flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition ${
-                                  m.on
-                                    ? "border-primary/50 bg-primary/15 text-primary"
-                                    : "border-border text-muted-foreground line-through opacity-60 hover:opacity-100"
-                                }`}
-                              >
-                                {cambiandoModulo === `${b.id}-${m.id}` ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <m.icon className="h-3 w-3" />
-                                )}
-                                {m.label}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-                              b.active
-                                ? "bg-green-500/15 text-green-500"
-                                : "bg-destructive/15 text-destructive"
+              {/* De un vistazo: cuántas venden, cuántas faltan configurar. */}
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <Resumen titulo="Empresas activas" valor={rows.filter((r) => r.active).length} />
+                <Resumen titulo="Pedidos hoy" valor={rows.reduce((t, r) => t + r.pedidos_hoy, 0)} />
+                <Resumen
+                  titulo="Sin dueño"
+                  valor={rows.filter((r) => r.active && !r.admin_user_id).length}
+                  alerta
+                />
+                <Resumen
+                  titulo="Sin pedidos en 7 días"
+                  valor={rows.filter((r) => r.active && r.pedidos_7d === 0).length}
+                  alerta
+                />
+              </div>
+
+              <label className="relative block max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar empresa, link o email…"
+                  className="h-11 pl-9"
+                />
+              </label>
+
+              {rows.length === 0 && (
+                <p className="rounded-3xl border border-dashed border-border p-10 text-center text-muted-foreground">
+                  Todavía no hay empresas.
+                </p>
+              )}
+              <div className="grid gap-4 xl:grid-cols-2">
+                {rows
+                  .filter((b) => {
+                    const t = busqueda.trim().toLowerCase();
+                    return (
+                      !t ||
+                      b.name.toLowerCase().includes(t) ||
+                      b.slug.includes(t) ||
+                      (b.admin_email ?? "").toLowerCase().includes(t)
+                    );
+                  })
+                  .map((b) => (
+                    <article
+                      key={b.id}
+                      className={`space-y-4 rounded-3xl border bg-card p-5 shadow-lg ${
+                        b.active ? "border-border" : "border-destructive/40 opacity-75"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-lg font-bold">{b.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            /{b.slug}
+                            {" · "}
+                            {b.admin_email ?? (
+                              <span className="font-bold text-amber-400">sin dueño</span>
+                            )}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                            b.active
+                              ? "bg-green-500/15 text-green-500"
+                              : "bg-destructive/15 text-destructive"
+                          }`}
+                        >
+                          {b.active ? "Activa" : "Inactiva"}
+                        </span>
+                      </div>
+
+                      {/* La actividad: lo que dice si la empresa está usando el
+                          sistema o quedó a medio configurar. */}
+                      <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white/[0.03] p-3 text-center">
+                        <Dato valor={b.pedidos_hoy} etiqueta="pedidos hoy" />
+                        <Dato valor={b.pedidos_7d} etiqueta="en 7 días" />
+                        <Dato valor={b.productos} etiqueta="productos" alerta={b.productos === 0} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {b.ultimo_pedido
+                          ? `Último pedido ${haceCuanto(b.ultimo_pedido)}`
+                          : "Todavía no recibió pedidos"}
+                      </p>
+
+                      {/* Cada módulo se prende y se apaga por separado: se
+                          venden aparte, y una empresa puede tener uno solo. */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="mr-1 text-xs text-muted-foreground">Contrató:</span>
+                        {(
+                          [
+                            { id: "totem", label: "Tótem", icon: Monitor, on: b.totem_enabled },
+                            { id: "online", label: "Online", icon: Globe, on: b.online_ordering },
+                            { id: "mesas", label: "Mesas", icon: Armchair, on: b.mesas_enabled },
+                          ] as const
+                        ).map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => handleModulo(b, m.id)}
+                            disabled={cambiandoModulo !== null}
+                            aria-pressed={m.on}
+                            title={m.on ? `Quitar ${m.label}` : `Habilitar ${m.label}`}
+                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition ${
+                              m.on
+                                ? "border-primary/50 bg-primary/15 text-primary"
+                                : "border-dashed border-border text-muted-foreground opacity-70 hover:opacity-100"
                             }`}
                           >
-                            {b.active ? "Activo" : "Inactivo"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 md:px-6">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1"
-                              onClick={() => handleEnter(b)}
-                            >
-                              <LogIn className="h-3.5 w-3.5" />
-                              Entrar
-                            </Button>
-                            {b.admin_user_id ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1"
-                                onClick={() => openEdit(b)}
-                              >
-                                <KeyRound className="h-3.5 w-3.5" />
-                                Credenciales
-                              </Button>
+                            {cambiandoModulo === `${b.id}-${m.id}` ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
-                              <Button
-                                size="sm"
-                                className="gap-1"
-                                onClick={() => openAssignOwner(b)}
-                              >
-                                <UserPlus className="h-3.5 w-3.5" />
-                                Asignar dueño
-                              </Button>
+                              <m.icon className="h-3 w-3" />
                             )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1"
-                              onClick={() => openSlug(b)}
-                            >
-                              <Link2 className="h-3.5 w-3.5" />
-                              Dirección
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleToggle(b)}>
-                              {b.active ? "Desactivar" : "Activar"}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            {m.on ? m.label : `+ ${m.label}`}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+                        <Button size="sm" className="gap-1" onClick={() => handleEnter(b)}>
+                          <LogIn className="h-3.5 w-3.5" />
+                          Entrar
+                        </Button>
+                        {b.admin_user_id ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => openEdit(b)}
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                            Acceso del dueño
+                          </Button>
+                        ) : (
+                          <Button size="sm" className="gap-1" onClick={() => openAssignOwner(b)}>
+                            <UserPlus className="h-3.5 w-3.5" />
+                            Asignar dueño
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => openSlug(b)}
+                        >
+                          <Link2 className="h-3.5 w-3.5" />
+                          Cambiar link
+                        </Button>
+                        <a
+                          href={`/p/${b.slug}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-9 items-center gap-1 rounded-md border border-border px-3 text-sm font-medium transition hover:border-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Ver
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto text-muted-foreground"
+                          onClick={() => handleToggle(b)}
+                        >
+                          {b.active ? "Desactivar" : "Activar"}
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
               </div>
             </div>
           )}
@@ -764,7 +787,7 @@ function SuperadminPage() {
       <Dialog open={slugRow !== null} onOpenChange={(o) => !o && setSlugRow(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Dirección de la empresa — {slugRow?.name}</DialogTitle>
+            <DialogTitle>Link de la empresa — {slugRow?.name}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSlug} className="space-y-4">
             <div className="space-y-2">
@@ -812,7 +835,7 @@ function SuperadminPage() {
       <Dialog open={editRow !== null} onOpenChange={(o) => !o && setEditRow(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Credenciales — {editRow?.name}</DialogTitle>
+            <DialogTitle>Acceso del dueño — {editRow?.name}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleUpdateAdmin} className="space-y-4">
             <div className="space-y-2">
@@ -856,6 +879,57 @@ function SuperadminPage() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** "hace 2 h", "ayer", "hace 5 días". */
+function haceCuanto(iso: string): string {
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (min < 1) return "recién";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? "ayer" : `hace ${d} días`;
+}
+
+function Resumen({
+  titulo,
+  valor,
+  alerta = false,
+}: {
+  titulo: string;
+  valor: number;
+  alerta?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-4 ${
+        alerta && valor > 0 ? "border-amber-500/40 bg-amber-500/10" : "border-border bg-card"
+      }`}
+    >
+      <p className="text-xs text-muted-foreground">{titulo}</p>
+      <p className={`mt-1 text-2xl font-bold ${alerta && valor > 0 ? "text-amber-300" : ""}`}>
+        {valor}
+      </p>
+    </div>
+  );
+}
+
+function Dato({
+  valor,
+  etiqueta,
+  alerta = false,
+}: {
+  valor: number;
+  etiqueta: string;
+  alerta?: boolean;
+}) {
+  return (
+    <div>
+      <p className={`text-xl font-bold ${alerta ? "text-amber-300" : ""}`}>{valor}</p>
+      <p className="text-[11px] text-muted-foreground">{etiqueta}</p>
     </div>
   );
 }

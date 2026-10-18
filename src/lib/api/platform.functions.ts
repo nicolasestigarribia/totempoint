@@ -3,7 +3,16 @@ import { z } from "zod";
 import { eq, or, ne, and, desc, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { companies, locations, totems, users, userRoles, userLocations, orders } from "@/db/schema";
+import {
+  companies,
+  locations,
+  totems,
+  users,
+  userRoles,
+  userLocations,
+  orders,
+  products,
+} from "@/db/schema";
 import { requireSuperadmin } from "@/lib/auth/middleware";
 import { hashPassword } from "@/lib/auth/password";
 import { passwordSchema, emailSchema } from "@/lib/auth/password-policy";
@@ -34,6 +43,11 @@ export interface BusinessRow {
   admin_user_id: number | null;
   admin_email: string | null;
   admin_username: string | null;
+  /** Actividad, para ver de un vistazo quién está vendiendo y quién no. */
+  pedidos_hoy: number;
+  pedidos_7d: number;
+  ultimo_pedido: string | null;
+  productos: number;
 }
 
 export const listBusinesses = createServerFn({ method: "GET" })
@@ -66,8 +80,34 @@ export const listBusinesses = createServerFn({ method: "GET" })
       }
     }
 
+    // Pedidos y productos por empresa, en dos consultas para toda la lista.
+    const hace7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const hoy = new Date();
+    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+    const [actividad, catalogo] = await Promise.all([
+      db
+        .select({
+          companyId: locations.companyId,
+          hoy: sql<number>`sum(${orders.businessDate} = ${hoyStr} and ${orders.status} <> 'cancelado')`,
+          semana: sql<number>`sum(${orders.createdAt} >= ${hace7} and ${orders.status} <> 'cancelado')`,
+          // Con la misma conversión que la columna: crudo, el max() llega sin zona horaria.
+          ultimo: sql<Date | null>`max(${orders.createdAt})`.mapWith(orders.createdAt),
+        })
+        .from(orders)
+        .innerJoin(locations, eq(locations.id, orders.locationId))
+        .groupBy(locations.companyId),
+      db
+        .select({ companyId: products.companyId, n: sql<number>`count(*)` })
+        .from(products)
+        .where(eq(products.active, true))
+        .groupBy(products.companyId),
+    ]);
+    const actPor = new Map(actividad.map((a) => [a.companyId, a]));
+    const prodPor = new Map(catalogo.map((p) => [p.companyId, Number(p.n)]));
+
     return rows.map((c) => {
       const admin = adminByCompany.get(c.id);
+      const act = actPor.get(c.id);
       return {
         id: c.id,
         name: c.name,
@@ -80,6 +120,10 @@ export const listBusinesses = createServerFn({ method: "GET" })
         admin_user_id: admin?.id ?? null,
         admin_email: admin?.email ?? null,
         admin_username: admin?.username ?? null,
+        pedidos_hoy: Number(act?.hoy ?? 0),
+        pedidos_7d: Number(act?.semana ?? 0),
+        ultimo_pedido: act?.ultimo ? new Date(act.ultimo).toISOString() : null,
+        productos: prodPor.get(c.id) ?? 0,
       };
     });
   });
