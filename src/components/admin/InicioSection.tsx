@@ -14,9 +14,11 @@ import {
   Package,
   ArrowRight,
   Bell,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QrConLogo } from "@/components/QrConLogo";
+import { BienvenidaPanel } from "@/components/admin/BienvenidaPanel";
 import { getInicio, type Inicio } from "@/lib/api/inicio.functions";
 import { mensajeDeError } from "@/lib/error-message";
 import { formatPrice } from "@/lib/totem-cart";
@@ -40,13 +42,31 @@ export function InicioSection({
   const fetchInicio = useServerFn(getInicio);
   const [datos, setDatos] = useState<Inicio | null>(null);
   const [origin, setOrigin] = useState("");
+  const [bienvenida, setBienvenida] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
     fetchInicio()
-      .then(setDatos)
+      .then((d) => {
+        setDatos(d);
+        // La bienvenida, la primera vez que el dueño entra desde este navegador.
+        try {
+          if (d.pasos && !localStorage.getItem("panel-bienvenida-vista")) setBienvenida(true);
+        } catch {
+          // Sin almacenamiento: no se muestra sola; queda el link para verla.
+        }
+      })
       .catch((err) => toast.error(mensajeDeError(err, "No se pudo cargar el inicio")));
   }, [fetchInicio]);
+
+  const cerrarBienvenida = () => {
+    setBienvenida(false);
+    try {
+      localStorage.setItem("panel-bienvenida-vista", "1");
+    } catch {
+      // Sin almacenamiento: vuelve a aparecer la próxima vez.
+    }
+  };
 
   if (!datos) {
     return (
@@ -67,6 +87,15 @@ export function InicioSection({
 
   return (
     <div className="space-y-6">
+      {datos.pasos && (
+        <BienvenidaPanel
+          abierta={bienvenida}
+          empresa={datos.empresa}
+          tieneProductos={datos.pasos.some((p) => p.id === "productos" && p.listo)}
+          onCerrar={cerrarBienvenida}
+          onIr={(s) => s !== "inicio" && onIr(s)}
+        />
+      )}
       {datos.hoy && (
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
           <Dato icono={<Receipt className="h-5 w-5" />} titulo="Pedidos hoy">
@@ -210,6 +239,13 @@ export function InicioSection({
 
           <section className={`space-y-2 p-6 ${panelClass}`}>
             <h2 className="mb-2 text-xl font-bold">Lo de todos los días</h2>
+            {datos.pasos && (
+              <Atajo
+                icono={<Sparkles className="h-5 w-5" />}
+                titulo="Ver la bienvenida de nuevo"
+                onClick={() => setBienvenida(true)}
+              />
+            )}
             <Atajo
               icono={<Package className="h-5 w-5" />}
               titulo="Cambiar un precio o pausar un producto"

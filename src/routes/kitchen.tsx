@@ -24,6 +24,8 @@ import {
   Trash2,
   AlertTriangle,
   Gift,
+  CircleHelp,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
@@ -97,6 +99,18 @@ const flow: Record<OrderStatus, "recibido" | "preparacion" | "entregado" | null>
 };
 
 const columns: OrderStatus[] = ["recibido", "preparacion", "entregado", "cancelado"];
+
+/**
+ * El botón grande de cada pedido dice qué hacer, no a qué estado pasa:
+ * "En preparación" sobre un pedido recibido no se entendía si era un cartel o
+ * un botón.
+ */
+const accionHacia: Record<"recibido" | "preparacion" | "entregado", string> = {
+  // Nadie vuelve un pedido a recibido desde el botón grande; está por el tipo.
+  recibido: "Volver a recibido",
+  preparacion: "Empezar a preparar",
+  entregado: "Listo, entregado",
+};
 
 // Cuánto se queda un pedido a la vista antes de desaparecer solo de la
 // comandera, para que no se acumulen los ya resueltos. Es solo visual: el
@@ -428,6 +442,24 @@ function Kitchen() {
   // celular en la mano haciendo otra cosa: si no suena, el pedido espera.
   const audioRef = useRef<AudioContext | null>(null);
   const [sonidoActivo, setSonidoActivo] = useState(false);
+  // La guía de cómo se usa: abierta la primera vez en esta tablet, después
+  // solo si la piden. Quien la cerró no la vuelve a ver al recargar.
+  const [guiaAbierta, setGuiaAbierta] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("comandera-guia-vista")) setGuiaAbierta(true);
+    } catch {
+      // Sin almacenamiento: queda cerrada, con el botón para abrirla.
+    }
+  }, []);
+  const cerrarGuia = () => {
+    setGuiaAbierta(false);
+    try {
+      localStorage.setItem("comandera-guia-vista", "1");
+    } catch {
+      // Sin almacenamiento: vuelve a aparecer al recargar.
+    }
+  };
   const [aceptando, setAceptando] = useState<number | null>(null);
 
   // El navegador no deja sonar nada hasta el primer toque en la página: ese
@@ -741,8 +773,18 @@ function Kitchen() {
             )}
             <h1 className="font-display text-3xl md:text-4xl">Cocina</h1>
             <p className="text-sm text-muted-foreground">
-              {visibles.length} {visibles.length === 1 ? "pedido" : "pedidos"}
+              {visibles.length + porAceptar.length}{" "}
+              {visibles.length + porAceptar.length === 1 ? "pedido" : "pedidos"}
             </p>
+            <button
+              type="button"
+              onClick={() => setGuiaAbierta((v) => !v)}
+              aria-expanded={guiaAbierta}
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-foreground"
+            >
+              <CircleHelp className="h-4 w-4" />
+              <span className="hidden sm:inline">Cómo se usa</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -759,13 +801,46 @@ function Kitchen() {
               onClick={limpiar}
               disabled={visibles.length === 0}
               className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40"
-              title="Sacar todos los pedidos de la vista (se recuperan al recargar)"
+              title="Saca los pedidos de la pantalla para despejarla. No borra nada: vuelven al recargar"
             >
               <Eraser className="h-4 w-4" />
-              Limpiar todo
+              Despejar pantalla
             </button>
           </div>
         </div>
+
+        {guiaAbierta && (
+          <section className="relative mb-6 rounded-3xl border border-primary/30 bg-primary/5 p-5 pr-12">
+            <button
+              type="button"
+              onClick={cerrarGuia}
+              aria-label="Cerrar la guía"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <h2 className="font-display text-2xl">Cómo se usa la comandera</h2>
+            <ol className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+              <li>
+                <span className="font-bold text-primary">1. Aceptar.</span> Los pedidos online y de
+                mesa llegan arriba, en azul, y suenan. Tocá en cuánto tiempo está listo: el cliente
+                lo ve en su celular.
+              </li>
+              <li>
+                <span className="font-bold text-primary">2. Preparar.</span> En “Recibido” tocá{" "}
+                <b>Empezar a preparar</b> cuando lo arrancan en la cocina.
+              </li>
+              <li>
+                <span className="font-bold text-primary">3. Entregar.</span> Cuando sale, tocá{" "}
+                <b>Listo, entregado</b>. Si fue un error, se puede revertir.
+              </li>
+              <li>
+                <span className="font-bold text-primary">4. Cobrar.</span> Al cobrar en efectivo
+                tocá <b>Marcar cobrado</b>. Mercado Pago se marca solo cuando entra el pago.
+              </li>
+            </ol>
+          </section>
+        )}
 
         {porAceptar.length > 0 && (
           <section className="mb-6 rounded-3xl border-2 border-sky-500/60 bg-sky-500/5 p-4 md:p-5">
@@ -849,7 +924,7 @@ function Kitchen() {
                       {/* Aceptar es elegir la demora: un solo toque, y el
                           cliente ve en su celular en cuánto lo tiene. */}
                       <p className="mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Aceptar con demora de
+                        ¿En cuánto está listo? Tocá para aceptar
                       </p>
                       <div className="mt-2 grid grid-cols-4 gap-2">
                         {DEMORAS.map((m) => (
@@ -863,7 +938,7 @@ function Kitchen() {
                             {aceptando === o.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              `${m}'`
+                              `${m} min`
                             )}
                           </button>
                         ))}
@@ -907,7 +982,7 @@ function Kitchen() {
                           onClick={() => setCancelarTodos(true)}
                           aria-label="Cancelar todos los recibidos"
                           title="Cancelar todos los recibidos"
-                          className="flex h-8 items-center gap-1.5 rounded-full border border-destructive/60 px-3 text-xs font-bold text-destructive transition hover:bg-destructive/10"
+                          className="flex h-8 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Cancelar todos
@@ -918,11 +993,11 @@ function Kitchen() {
                           type="button"
                           onClick={() => limpiarColumna(grouped[col])}
                           aria-label={`Limpiar ${statusMeta[col].label}`}
-                          title="Sacar estos pedidos de la vista (se recuperan al recargar)"
+                          title="Saca estos pedidos de la pantalla. No borra nada: vuelven al recargar"
                           className="flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-foreground"
                         >
                           <Eraser className="h-3.5 w-3.5" />
-                          Limpiar
+                          Ocultar
                         </button>
                       )}
                       <span className="rounded-full bg-secondary px-3 py-0.5 text-sm font-extrabold">
@@ -982,9 +1057,10 @@ function Kitchen() {
                                   onClick={() => setACancelar(o)}
                                   aria-label={`Cancelar el pedido ${formatearNumeroPedido(o.businessDate, o.orderNumber)}`}
                                   title="Cancelar pedido"
-                                  className="rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                                  className="flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-bold text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
                                 >
                                   <Ban className="h-4 w-4" />
+                                  <span className="hidden sm:inline">Cancelar</span>
                                 </button>
                               )}
                             </div>
@@ -1044,17 +1120,23 @@ function Kitchen() {
                                       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                                       : o.paymentMethod === "mercadopago"
                                         ? "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:border-sky-300"
-                                        : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                                        : "border-amber-500/50 text-amber-300 hover:border-amber-300 hover:bg-amber-500/10"
                                   }`}
                                 >
                                   {cobrando === o.id && (
                                     <Loader2 className="h-3 w-3 animate-spin" />
                                   )}
-                                  {o.paymentStatus === "pagado"
-                                    ? "Cobrado"
-                                    : o.paymentMethod === "mercadopago"
-                                      ? "Esperando pago"
-                                      : "Sin cobrar"}
+                                  {o.paymentStatus === "pagado" ? (
+                                    <>
+                                      <CheckCheck className="h-3 w-3" /> Cobrado
+                                    </>
+                                  ) : o.paymentMethod === "mercadopago" ? (
+                                    "Esperando pago"
+                                  ) : (
+                                    <>
+                                      <Banknote className="h-3 w-3" /> Marcar cobrado
+                                    </>
+                                  )}
                                 </button>
                               ) : (
                                 <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -1073,7 +1155,7 @@ function Kitchen() {
                               onClick={() => changeStatus(o, next)}
                               className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition hover:scale-[1.02] active:scale-95"
                             >
-                              {statusMeta[next].label}
+                              {accionHacia[next]}
                               <ChevronRight className="h-4 w-4" />
                             </button>
                           )}
