@@ -680,9 +680,18 @@ function AdminPage() {
         }`}
       >
         <div className="flex items-center gap-3 border-b border-border px-5 py-5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-primary shadow-glow">
-            <Flame className="h-6 w-6 text-primary-foreground" />
-          </div>
+          {/* Su marca, no la nuestra: el dueño entra a su panel. */}
+          {business!.logo_url ? (
+            <img
+              src={business!.logo_url}
+              alt=""
+              className="h-11 w-11 shrink-0 rounded-xl bg-white object-cover"
+            />
+          ) : (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-primary shadow-glow">
+              <Flame className="h-6 w-6 text-primary-foreground" />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold">{business!.name}</p>
             <p className="text-xs text-muted-foreground">Panel admin</p>

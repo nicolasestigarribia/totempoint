@@ -124,6 +124,7 @@ function SuperadminPage() {
   // común; una empresa solo online lo desmarca.
   const [conTotem, setConTotem] = useState(true);
   const [conOnline, setConOnline] = useState(false);
+  const [conMesas, setConMesas] = useState(false);
   const [cambiandoModulo, setCambiandoModulo] = useState<string | null>(null);
   const [email, setEmail] = useState("");
 
@@ -190,6 +191,7 @@ function SuperadminPage() {
           adminPassword,
           totem: conTotem,
           online: conOnline,
+          mesas: conMesas,
         },
       });
       toast.success("Empresa creada");
@@ -199,6 +201,7 @@ function SuperadminPage() {
       setAdminPassword("");
       setConTotem(true);
       setConOnline(false);
+      setConMesas(false);
       setOpen(false);
       await reload();
     } catch (err: unknown) {
@@ -540,13 +543,23 @@ function SuperadminPage() {
                           <Globe className="h-4 w-4 text-muted-foreground" />
                           Pedido online (retiro y envío)
                         </label>
-                        {!conTotem && !conOnline && (
+                        <label className="flex items-center gap-3 rounded-xl border border-border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={conMesas}
+                            onChange={(e) => setConMesas(e.target.checked)}
+                            className="h-4 w-4 accent-[var(--primary)]"
+                          />
+                          <Armchair className="h-4 w-4 text-muted-foreground" />
+                          Pedido en la mesa (QR por mesa)
+                        </label>
+                        {!conTotem && !conOnline && !conMesas && (
                           <p className="text-xs text-destructive">Elegí al menos uno.</p>
                         )}
                       </div>
                       <Button
                         type="submit"
-                        disabled={saving || (!conTotem && !conOnline)}
+                        disabled={saving || (!conTotem && !conOnline && !conMesas)}
                         className="w-full gap-2"
                       >
                         {saving && <Loader2 className="h-4 w-4 animate-spin" />}

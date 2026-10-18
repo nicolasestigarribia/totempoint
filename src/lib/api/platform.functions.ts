@@ -140,11 +140,12 @@ export const createBusiness = createServerFn({ method: "POST" })
       // comandera y los cobros son de la empresa y sirven para cualquiera.
       totem: z.boolean().default(true),
       online: z.boolean().default(false),
+      mesas: z.boolean().default(false),
     }),
   )
   .handler(async ({ data }) => {
-    if (!data.totem && !data.online) {
-      throw new Error("Elegí al menos un módulo: tótem o pedido online");
+    if (!data.totem && !data.online && !data.mesas) {
+      throw new Error("Elegí al menos un módulo: tótem, pedido online o mesas");
     }
     const email = data.adminEmail.toLowerCase();
     const username = data.adminUsername.toLowerCase();
@@ -177,6 +178,7 @@ export const createBusiness = createServerFn({ method: "POST" })
         active: true,
         totemEnabled: data.totem,
         onlineOrdering: data.online,
+        mesasEnabled: data.mesas,
       })
       .$returningId();
 
@@ -224,7 +226,11 @@ export const createBusiness = createServerFn({ method: "POST" })
         admin_user_id: userId,
         admin_email: email,
         admin_username: username,
-      } as BusinessRow,
+        pedidos_hoy: 0,
+        pedidos_7d: 0,
+        ultimo_pedido: null,
+        productos: 0,
+      } satisfies BusinessRow,
     };
   });
 

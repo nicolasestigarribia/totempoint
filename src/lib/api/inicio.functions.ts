@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   companies,
   deliveryTiers,
+  diningTables,
   locations,
   onlineSettings,
   orders,
@@ -127,7 +128,7 @@ export const getInicio = createServerFn({ method: "GET" })
         .where(eq(locations.companyId, companyId))
     ).map((l) => l.id);
 
-    const [[prods], online, tramos, [mp], [cantTotems], [equipo]] = await Promise.all([
+    const [[prods], online, tramos, [mp], [cantTotems], [equipo], [cantMesas]] = await Promise.all([
       db
         .select({
           total: sql<number>`count(*)`,
@@ -139,6 +140,7 @@ export const getInicio = createServerFn({ method: "GET" })
         .select({
           alias: onlineSettings.alias,
           horarios: onlineSettings.horarios,
+          enabled: onlineSettings.enabled,
           delivery: onlineSettings.deliveryEnabled,
           lat: onlineSettings.originLat,
         })
@@ -170,6 +172,12 @@ export const getInicio = createServerFn({ method: "GET" })
             inArray(userRoles.role, ["encargado", "kitchen"]),
           ),
         ),
+      locIds.length
+        ? db
+            .select({ n: sql<number>`count(*)` })
+            .from(diningTables)
+            .where(inArray(diningTables.locationId, locIds))
+        : Promise.resolve([{ n: 0 }]),
     ]);
 
     const totalProductos = Number(prods?.total ?? 0);
@@ -209,6 +217,15 @@ export const getInicio = createServerFn({ method: "GET" })
     if (empresa.online) {
       pasos.push(
         {
+          id: "abrir",
+          titulo: "Abrí los pedidos online",
+          detalle:
+            "Prendé “Tomar pedidos ahora”: hasta entonces tu link avisa que no estás tomando pedidos.",
+          listo: online.some((o) => o.enabled),
+          seccion: "online:links",
+          opcional: false,
+        },
+        {
           id: "link",
           titulo: "Elegí tu link corto",
           detalle: "Uno fácil de dictar, como totempoint/tunegocio.",
@@ -233,6 +250,16 @@ export const getInicio = createServerFn({ method: "GET" })
           opcional: true,
         },
       );
+    }
+    if (empresa.mesas) {
+      pasos.push({
+        id: "mesas",
+        titulo: "Armá tu salón",
+        detalle: "Cargá tus mesas e imprimí el QR de cada una.",
+        listo: Number(cantMesas?.n ?? 0) > 0,
+        seccion: "salon",
+        opcional: false,
+      });
     }
     if (empresa.totem) {
       pasos.push({

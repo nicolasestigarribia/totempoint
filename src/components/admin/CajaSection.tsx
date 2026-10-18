@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Banknote, Smartphone, CircleDollarSign, Ban, Clock } from "lucide-react";
+import { Loader2, Banknote, Smartphone, CircleDollarSign, Ban, Clock, Trophy } from "lucide-react";
 
-import { getCashClose, type CashClose } from "@/lib/api/orders.functions";
+import {
+  getCashClose,
+  getMasVendidos,
+  type CashClose,
+  type MasVendido,
+} from "@/lib/api/orders.functions";
 import { mensajeDeError } from "@/lib/error-message";
 import { DateRangeFilter, hoyIso } from "@/components/admin/DateRangeFilter";
 
@@ -21,6 +26,8 @@ function pesos(n: number): string {
  */
 export function CajaSection({ panelClass }: { panelClass: string }) {
   const fetchClose = useServerFn(getCashClose);
+  const fetchMasVendidos = useServerFn(getMasVendidos);
+  const [masVendidos, setMasVendidos] = useState<MasVendido[]>([]);
 
   const [desde, setDesde] = useState(hoyIso());
   const [hasta, setHasta] = useState(hoyIso());
@@ -31,14 +38,19 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
     async (d: string, h: string) => {
       setLoading(true);
       try {
-        setData(await fetchClose({ data: { desde: d, hasta: h } }));
+        const [cierre, ranking] = await Promise.all([
+          fetchClose({ data: { desde: d, hasta: h } }),
+          fetchMasVendidos({ data: { desde: d, hasta: h } }),
+        ]);
+        setData(cierre);
+        setMasVendidos(ranking);
       } catch (err) {
         toast.error(mensajeDeError(err, "No se pudo cargar el cierre de caja"));
       } finally {
         setLoading(false);
       }
     },
-    [fetchClose],
+    [fetchClose, fetchMasVendidos],
   );
 
   useEffect(() => {
@@ -75,7 +87,7 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold">Recaudación</h3>
+          <h3 className="text-lg font-bold">Tu caja</h3>
           <p className="text-sm text-muted-foreground">
             Lo cobrado {unDia ? "en la jornada" : "en esas jornadas"}, separado por forma de pago.
           </p>
@@ -162,6 +174,39 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
           </div>
         )}
       </div>
+
+      {/* Lo más vendido en esas fechas: lo que todo dueño pregunta primero. */}
+      {!loading && masVendidos.length > 0 && (
+        <div className={`p-5 ${panelClass}`}>
+          <h3 className="flex items-center gap-2 text-lg font-bold">
+            <Trophy className="h-5 w-5 text-amber-400" /> Lo más vendido
+          </h3>
+          <ol className="mt-3 space-y-2">
+            {masVendidos.map((m, i) => {
+              const max = masVendidos[0].unidades || 1;
+              return (
+                <li key={m.nombre} className="space-y-1">
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate">
+                      <span className="mr-2 font-bold text-muted-foreground">{i + 1}.</span>
+                      {m.nombre}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">
+                      <b className="text-foreground">{m.unidades}</b> u · {pesos(m.total)}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${(m.unidades / max) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Los totales cuentan lo que se marcó como cobrado en la comandera. Los pedidos cancelados no

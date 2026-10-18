@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, or, ne, desc, inArray, gte, lte, isNull } from "drizzle-orm";
+import { eq, and, or, ne, desc, inArray, gte, lte, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   orders,
@@ -784,4 +784,61 @@ export const getCashClose = createServerFn({ method: "GET" })
       pedidos: lines.reduce((t, l) => t + l.pedidos, 0),
       cancelados: lines.reduce((t, l) => t + l.cancelados, 0),
     };
+  });
+
+/** Un renglón de "lo más vendido": cuántas unidades y cuánto facturó. */
+export interface MasVendido {
+  nombre: string;
+  unidades: number;
+  total: number;
+}
+
+/**
+ * Lo más vendido en un rango de jornadas, por nombre (el congelado en el
+ * pedido) y tamaño: una muzzarella grande y una chica son dos renglones. Los
+ * cancelados no cuentan. Lo ve quien ve la caja.
+ */
+export const getMasVendidos = createServerFn({ method: "GET" })
+  .middleware([requireCompany])
+  .inputValidator(
+    z.object({
+      desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<MasVendido[]> => {
+    const user = context.user as SessionUser;
+    assertCanViewKitchen(user);
+    const locs = await visibleLocations(user);
+    if (locs.length === 0) return [];
+
+    const nombre = sql<string>`concat(${orderItems.productName}, coalesce(concat(' (', ${orderItems.tamanio}, ')'), ''))`;
+    const filas = await db
+      .select({
+        nombre,
+        unidades: sql<number>`sum(${orderItems.quantity})`,
+        total: sql<number>`sum(${orderItems.quantity} * ${orderItems.unitPrice})`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(
+        and(
+          inArray(
+            orders.locationId,
+            locs.map((l) => l.id),
+          ),
+          gte(orders.businessDate, data.desde),
+          lte(orders.businessDate, data.hasta),
+          ne(orders.status, "cancelado"),
+        ),
+      )
+      .groupBy(nombre)
+      .orderBy(desc(sql`sum(${orderItems.quantity})`))
+      .limit(10);
+
+    return filas.map((f) => ({
+      nombre: f.nombre,
+      unidades: Number(f.unidades),
+      total: Number(f.total),
+    }));
   });
