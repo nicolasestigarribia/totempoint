@@ -314,8 +314,10 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
           style={{ "--portada-acento": accent } as React.CSSProperties}
         >
           <div className="portada-grilla" />
-          <div className="portada-luz -left-24 -top-24 h-72 w-72" />
-          <div className="portada-luz portada-luz-2 -right-20 top-1/2 h-64 w-64" />
+          {/* Quietas: animadas y desenfocadas detrás de un menú de miles de
+              píxeles, en Chrome de Android le sacaban fluidez al scroll. */}
+          <div className="portada-luz quieta -left-24 -top-24 h-72 w-72" />
+          <div className="portada-luz portada-luz-2 quieta -right-20 top-1/2 h-64 w-64" />
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col">

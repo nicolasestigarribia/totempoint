@@ -54,10 +54,10 @@ export function CarruselCategorias({
     const cont = tira.current;
     const el = cont?.querySelector<HTMLElement>(`[data-cat="${activa}"]`);
     if (!cont || !el) return;
-    cont.scrollTo({
-      left: el.offsetLeft - cont.clientWidth / 2 + el.clientWidth / 2,
-      behavior: "smooth",
-    });
+    // Sin animación: en Chrome de Android, un scroll suave de la tira mientras
+    // el dedo desliza la página le corta el envión, y la página se sentía
+    // trabada justo al pasar de una categoría a otra.
+    cont.scrollLeft = el.offsetLeft - cont.clientWidth / 2 + el.clientWidth / 2;
   }, [activa]);
 
   // En la PC no hay dedo: flechas a los costados y la rueda del mouse, que

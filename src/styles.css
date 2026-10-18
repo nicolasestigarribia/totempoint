@@ -113,6 +113,11 @@
   html,
   body {
     overscroll-behavior: none;
+    /* Sin el anclaje de scroll de Chrome: corrige la posición cuando algo
+       cambia de alto arriba de lo que se ve, y en el menú del celular se
+       sentía como que la página no dejaba subir. Las fotos tienen alto fijo,
+       así que no hay saltos que corregir. */
+    overflow-anchor: none;
   }
   body {
     background-color: var(--color-background);
@@ -612,6 +617,10 @@ input[type="number"] {
   opacity: 0.22;
   animation-duration: 16s;
   animation-direction: alternate-reverse;
+}
+/* Detrás de una lista larga las luces van quietas (ver MenuOnline). */
+.portada-luz.quieta {
+  animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .portada-luz {
