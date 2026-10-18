@@ -35,6 +35,8 @@ export interface PasoInicio {
 export interface Inicio {
   /** El nombre de la empresa, para saludar. */
   empresa: string;
+  /** Lo que contrató: la bienvenida habla solo de eso. */
+  modulos: { online: boolean; totem: boolean; mesas: boolean };
   /** Lo de hoy en las sucursales que ve. Null si no tiene permiso de ver pedidos. */
   hoy: { pedidos: number; vendido: number; porAceptar: number } | null;
   /** El link para vender online (la portada), si la empresa tiene ese módulo. */
@@ -71,6 +73,7 @@ export const getInicio = createServerFn({ method: "GET" })
         logo: companies.logoUrl,
         online: companies.onlineOrdering,
         totem: companies.totemEnabled,
+        mesas: companies.mesasEnabled,
       })
       .from(companies)
       .where(eq(companies.id, companyId))
@@ -114,7 +117,8 @@ export const getInicio = createServerFn({ method: "GET" })
 
     const link = empresa.online ? `/${empresa.alias || `p/${empresa.slug}`}` : null;
 
-    if (!dueno) return { empresa: empresa.nombre, hoy, link, pasos: null };
+    const modulos = { online: empresa.online, totem: empresa.totem, mesas: empresa.mesas };
+    if (!dueno) return { empresa: empresa.nombre, modulos, hoy, link, pasos: null };
 
     const locIds = (
       await db
@@ -259,5 +263,5 @@ export const getInicio = createServerFn({ method: "GET" })
       },
     );
 
-    return { empresa: empresa.nombre, hoy, link, pasos };
+    return { empresa: empresa.nombre, modulos, hoy, link, pasos };
   });

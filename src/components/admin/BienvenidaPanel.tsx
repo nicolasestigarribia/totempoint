@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { ArrowRight, ChefHat, Home, ListChecks, Package, Smartphone, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  ChefHat,
+  Home,
+  ListChecks,
+  Monitor,
+  Package,
+  QrCode,
+  Smartphone,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
@@ -12,27 +22,41 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 export function BienvenidaPanel({
   abierta,
   empresa,
+  modulos,
   tieneProductos,
   onCerrar,
   onIr,
 }: {
   abierta: boolean;
   empresa: string;
+  /** Lo que contrató: se habla solo de eso. */
+  modulos: { online: boolean; totem: boolean; mesas: boolean };
   /** Si ya cargó productos: entonces la salida es ver qué le falta. */
   tieneProductos: boolean;
   onCerrar: () => void;
   onIr: (seccion: string) => void;
 }) {
   const [paso, setPaso] = useState(0);
+  // Por dónde le piden, según lo que contrató: "desde su celular, desde el
+  // tótem del mostrador o desde la mesa".
+  const canales = [
+    modulos.online && "desde su celular",
+    modulos.totem && "desde el tótem del mostrador",
+    modulos.mesas && "desde la mesa, con un QR",
+  ].filter((c): c is string => !!c);
+  const porDonde =
+    canales.length <= 1
+      ? (canales[0] ?? "")
+      : `${canales.slice(0, -1).join(", ")} o ${canales[canales.length - 1]}`;
   const pasos = [
     {
       icono: <Sparkles className="h-8 w-8" />,
       titulo: `¡Bienvenido, ${empresa}!`,
       texto: (
         <>
-          Desde este panel manejás todo tu negocio. Tus clientes piden solos, desde el celular o
-          desde el tótem del mostrador, y los pedidos te llegan ordenados a la cocina. Sin WhatsApp,
-          sin anotar a mano.
+          Desde este panel manejás todo tu negocio. Tus clientes piden solos
+          {porDonde && `, ${porDonde}`}, y los pedidos te llegan ordenados a la cocina. Sin
+          WhatsApp, sin anotar a mano.
         </>
       ),
     },
@@ -50,9 +74,21 @@ export function BienvenidaPanel({
           <Punto icono={<ChefHat className="h-5 w-5" />} titulo="Comandera">
             La pantalla de la cocina: entran los pedidos, los aceptás, los preparás y los entregás.
           </Punto>
-          <Punto icono={<Smartphone className="h-5 w-5" />} titulo="Tu link">
-            El que compartís en Instagram y WhatsApp para que te pidan.
-          </Punto>
+          {modulos.online && (
+            <Punto icono={<Smartphone className="h-5 w-5" />} titulo="Tu link">
+              El que compartís en Instagram y WhatsApp para que te pidan.
+            </Punto>
+          )}
+          {modulos.totem && (
+            <Punto icono={<Monitor className="h-5 w-5" />} titulo="Tu tótem">
+              La pantalla del mostrador donde el cliente pide y paga solo.
+            </Punto>
+          )}
+          {modulos.mesas && (
+            <Punto icono={<QrCode className="h-5 w-5" />} titulo="Tus mesas">
+              Cada mesa con su QR: el cliente pide desde su lugar y el pedido llega con el número.
+            </Punto>
+          )}
         </ul>
       ),
     },

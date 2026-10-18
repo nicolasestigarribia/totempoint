@@ -91,6 +91,7 @@ export function InicioSection({
         <BienvenidaPanel
           abierta={bienvenida}
           empresa={datos.empresa}
+          modulos={datos.modulos}
           tieneProductos={datos.pasos.some((p) => p.id === "productos" && p.listo)}
           onCerrar={cerrarBienvenida}
           onIr={(s) => s !== "inicio" && onIr(s)}
