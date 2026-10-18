@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Pestanias } from "@/components/admin/Pestanias";
 import {
   Select,
   SelectContent,
@@ -78,6 +79,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pestaniaProd, setPestaniaProd] = useState<"basico" | "opciones" | "receta">("basico");
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [categoryFilter, setCategoryFilter] = useState<string>("todas");
@@ -141,6 +143,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
     setUnitsPerBulk("1");
     setDraftIngredients([]);
     setIngredientSearch("");
+    setPestaniaProd("basico");
     setDialogOpen(true);
   }
 
@@ -171,6 +174,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       })),
     );
     setIngredientSearch("");
+    setPestaniaProd("basico");
     setDialogOpen(true);
   }
 
@@ -504,416 +508,443 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-6xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar producto" : "Nuevo producto"}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* Datos generales */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Datos generales
-              </h4>
-              <div className="space-y-2">
-                <Label htmlFor="product-name">Nombre</Label>
-                <Input
-                  id="product-name"
-                  value={name}
-                  maxLength={120}
-                  placeholder="Ej: Hamburguesa clásica"
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="product-description">Descripción</Label>
-                <textarea
-                  id="product-description"
-                  value={description}
-                  rows={3}
-                  placeholder="Descripción del producto"
-                  className="w-full rounded-md border border-white/12 bg-white/[0.04] px-3 py-2 text-sm"
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
-              {tamanios.length === 0 && (
+          <Pestanias
+            activa={pestaniaProd}
+            onCambiar={setPestaniaProd}
+            opciones={[
+              { id: "basico", label: "Lo básico" },
+              { id: "opciones", label: "Más opciones" },
+              { id: "receta", label: "Receta" },
+            ]}
+          />
+          {/* Lo básico alcanza para vender: nombre, precio y foto. Lo demás
+              (pan, receta, reventa) es para quien lo necesita. */}
+          <div className="max-h-[60vh] overflow-y-auto pr-1">
+            {pestaniaProd === "basico" && (
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="product-price">Precio</Label>
+                  <Label htmlFor="product-name">Nombre</Label>
                   <Input
-                    id="product-price"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    inputMode="decimal"
-                    value={price}
-                    placeholder="0.00"
-                    onChange={(e) => setPrice(e.target.value)}
+                    id="product-name"
+                    value={name}
+                    maxLength={120}
+                    placeholder="Ej: Hamburguesa clásica"
+                    onChange={(e) => setName(e.target.value)}
                   />
                 </div>
-              )}
-              {/* Tamaños: lo que se vende en más de uno (pizza grande o chica),
-                  cada uno con su precio. El cliente elige en la tarjeta. */}
-              <div className="space-y-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <Label>Tamaños</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {tamanios.length > 0
-                        ? "El cliente elige el tamaño en la tarjeta. El primero viene marcado."
-                        : "Si se vende en más de un tamaño (grande / chica), cargalos acá con su precio."}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 gap-1"
-                    disabled={tamanios.length >= 8}
-                    onClick={() =>
-                      setTamanios((ts) =>
-                        ts.length === 0
-                          ? [
-                              { nombre: "Grande", precio: price },
-                              { nombre: "Chica", precio: "" },
-                            ]
-                          : [...ts, { nombre: "", precio: "" }],
-                      )
-                    }
+                <div className="space-y-2">
+                  <Label htmlFor="product-category">Categoría</Label>
+                  <Select
+                    value={categoryId || "none"}
+                    onValueChange={(v) => setCategoryId(v === "none" ? "" : v)}
                   >
-                    <Plus className="h-4 w-4" /> {tamanios.length === 0 ? "Tamaños" : "Otro"}
-                  </Button>
+                    <SelectTrigger id="product-category" className="h-11">
+                      <SelectValue placeholder="Sin categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin categoría</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                {tamanios.map((t, i) => (
-                  <div key={i} className="flex items-center gap-2">
+                {tamanios.length === 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="product-price">Precio</Label>
                     <Input
-                      aria-label={`Nombre del tamaño ${i + 1}`}
-                      value={t.nombre}
-                      maxLength={40}
-                      placeholder="Grande"
-                      className="h-9 flex-1"
-                      onChange={(e) =>
-                        setTamanios((ts) =>
-                          ts.map((x, k) => (k === i ? { ...x, nombre: e.target.value } : x)),
-                        )
-                      }
-                    />
-                    <Input
-                      aria-label={`Precio del tamaño ${i + 1}`}
+                      id="product-price"
                       type="number"
                       min={0}
                       step="0.01"
                       inputMode="decimal"
-                      value={t.precio}
-                      placeholder="Precio"
-                      className="h-9 w-32"
-                      onChange={(e) =>
-                        setTamanios((ts) =>
-                          ts.map((x, k) => (k === i ? { ...x, precio: e.target.value } : x)),
-                        )
-                      }
+                      value={price}
+                      placeholder="0.00"
+                      onChange={(e) => setPrice(e.target.value)}
                     />
+                  </div>
+                )}
+                {/* Tamaños: lo que se vende en más de uno (pizza grande o chica),
+                      cada uno con su precio. El cliente elige en la tarjeta. */}
+                <div className="space-y-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label>Tamaños</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {tamanios.length > 0
+                          ? "El cliente elige el tamaño en la tarjeta. El primero viene marcado."
+                          : "Si se vende en más de un tamaño (grande / chica), cargalos acá con su precio."}
+                      </p>
+                    </div>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Quitar el tamaño ${i + 1}`}
-                      onClick={() => {
-                        // Al quitar el último, el precio del producto queda el
-                        // del que estaba primero.
-                        if (tamanios.length === 1) setPrice(tamanios[0].precio);
-                        setTamanios((ts) => ts.filter((_, k) => k !== i));
-                      }}
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1"
+                      disabled={tamanios.length >= 8}
+                      onClick={() =>
+                        setTamanios((ts) =>
+                          ts.length === 0
+                            ? [
+                                { nombre: "Grande", precio: price },
+                                { nombre: "Chica", precio: "" },
+                              ]
+                            : [...ts, { nombre: "", precio: "" }],
+                        )
+                      }
                     >
-                      <X className="h-4 w-4" />
+                      <Plus className="h-4 w-4" /> {tamanios.length === 0 ? "Tamaños" : "Otro"}
                     </Button>
                   </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
-                <div>
-                  <Label htmlFor="product-stockable" className="cursor-pointer">
-                    Producto de reventa
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Maneja stock propio y se vende sin receta (ej: bebidas).
-                  </p>
+                  {tamanios.map((t, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        aria-label={`Nombre del tamaño ${i + 1}`}
+                        value={t.nombre}
+                        maxLength={40}
+                        placeholder="Grande"
+                        className="h-9 flex-1"
+                        onChange={(e) =>
+                          setTamanios((ts) =>
+                            ts.map((x, k) => (k === i ? { ...x, nombre: e.target.value } : x)),
+                          )
+                        }
+                      />
+                      <Input
+                        aria-label={`Precio del tamaño ${i + 1}`}
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={t.precio}
+                        placeholder="Precio"
+                        className="h-9 w-32"
+                        onChange={(e) =>
+                          setTamanios((ts) =>
+                            ts.map((x, k) => (k === i ? { ...x, precio: e.target.value } : x)),
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Quitar el tamaño ${i + 1}`}
+                        onClick={() => {
+                          // Al quitar el último, el precio del producto queda el
+                          // del que estaba primero.
+                          if (tamanios.length === 1) setPrice(tamanios[0].precio);
+                          setTamanios((ts) => ts.filter((_, k) => k !== i));
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <Switch id="product-stockable" checked={stockable} onCheckedChange={setStockable} />
+                <ImageUploadField
+                  id="product-photo"
+                  label="Foto del producto"
+                  value={photoUrl}
+                  onChange={setPhotoUrl}
+                />
+                <div className="space-y-2">
+                  <Label htmlFor="product-description">Descripción</Label>
+                  <textarea
+                    id="product-description"
+                    value={description}
+                    rows={3}
+                    placeholder="Descripción del producto"
+                    className="w-full rounded-md border border-white/12 bg-white/[0.04] px-3 py-2 text-sm"
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                {editing && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="product-active"
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-white/20 bg-white/[0.04] accent-primary"
+                      checked={active}
+                      onChange={(e) => setActive(e.target.checked)}
+                    />
+                    <Label htmlFor="product-active" className="cursor-pointer">
+                      A la venta
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Desmarcado, no aparece en el menú. Sirve para pausarlo sin borrarlo.
+                      </span>
+                    </Label>
+                  </div>
+                )}
               </div>
-              {/* Un producto de reventa no tiene receta, así que no hay nada
-                  que sacarle: el interruptor ni aparece en ese caso. */}
-              {!stockable && (
+            )}
+            {pestaniaProd === "opciones" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
+                  <div>
+                    <Label htmlFor="product-pan">Pan</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Con "Blanco o negro" el cliente elige al pedirlo y la comanda lo muestra.
+                    </p>
+                  </div>
+                  <Select
+                    value={pan ?? "none"}
+                    onValueChange={(v) =>
+                      setPan(v === "none" ? null : (v as "blanco" | "negro" | "ambos"))
+                    }
+                  >
+                    <SelectTrigger id="product-pan" className="h-9 w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No aplica</SelectItem>
+                      <SelectItem value="blanco">Solo blanco</SelectItem>
+                      <SelectItem value="negro">Solo negro</SelectItem>
+                      <SelectItem value="ambos">Blanco o negro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Un producto de reventa no tiene receta, así que no hay nada
+                      que sacarle: el interruptor ni aparece en ese caso. */}
+                {!stockable && (
+                  <div className="flex items-center justify-between rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
+                    <div>
+                      <Label htmlFor="product-customizable" className="cursor-pointer">
+                        El cliente puede sacarle ingredientes
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        En su pedido, el cliente puede sacarle los ingredientes que marques en
+                        Receta (no cambia el precio) o agregar los que tengan precio extra.
+                      </p>
+                    </div>
+                    <Switch
+                      id="product-customizable"
+                      checked={customizable}
+                      onCheckedChange={setCustomizable}
+                    />
+                  </div>
+                )}
                 <div className="flex items-center justify-between rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
                   <div>
-                    <Label htmlFor="product-customizable" className="cursor-pointer">
-                      El cliente puede sacarle ingredientes
+                    <Label htmlFor="product-stockable" className="cursor-pointer">
+                      Producto de reventa
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      En su pedido, el cliente puede sacarle los ingredientes que marques abajo (no
-                      cambia el precio) o agregar los que tengan precio extra.
+                      Maneja stock propio y se vende sin receta (ej: bebidas).
                     </p>
                   </div>
                   <Switch
-                    id="product-customizable"
-                    checked={customizable}
-                    onCheckedChange={setCustomizable}
+                    id="product-stockable"
+                    checked={stockable}
+                    onCheckedChange={setStockable}
                   />
                 </div>
-              )}
-              <div className="flex items-center justify-between gap-3 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2">
-                <div>
-                  <Label htmlFor="product-pan">Pan</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Con "Blanco o negro" el cliente elige al pedirlo y la comanda lo muestra.
+                {stockable && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="product-unit">Unidad de stock</Label>
+                      <Select
+                        value={unit || "none"}
+                        onValueChange={(v) => setUnit(v === "none" ? "" : v)}
+                      >
+                        <SelectTrigger id="product-unit" className="h-11">
+                          <SelectValue placeholder="Sin unidad" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin unidad</SelectItem>
+                          {UNITS.map((u) => (
+                            <SelectItem key={u} value={u}>
+                              {u}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="product-uxb">UxB</Label>
+                      <Input
+                        id="product-uxb"
+                        type="number"
+                        step="0.01"
+                        min="1"
+                        value={unitsPerBulk}
+                        placeholder="1"
+                        onChange={(e) => setUnitsPerBulk(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Receta: buscador + seleccionados. Oculta para reventa (sin receta). */}
+            {pestaniaProd === "receta" && (
+              <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Ingredientes
+                </h4>
+                {stockable ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Los productos de reventa no llevan receta. Su stock se gestiona en la sección
+                    Stock.
                   </p>
-                </div>
-                <Select
-                  value={pan ?? "none"}
-                  onValueChange={(v) =>
-                    setPan(v === "none" ? null : (v as "blanco" | "negro" | "ambos"))
-                  }
-                >
-                  <SelectTrigger id="product-pan" className="h-9 w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No aplica</SelectItem>
-                    <SelectItem value="blanco">Solo blanco</SelectItem>
-                    <SelectItem value="negro">Solo negro</SelectItem>
-                    <SelectItem value="ambos">Blanco o negro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {stockable && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="product-unit">Unidad de stock</Label>
-                    <Select
-                      value={unit || "none"}
-                      onValueChange={(v) => setUnit(v === "none" ? "" : v)}
-                    >
-                      <SelectTrigger id="product-unit" className="h-11">
-                        <SelectValue placeholder="Sin unidad" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin unidad</SelectItem>
-                        {UNITS.map((u) => (
-                          <SelectItem key={u} value={u}>
-                            {u}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="product-uxb">UxB</Label>
-                    <Input
-                      id="product-uxb"
-                      type="number"
-                      step="0.01"
-                      min="1"
-                      value={unitsPerBulk}
-                      placeholder="1"
-                      onChange={(e) => setUnitsPerBulk(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="product-category">Categoría</Label>
-                <Select
-                  value={categoryId || "none"}
-                  onValueChange={(v) => setCategoryId(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger id="product-category" className="h-11">
-                    <SelectValue placeholder="Sin categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin categoría</SelectItem>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <ImageUploadField
-                id="product-photo"
-                label="Foto del producto"
-                value={photoUrl}
-                onChange={setPhotoUrl}
-              />
-              {editing && (
-                <div className="flex items-center gap-2">
-                  <input
-                    id="product-active"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-white/20 bg-white/[0.04] accent-primary"
-                    checked={active}
-                    onChange={(e) => setActive(e.target.checked)}
-                  />
-                  <Label htmlFor="product-active" className="cursor-pointer">
-                    Activo
-                  </Label>
-                </div>
-              )}
-            </div>
-
-            {/* Ingredientes: buscador + seleccionados. Oculto para reventa (sin receta). */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Ingredientes
-              </h4>
-              {stockable ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  Los productos de reventa no llevan receta. Su stock se gestiona en la sección
-                  Stock.
-                </p>
-              ) : (
-                <>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={ingredientSearch}
-                      placeholder="Buscar ingrediente..."
-                      className="h-11 pl-9"
-                      onChange={(e) => setIngredientSearch(e.target.value)}
-                    />
-                  </div>
-                  <div className="max-h-40 divide-y divide-white/5 overflow-auto rounded-md border border-white/10">
-                    {availableIngredients.length === 0 ? (
-                      <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-                        {ingredients.length === 0
-                          ? "No hay ingredientes cargados"
-                          : "Sin resultados"}
-                      </p>
-                    ) : (
-                      availableIngredients.map((i) => (
-                        <button
-                          key={i.id}
-                          type="button"
-                          onClick={() => addIngredient(i.id)}
-                          className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-white/5"
-                        >
-                          <span>
-                            {i.name}
-                            {i.unit ? (
-                              <span className="ml-1 text-xs text-muted-foreground">({i.unit})</span>
-                            ) : null}
-                          </span>
-                          <Plus className="h-4 w-4 text-primary" />
-                        </button>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Seleccionados ({draftIngredients.length})
-                    </p>
-                    {draftIngredients.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Todavía no agregaste ingredientes.
-                      </p>
-                    ) : (
-                      <div className="max-h-[26rem] space-y-2 overflow-auto pr-1">
-                        {draftIngredients.map((d) => (
-                          <div
-                            key={d.ingredientId}
-                            className="flex flex-col gap-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2"
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={ingredientSearch}
+                        placeholder="Buscar ingrediente..."
+                        className="h-11 pl-9"
+                        onChange={(e) => setIngredientSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="max-h-40 divide-y divide-white/5 overflow-auto rounded-md border border-white/10">
+                      {availableIngredients.length === 0 ? (
+                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                          {ingredients.length === 0
+                            ? "No hay ingredientes cargados"
+                            : "Sin resultados"}
+                        </p>
+                      ) : (
+                        availableIngredients.map((i) => (
+                          <button
+                            key={i.id}
+                            type="button"
+                            onClick={() => addIngredient(i.id)}
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-white/5"
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="flex-1 text-sm font-medium">
-                                {d.name}
-                                {d.unit ? (
-                                  <span className="ml-1 text-xs text-muted-foreground">
-                                    ({d.unit})
-                                  </span>
-                                ) : null}
-                              </span>
-                              {d.unit ? (
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step="0.01"
-                                  inputMode="decimal"
-                                  value={d.quantity}
-                                  placeholder="Cant."
-                                  className="h-9 w-24"
-                                  onChange={(e) => setDraftQuantity(d.ingredientId, e.target.value)}
-                                />
+                            <span>
+                              {i.name}
+                              {i.unit ? (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({i.unit})
+                                </span>
                               ) : null}
-                              {/* Se elige ingrediente por ingrediente: la carne de
-                              una hamburguesa no se saca, la cebolla sí. Sólo
-                              tiene sentido si el producto está habilitado. */}
-                              {customizable && (
-                                <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-                                  <Switch
-                                    checked={d.removable}
-                                    onCheckedChange={(v) => setDraftRemovable(d.ingredientId, v)}
+                            </span>
+                            <Plus className="h-4 w-4 text-primary" />
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Seleccionados ({draftIngredients.length})
+                      </p>
+                      {draftIngredients.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Todavía no agregaste ingredientes.
+                        </p>
+                      ) : (
+                        <div className="max-h-[26rem] space-y-2 overflow-auto pr-1">
+                          {draftIngredients.map((d) => (
+                            <div
+                              key={d.ingredientId}
+                              className="flex flex-col gap-2 rounded-md border border-white/12 bg-white/[0.04] px-3 py-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="flex-1 text-sm font-medium">
+                                  {d.name}
+                                  {d.unit ? (
+                                    <span className="ml-1 text-xs text-muted-foreground">
+                                      ({d.unit})
+                                    </span>
+                                  ) : null}
+                                </span>
+                                {d.unit ? (
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    inputMode="decimal"
+                                    value={d.quantity}
+                                    placeholder="Cant."
+                                    className="h-9 w-24"
+                                    onChange={(e) =>
+                                      setDraftQuantity(d.ingredientId, e.target.value)
+                                    }
                                   />
-                                  se puede sacar
-                                </label>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label="Quitar ingrediente"
-                                onClick={() => removeDraftIngredient(d.ingredientId)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            {/* Pedir de más: cuesta y tiene tope, a diferencia de
-                            sacar. Precio y máximo por producto: +carne puede valer
-                            distinto según en qué se pida. */}
-                            {customizable && (
-                              <div className="flex items-center gap-2 pl-1">
-                                <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-                                  <Switch
-                                    checked={d.extraAllowed}
-                                    onCheckedChange={(v) => setDraftExtraAllowed(d.ingredientId, v)}
-                                  />
-                                  se puede agregar
-                                </label>
-                                {d.extraAllowed && (
-                                  <>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      inputMode="decimal"
-                                      value={d.extraPrice}
-                                      placeholder="Precio extra"
-                                      className="h-9 w-28"
-                                      onChange={(e) =>
-                                        setDraftExtraPrice(d.ingredientId, e.target.value)
-                                      }
+                                ) : null}
+                                {/* Se elige ingrediente por ingrediente: la carne de
+                                una hamburguesa no se saca, la cebolla sí. Sólo
+                                tiene sentido si el producto está habilitado. */}
+                                {customizable && (
+                                  <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                    <Switch
+                                      checked={d.removable}
+                                      onCheckedChange={(v) => setDraftRemovable(d.ingredientId, v)}
                                     />
-                                    <Input
-                                      type="number"
-                                      step="1"
-                                      min="1"
-                                      inputMode="numeric"
-                                      value={d.extraMax}
-                                      placeholder="Máx."
-                                      className="h-9 w-20"
-                                      onChange={(e) =>
-                                        setDraftExtraMax(d.ingredientId, e.target.value)
-                                      }
-                                    />
-                                  </>
+                                    se puede sacar
+                                  </label>
                                 )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Quitar ingrediente"
+                                  onClick={() => removeDraftIngredient(d.ingredientId)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
                               </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+                              {/* Pedir de más: cuesta y tiene tope, a diferencia de
+                              sacar. Precio y máximo por producto: +carne puede valer
+                              distinto según en qué se pida. */}
+                              {customizable && (
+                                <div className="flex items-center gap-2 pl-1">
+                                  <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                    <Switch
+                                      checked={d.extraAllowed}
+                                      onCheckedChange={(v) =>
+                                        setDraftExtraAllowed(d.ingredientId, v)
+                                      }
+                                    />
+                                    se puede agregar
+                                  </label>
+                                  {d.extraAllowed && (
+                                    <>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        inputMode="decimal"
+                                        value={d.extraPrice}
+                                        placeholder="Precio extra"
+                                        className="h-9 w-28"
+                                        onChange={(e) =>
+                                          setDraftExtraPrice(d.ingredientId, e.target.value)
+                                        }
+                                      />
+                                      <Input
+                                        type="number"
+                                        step="1"
+                                        min="1"
+                                        inputMode="numeric"
+                                        value={d.extraMax}
+                                        placeholder="Máx."
+                                        className="h-9 w-20"
+                                        onChange={(e) =>
+                                          setDraftExtraMax(d.ingredientId, e.target.value)
+                                        }
+                                      />
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">

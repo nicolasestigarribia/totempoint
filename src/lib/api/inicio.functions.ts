@@ -27,7 +27,7 @@ export interface PasoInicio {
   titulo: string;
   detalle: string;
   listo: boolean;
-  /** La sección del panel donde se hace. */
+  /** La sección del panel donde se hace, con su pestaña: "online:horario". */
   seccion: string;
   opcional: boolean;
 }
@@ -206,7 +206,7 @@ export const getInicio = createServerFn({ method: "GET" })
           titulo: "Elegí tu link corto",
           detalle: "Uno fácil de dictar, como totempoint/tunegocio.",
           listo: !!empresa.alias || online.some((o) => !!o.alias),
-          seccion: "online",
+          seccion: "online:links",
           opcional: false,
         },
         {
@@ -214,7 +214,7 @@ export const getInicio = createServerFn({ method: "GET" })
           titulo: "Cargá tu horario",
           detalle: "Fuera de horario no se toman pedidos.",
           listo: online.some((o) => (o.horarios ?? []).some((dia) => dia.length > 0)),
-          seccion: "online",
+          seccion: "online:horario",
           opcional: false,
         },
         {
@@ -222,7 +222,7 @@ export const getInicio = createServerFn({ method: "GET" })
           titulo: "Configurá los envíos",
           detalle: "Hasta dónde llegás y cuánto cobrás. Si solo hacés retiro, salteá este paso.",
           listo: online.some((o) => o.delivery && o.lat !== null && tramos.length > 0),
-          seccion: "online",
+          seccion: "online:entrega",
           opcional: true,
         },
       );

@@ -40,6 +40,8 @@ import {
   Armchair,
   Home,
   Settings2,
+  CircleHelp,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me, logout } from "@/lib/api/auth.functions";
@@ -65,7 +67,7 @@ import { OperadoresSection } from "@/components/admin/OperadoresSection";
 import { CajaSection } from "@/components/admin/CajaSection";
 import { PagosSection } from "@/components/admin/PagosSection";
 import { AuditoriaSection } from "@/components/admin/AuditoriaSection";
-import { OnlineSection } from "@/components/admin/OnlineSection";
+import { OnlineSection, type PestaniaOnline } from "@/components/admin/OnlineSection";
 import { SalonSection } from "@/components/admin/SalonSection";
 import { InicioSection } from "@/components/admin/InicioSection";
 import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
@@ -139,6 +141,50 @@ interface SectionDef {
   /** Módulo que se vende aparte: la sección existe solo si la empresa lo tiene. */
   modulo?: "totem" | "online" | "mesas";
 }
+
+/**
+ * Para qué sirve cada sección, en palabras de quien no conoce el sistema. Se
+ * despliega desde "¿Para qué sirve?" en el encabezado.
+ */
+const AYUDA: Partial<Record<SectionId, string>> = {
+  inicio:
+    "Es tu resumen: cuántos pedidos y cuánto vendiste hoy, el link para compartir con tus clientes y la lista de lo que te falta para vender. Tocá cualquier paso pendiente y te llevamos a donde se hace.",
+  caja: "Acá ves cuánto vendiste en un día o entre dos fechas, separado en efectivo y Mercado Pago. Sirve para hacer la caja al cerrar: lo que dice acá tiene que coincidir con la plata del cajón.",
+  productos:
+    "Todo lo que vendés. Para empezar alcanza con nombre, precio y una foto. Para dejar de vender algo por un rato, abrilo y desmarcá “A la venta”: no se borra, se pausa.",
+  categorias:
+    "Son las secciones de tu menú (por ejemplo: Pizzas, Empanadas, Bebidas). Cada producto va en una. El orden en que las dejes acá es el orden en que las ve el cliente.",
+  combos:
+    "Promos que juntan varios productos a un precio especial, como “Pizza + 6 empanadas”. Podés armar combos fijos o dejar que el cliente elija los gustos.",
+  online:
+    "Es tu tienda online. Tus clientes abren el link desde el celular, eligen, y el pedido te llega a la comandera. Acá elegís el link, el horario, si hacés envío o solo retiro, y cómo cobrás. El interruptor de arriba abre o cierra los pedidos en el momento.",
+  totems:
+    "El tótem es la pantalla del mostrador donde el cliente pide solo. Acá creás cada tótem y sacás el link que se abre en la tablet.",
+  salon:
+    "Si tenés mesas, armá el salón y pegá el QR en cada mesa: el cliente escanea, pide desde su celular y el pedido llega con el número de mesa.",
+  portada:
+    "Cómo se ve tu menú: colores, letras y la pantalla de bienvenida. Lo que cambies acá se ve igual en el celular de tus clientes y en el tótem.",
+  pagos:
+    "Cómo te pagan. El efectivo funciona siempre. Para cobrar con Mercado Pago (QR o tarjeta) conectá tu cuenta acá: la plata entra directo a tu cuenta.",
+  operadores:
+    "Las personas que trabajan con vos. Creales un usuario a la cocina para que atienda los pedidos, o a un encargado, y elegí qué puede ver o cambiar cada uno.",
+  empresa:
+    "El nombre y el logo de tu negocio, y tus sucursales. Si tenés un solo local, con una sucursal alcanza.",
+  disponibilidad:
+    "Solo si tenés más de una sucursal: elegí qué productos se venden en cada una. Si algo no se vende en una sucursal, apagalo ahí y en las demás sigue a la venta.",
+  precios:
+    "Solo si una sucursal cobra distinto que las otras. Si todas cobran igual, no hace falta tocar nada: el precio se pone en Productos.",
+  ingredientes:
+    "Lo que lleva cada producto. Sirve para dos cosas: controlar el stock de la materia prima y dejar que el cliente saque algo (“sin cebolla”) o agregue un extra.",
+  stock:
+    "Cuánto te queda de cada cosa en cada sucursal. Cada venta descuenta sola. Cargá lo que tenés la primera vez y cuando compres mercadería.",
+  movimientos:
+    "El historial de todo lo que entró y salió: compras, roturas, ventas, retiros de caja. Cada movimiento dice quién lo cargó y por qué.",
+  codigos:
+    "Los motivos que se eligen al cargar un movimiento de stock o de caja (compra, rotura, vencido, retiro). Ya vienen cargados los más comunes.",
+  auditoria:
+    "El registro de los cambios importantes: quién cambió un precio, un permiso o una forma de cobro, y cuándo. No se puede borrar ni modificar.",
+};
 
 const SECTIONS: SectionDef[] = [
   {
@@ -372,6 +418,10 @@ function AdminPage() {
   const [primaryColor, setPrimaryColor] = useState("#000000");
 
   const [section, setSection] = useState<SectionId>("inicio");
+  const [ayudaAbierta, setAyudaAbierta] = useState(false);
+  useEffect(() => setAyudaAbierta(false), [section]);
+  // La pestaña con la que se abre la sección, cuando se llega desde el Inicio.
+  const [pestania, setPestania] = useState<string | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<NavGroupId, boolean>>({
     avanzado: true,
@@ -664,6 +714,7 @@ function AdminPage() {
                     <Fragment key={s.id}>
                       <button
                         onClick={() => {
+                          setPestania(undefined);
                           setSection(s.id);
                           if (window.innerWidth < 1024) setSidebarOpen(false);
                         }}
@@ -743,11 +794,36 @@ function AdminPage() {
               <span className="hidden sm:inline">{volverA.label}</span>
             </button>
           )}
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold tracking-tight">{current.label}</h1>
             <p className="text-sm text-muted-foreground">{current.desc}</p>
           </div>
+          {AYUDA[section] && (
+            <button
+              type="button"
+              onClick={() => setAyudaAbierta((v) => !v)}
+              aria-expanded={ayudaAbierta}
+              className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-muted-foreground transition hover:border-primary hover:text-foreground"
+            >
+              <CircleHelp className="h-4 w-4" />
+              <span className="hidden sm:inline">¿Para qué sirve?</span>
+            </button>
+          )}
         </div>
+        {ayudaAbierta && AYUDA[section] && (
+          <div className="flex items-start gap-3 border-b border-primary/20 bg-primary/5 px-6 py-4 text-sm md:px-8">
+            <CircleHelp className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <p className="max-w-3xl leading-relaxed">{AYUDA[section]}</p>
+            <button
+              type="button"
+              onClick={() => setAyudaAbierta(false)}
+              aria-label="Cerrar la ayuda"
+              className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <div className="p-6 md:p-8">
           <LogoQrContext.Provider value={business?.logo_url || null}>
             <ReadOnlyContext.Provider value={readOnly}>
@@ -758,10 +834,17 @@ function AdminPage() {
                 panelClass={PANEL}
                 onEditPortada={() => setSection("portada")}
                 esDueno={isOwner}
-                onIr={(id) => {
+                pestania={pestania}
+                onIr={(ir) => {
+                  const [id, sub] = ir.split(":");
                   const destino = visibleSections.find((s) => s.id === id);
-                  if (destino) setSection(destino.id);
-                  else toast.error("No tenés acceso a esa sección");
+                  if (!destino) {
+                    toast.error("No tenés acceso a esa sección");
+                    return;
+                  }
+                  setPestania(sub);
+                  setSection(destino.id);
+                  window.scrollTo({ top: 0 });
                 }}
                 puedeComandera={puedeVerComandera}
               />
@@ -783,6 +866,7 @@ function SectionContent({
   esDueno,
   onIr,
   puedeComandera,
+  pestania,
 }: {
   section: SectionId;
   business: MyBusiness;
@@ -792,6 +876,7 @@ function SectionContent({
   esDueno: boolean;
   onIr: (seccion: string) => void;
   puedeComandera: boolean;
+  pestania?: string;
 }) {
   switch (section) {
     case "inicio":
@@ -828,7 +913,12 @@ function SectionContent({
     case "pagos":
       return <PagosSection panelClass={panelClass} />;
     case "online":
-      return <OnlineSection panelClass={panelClass} />;
+      return (
+        <OnlineSection
+          panelClass={panelClass}
+          pestaniaInicial={pestania as PestaniaOnline | undefined}
+        />
+      );
     case "salon":
       return <SalonSection panelClass={panelClass} esDueno={esDueno} />;
     case "totems":

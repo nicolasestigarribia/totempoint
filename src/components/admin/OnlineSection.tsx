@@ -15,7 +15,11 @@ import {
   Clock,
   X,
   Eye,
+  Link2,
+  Bike,
+  Wallet,
 } from "lucide-react";
+import { Pestanias } from "@/components/admin/Pestanias";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,12 +52,32 @@ import { DIAS, estadoHorario, horaValida, type Horarios, type Turno } from "@/li
  * y sus horarios. El interruptor de arriba es el que se usa todos los días:
  * abre y cierra el canal.
  */
-export function OnlineSection({ panelClass }: { panelClass: string }) {
+/** Las partes de la sección, de a una. */
+export type PestaniaOnline = "links" | "horario" | "entrega" | "cobro";
+
+export function OnlineSection({
+  panelClass,
+  pestaniaInicial,
+}: {
+  panelClass: string;
+  /** La pestaña con la que abre, por ejemplo desde un paso del Inicio. */
+  pestaniaInicial?: PestaniaOnline;
+}) {
   const fetchConfig = useServerFn(getOnlineConfig);
   const saveCompanyAlias = useServerFn(saveCompanyOnlineAlias);
   const [config, setConfig] = useState<OnlineConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [elegida, setElegida] = useState<number | null>(null);
+  const [pestania, setPestania] = useState<PestaniaOnline>(pestaniaInicial ?? "links");
+  useEffect(() => {
+    if (pestaniaInicial) setPestania(pestaniaInicial);
+  }, [pestaniaInicial]);
+  // Llegando desde un paso del Inicio, lo que buscaba queda a la vista.
+  useEffect(() => {
+    if (pestaniaInicial && config) {
+      document.querySelector('[role="tablist"]')?.scrollIntoView({ block: "start" });
+    }
+  }, [pestaniaInicial, config]);
 
   const cargar = async () => {
     try {
@@ -93,24 +117,6 @@ export function OnlineSection({ panelClass }: { panelClass: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Con varias sucursales, el link que se difunde es el de la empresa: el
-          cliente pone su dirección y elige entre las que le llegan. */}
-      <LinkOnline
-        titulo={
-          config.locations.length > 1 ? "El link de toda la empresa" : "El link de tu portada"
-        }
-        detalle={
-          config.locations.length > 1
-            ? "El que va en Instagram y WhatsApp: abre la portada, donde el cliente elige envío, retiro o mirar el menú, y la sucursal que le llega."
-            : "El que va en Instagram y WhatsApp: abre la portada con tu marca, donde el cliente elige envío, retiro o mirar el menú."
-        }
-        pathLargo={`/p/${config.companySlug}`}
-        alias={config.companyAlias}
-        guardar={(alias) => saveCompanyAlias({ data: { alias } })}
-        panelClass={panelClass}
-        onChange={cargar}
-      />
-
       {config.locations.length > 1 && (
         <div className="flex flex-wrap gap-2">
           {config.locations.map((l) => (
@@ -139,6 +145,27 @@ export function OnlineSection({ panelClass }: { panelClass: string }) {
         varias={config.locations.length > 1}
         panelClass={panelClass}
         onChange={cargar}
+        pestania={pestania}
+        onPestania={setPestania}
+        linkEmpresa={
+          /* Con varias sucursales, el link que se difunde es el de la empresa:
+             el cliente pone su dirección y elige entre las que le llegan. */
+          <LinkOnline
+            titulo={
+              config.locations.length > 1 ? "El link de toda la empresa" : "El link de tu portada"
+            }
+            detalle={
+              config.locations.length > 1
+                ? "El que va en Instagram y WhatsApp: abre la portada, donde el cliente elige envío, retiro o mirar el menú, y la sucursal que le llega."
+                : "El que va en Instagram y WhatsApp: abre la portada con tu marca, donde el cliente elige envío, retiro o mirar el menú."
+            }
+            pathLargo={`/p/${config.companySlug}`}
+            alias={config.companyAlias}
+            guardar={(alias) => saveCompanyAlias({ data: { alias } })}
+            panelClass={panelClass}
+            onChange={cargar}
+          />
+        }
       />
     </div>
   );
@@ -151,6 +178,9 @@ function SucursalOnline({
   varias,
   panelClass,
   onChange,
+  pestania,
+  onPestania,
+  linkEmpresa,
 }: {
   loc: OnlineLocationConfig;
   companySlug: string;
@@ -159,6 +189,10 @@ function SucursalOnline({
   varias: boolean;
   panelClass: string;
   onChange: () => Promise<void>;
+  pestania: PestaniaOnline;
+  onPestania: (p: PestaniaOnline) => void;
+  /** El link de la portada de la empresa, que va en la pestaña de links. */
+  linkEmpresa: React.ReactNode;
 }) {
   const save = useServerFn(saveOnlineSettings);
   const saveAlias = useServerFn(saveOnlineAlias);
@@ -206,8 +240,8 @@ function SucursalOnline({
           <div>
             <h3 className="text-lg font-bold">Pedido online · {loc.locationName}</h3>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Tus clientes piden desde el celular con el mismo menú del tótem, y el pedido te llega
-              a la comandera para que lo aceptes. Sin escribir por WhatsApp ni tomar nota a mano.
+              Tus clientes piden desde el celular con tu menú, y el pedido te llega a la comandera
+              para que lo aceptes. Sin escribir por WhatsApp ni tomar nota a mano.
             </p>
           </div>
           <span
@@ -247,80 +281,115 @@ function SucursalOnline({
         </div>
       </div>
 
-      <HorarioOnline loc={loc} panelClass={panelClass} onChange={onChange} />
-
-      <LinkOnline
-        titulo={varias ? `El link de ${loc.locationName}` : "El link directo al menú"}
-        detalle={
-          varias
-            ? "Lleva directo al menú de esta sucursal: para el QR del mostrador de este local."
-            : "Saltea la portada y abre el menú para pedir."
-        }
-        pathLargo={`/p/${companySlug}/${loc.locationSlug}`}
-        soloVerPath={`/p/${companySlug}/${loc.locationSlug}?ver=1`}
-        alias={loc.alias}
-        guardar={(alias) => saveAlias({ data: { locationId: loc.locationId, alias } })}
-        panelClass={panelClass}
-        onChange={onChange}
+      <Pestanias
+        activa={pestania}
+        onCambiar={onPestania}
+        opciones={[
+          { id: "links", label: "Link y QR", icon: Link2 },
+          { id: "horario", label: "Horario", icon: Clock, aviso: loc.horarios === null },
+          {
+            id: "entrega",
+            label: "Retiro y envío",
+            icon: Bike,
+            aviso: delivery && !!faltaParaEnvio,
+          },
+          { id: "cobro", label: "Cobro y mínimo", icon: Wallet },
+        ]}
       />
 
-      <div className={`space-y-4 p-6 ${panelClass}`}>
-        <h4 className="font-bold">Cómo lo entregan y cómo lo cobran</h4>
+      {pestania === "horario" && (
+        <HorarioOnline loc={loc} panelClass={panelClass} onChange={onChange} />
+      )}
 
-        <Opcion
-          titulo="Retiro en el local"
-          detalle="El cliente pide desde donde esté y pasa a buscarlo."
-          checked={pickup}
-          onChange={setPickup}
+      {pestania === "links" && linkEmpresa}
+      {pestania === "links" && (
+        <LinkOnline
+          titulo={varias ? `El link de ${loc.locationName}` : "El link directo al menú"}
+          detalle={
+            varias
+              ? "Lleva directo al menú de esta sucursal: para el QR del mostrador de este local."
+              : "Saltea la portada y abre el menú para pedir."
+          }
+          pathLargo={`/p/${companySlug}/${loc.locationSlug}`}
+          soloVerPath={`/p/${companySlug}/${loc.locationSlug}?ver=1`}
+          alias={loc.alias}
+          guardar={(alias) => saveAlias({ data: { locationId: loc.locationId, alias } })}
+          panelClass={panelClass}
+          onChange={onChange}
         />
-        <Opcion
-          titulo="Envío"
-          detalle="Se lo llevan. El cliente marca su dirección en el mapa y el costo sale de la distancia."
-          checked={delivery}
-          onChange={setDelivery}
-        />
-        {delivery && faltaParaEnvio && (
-          <p className="flex items-start gap-2 text-sm text-amber-400">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            {faltaParaEnvio}
-          </p>
-        )}
-        <Opcion
-          titulo="Efectivo"
-          detalle="Paga al retirar o al recibir. Le preguntamos con cuánto paga para llevar el vuelto."
-          checked={cash}
-          onChange={setCash}
-        />
-        <p className="text-sm text-muted-foreground">
-          Mercado Pago:{" "}
-          {mercadoPago ? (
-            <span className="text-green-500">activo, el cliente paga desde su celular.</span>
-          ) : (
-            <span>no está configurado. Se activa en Caja → Cobros.</span>
-          )}
-        </p>
+      )}
 
-        <div className="max-w-xs space-y-2">
-          <Label htmlFor="min-order">Pedido mínimo (sin contar el envío)</Label>
-          <Input
-            id="min-order"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={minOrder}
-            onChange={(e) => setMinOrder(e.target.value)}
-            placeholder="Sin mínimo"
-            className="h-11"
+      {pestania === "entrega" && (
+        <div className={`space-y-4 p-6 ${panelClass}`}>
+          <h4 className="font-bold">Cómo le llega el pedido al cliente</h4>
+
+          <Opcion
+            titulo="Retiro en el local"
+            detalle="El cliente pide desde donde esté y pasa a buscarlo."
+            checked={pickup}
+            onChange={setPickup}
           />
+          <Opcion
+            titulo="Envío"
+            detalle="Se lo llevan. El cliente marca su dirección en el mapa y el costo sale de la distancia."
+            checked={delivery}
+            onChange={setDelivery}
+          />
+          {delivery && faltaParaEnvio && (
+            <p className="flex items-start gap-2 text-sm text-amber-400">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              {faltaParaEnvio}
+            </p>
+          )}
+          <Button onClick={() => guardar()} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar
+          </Button>
         </div>
+      )}
 
-        <Button onClick={() => guardar()} disabled={saving} className="gap-2">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Guardar
-        </Button>
-      </div>
+      {pestania === "entrega" && delivery && (
+        <EnviosPorDistancia loc={loc} panelClass={panelClass} onChange={onChange} />
+      )}
 
-      <EnviosPorDistancia loc={loc} panelClass={panelClass} onChange={onChange} />
+      {pestania === "cobro" && (
+        <div className={`space-y-4 p-6 ${panelClass}`}>
+          <h4 className="font-bold">Cómo te pagan y desde cuánto se puede pedir</h4>
+          <Opcion
+            titulo="Efectivo"
+            detalle="Paga al retirar o al recibir. Le preguntamos con cuánto paga para llevar el vuelto."
+            checked={cash}
+            onChange={setCash}
+          />
+          <p className="text-sm text-muted-foreground">
+            Mercado Pago:{" "}
+            {mercadoPago ? (
+              <span className="text-green-500">activo, el cliente paga desde su celular.</span>
+            ) : (
+              <span>no está configurado. Se activa en Mi negocio → Formas de cobro.</span>
+            )}
+          </p>
+
+          <div className="max-w-xs space-y-2">
+            <Label htmlFor="min-order">Pedido mínimo (sin contar el envío)</Label>
+            <Input
+              id="min-order"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={minOrder}
+              onChange={(e) => setMinOrder(e.target.value)}
+              placeholder="Sin mínimo"
+              className="h-11"
+            />
+          </div>
+
+          <Button onClick={() => guardar()} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar
+          </Button>
+        </div>
+      )}
     </>
   );
 }
