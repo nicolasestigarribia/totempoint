@@ -1,3 +1,4 @@
+import { BuscadorPanel } from "@/components/admin/BuscadorPanel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -612,6 +613,30 @@ function AdminPage() {
 
   // Con permiso de solo lectura el servidor rechaza cualquier cambio, así que
   // conviene avisarlo arriba de la sección en vez de dejar que falle al guardar.
+  // Abrir una sección (o `seccion:pestaña`) desde Inicio, Avanzado o el
+  // buscador. Las que empiezan con "/" son otras pantallas (comandera, cuenta).
+  const irA = (ir: string) => {
+    if (ir.startsWith("/")) {
+      window.location.href = ir;
+      return;
+    }
+    const [id, sub] = ir.split(":");
+    const destino = visibleSections.find((s) => s.id === id);
+    if (!destino) {
+      toast.error("No tenés acceso a esa sección");
+      return;
+    }
+    setPestania(sub);
+    setSection(destino.id);
+    if (window.innerWidth < 1024) setSidebarOpen(false);
+    window.scrollTo({ top: 0 });
+  };
+  const puedeIr = (ir: string) => {
+    if (ir === "/kitchen") return puedeVerComandera;
+    if (ir.startsWith("/")) return true;
+    return visibleSections.some((s) => s.id === ir.split(":")[0]);
+  };
+
   const readOnly = Boolean(
     !isOwner && current.permission && !canEditSection(permissions, current.permission),
   );
@@ -838,6 +863,7 @@ function AdminPage() {
             <h1 className="text-2xl font-bold tracking-tight">{current.label}</h1>
             <p className="text-sm text-muted-foreground">{current.desc}</p>
           </div>
+          <BuscadorPanel visible={puedeIr} onIr={irA} />
           {AYUDA[section] && (
             <button
               type="button"
@@ -884,17 +910,7 @@ function AdminPage() {
                     icon: s.icon,
                     tema: TEMA_AVANZADO[s.id] ?? "Otros",
                   }))}
-                onIr={(ir) => {
-                  const [id, sub] = ir.split(":");
-                  const destino = visibleSections.find((s) => s.id === id);
-                  if (!destino) {
-                    toast.error("No tenés acceso a esa sección");
-                    return;
-                  }
-                  setPestania(sub);
-                  setSection(destino.id);
-                  window.scrollTo({ top: 0 });
-                }}
+                onIr={irA}
                 puedeComandera={puedeVerComandera}
                 comoSuperadmin={actingCompanyId !== null}
               />

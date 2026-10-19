@@ -19,6 +19,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { accessibleLocationIds, canView, companyIdOf, isOwner } from "@/lib/auth/scope";
 import { jornadaDe } from "@/lib/jornada";
 import { productosAgotados } from "@/lib/stock/control";
+import { numeroWhatsApp } from "@/lib/whatsapp";
 
 /**
  * Un paso para dejar el local listo para vender. Lo que importa para que un
@@ -182,12 +183,11 @@ export const getInicio = createServerFn({ method: "GET" })
     const modulos = { online: empresa.online, totem: empresa.totem, mesas: empresa.mesas };
     if (!dueno) return { empresa: empresa.nombre, modulos, hoy, agotados, link, pasos: null };
 
-    const locIds = (
-      await db
-        .select({ id: locations.id })
-        .from(locations)
-        .where(eq(locations.companyId, companyId))
-    ).map((l) => l.id);
+    const sucursalesEmpresa = await db
+      .select({ id: locations.id, phone: locations.phone, active: locations.active })
+      .from(locations)
+      .where(eq(locations.companyId, companyId));
+    const locIds = sucursalesEmpresa.map((l) => l.id);
 
     const [[prods], online, tramos, [mp], [cantTotems], [equipo], [cantMesas]] = await Promise.all([
       db
@@ -308,6 +308,17 @@ export const getInicio = createServerFn({ method: "GET" })
           detalle: "Hasta dónde llegás y cuánto cobrás. Si solo hacés retiro, salteá este paso.",
           listo: online.some((o) => o.delivery && o.lat !== null && tramos.length > 0),
           seccion: "online:entrega",
+          opcional: true,
+        },
+        {
+          id: "whatsapp",
+          titulo: "Cargá tu WhatsApp",
+          detalle:
+            "Es el teléfono de la sucursal: tus clientes te escriben desde el seguimiento del pedido con un toque.",
+          listo: sucursalesEmpresa
+            .filter((l) => l.active)
+            .every((l) => numeroWhatsApp(l.phone) !== null),
+          seccion: "empresa",
           opcional: true,
         },
       );

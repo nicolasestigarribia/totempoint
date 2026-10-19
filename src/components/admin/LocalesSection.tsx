@@ -1,3 +1,4 @@
+import { numeroWhatsApp } from "@/lib/whatsapp";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Plus, Pencil, Trash2, Loader2, MapPin } from "lucide-react";
@@ -328,14 +329,22 @@ export function LocalesSection({ panelClass }: { panelClass: string }) {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="local-phone">Teléfono</Label>
+              <Label htmlFor="local-phone">Teléfono / WhatsApp</Label>
               <Input
                 id="local-phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Teléfono"
+                placeholder="Ej: 223 555-1234"
+                inputMode="tel"
                 maxLength={40}
               />
+              <p className="text-xs text-muted-foreground">
+                {phone.trim() === ""
+                  ? "Con un celular acá, tus clientes te escriben por WhatsApp desde el seguimiento del pedido."
+                  : numeroWhatsApp(phone)
+                    ? "Listo: tus clientes ven un botón de WhatsApp y otro para llamarte."
+                    : "Con este número solo se ofrece llamar. Para WhatsApp poné el celular con código de área, ej: 223 555-1234."}
+              </p>
             </div>
             {editing && (
               <div className="flex items-center gap-2">
