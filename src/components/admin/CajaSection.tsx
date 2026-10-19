@@ -16,11 +16,12 @@ import {
   getCashClose,
   getMasVendidos,
   exportPedidos,
+  LIMITE_PLANILLA,
   type CashClose,
   type MasVendido,
 } from "@/lib/api/orders.functions";
 import { mensajeDeError } from "@/lib/error-message";
-import { DateRangeFilter, hoyIso } from "@/components/admin/DateRangeFilter";
+import { DateRangeFilter, hoyJornada } from "@/components/admin/DateRangeFilter";
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { aCsv, descargarArchivo } from "@/lib/planilla";
 
@@ -43,8 +44,8 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
   const [bajando, setBajando] = useState(false);
   const [masVendidos, setMasVendidos] = useState<MasVendido[]>([]);
 
-  const [desde, setDesde] = useState(hoyIso());
-  const [hasta, setHasta] = useState(hoyIso());
+  const [desde, setDesde] = useState(hoyJornada());
+  const [hasta, setHasta] = useState(hoyJornada());
   const [data, setData] = useState<CashClose | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -77,6 +78,11 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
     setBajando(true);
     try {
       const pedidos = await fetchPlanilla({ data: { desde, hasta } });
+      if (pedidos.length >= LIMITE_PLANILLA) {
+        toast.warning(
+          `Son muchos pedidos: la planilla trae los primeros ${LIMITE_PLANILLA.toLocaleString("es-AR")}. Elegí menos días para tenerlos todos.`,
+        );
+      }
       if (pedidos.length === 0) {
         toast.info("No hay pedidos en esas fechas");
         return;
@@ -175,6 +181,7 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DateRangeFilter
+            porJornada
             desde={desde}
             hasta={hasta}
             onChange={(d, h) => {

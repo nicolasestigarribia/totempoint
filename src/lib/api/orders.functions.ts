@@ -15,6 +15,7 @@ import {
   accessibleLocationIds,
   assertCanViewKitchen,
   assertCanOperateKitchen,
+  canView,
 } from "@/lib/auth/scope";
 import type { SessionUser } from "@/lib/auth/session";
 import { verificarPagoMP } from "@/lib/payments/verificar";
@@ -501,6 +502,7 @@ export const markOrderDispatched = createServerFn({ method: "POST" })
           eq(orders.id, data.orderId),
           isNull(orders.dispatchedAt),
           ne(orders.status, "cancelado"),
+          ne(orders.status, "entregado"),
         ),
       );
     return { ok: true };
@@ -903,10 +905,14 @@ export interface PedidoPlanilla {
   detalle: string;
 }
 
+/** Tope de filas de la planilla; con más, el panel avisa que vino cortada. */
+export const LIMITE_PLANILLA = 10_000;
+
 /**
  * Los pedidos de un rango de jornadas, uno por fila, para bajarlos a una
- * planilla (el contador, o el dueño que quiere hacer sus cuentas). Mismo
- * permiso y mismas sucursales que el cierre de caja.
+ * planilla (el contador, o el dueño que quiere hacer sus cuentas). Trae nombre,
+ * teléfono y dirección de cada cliente, así que pide ver "Ventas y caja": la
+ * cocina ve los pedidos del día, no la cartera de clientes.
  */
 export const exportPedidos = createServerFn({ method: "GET" })
   .middleware([requireCompany])
@@ -920,7 +926,7 @@ export const exportPedidos = createServerFn({ method: "GET" })
   )
   .handler(async ({ context, data }): Promise<PedidoPlanilla[]> => {
     const user = context.user as SessionUser;
-    assertCanViewKitchen(user);
+    if (!canView(user, "caja")) throw new Error("No tenés permiso para ver las ventas");
     const locs = await visibleLocations(user);
     if (locs.length === 0) return [];
 
@@ -956,7 +962,7 @@ export const exportPedidos = createServerFn({ method: "GET" })
         ),
       )
       .orderBy(orders.businessDate, orders.locationId, orders.orderNumber)
-      .limit(20_000);
+      .limit(LIMITE_PLANILLA);
     if (filas.length === 0) return [];
 
     // El detalle en una sola celda ("2x Muzza (Grande), 1x Coca"): alcanza para

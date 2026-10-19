@@ -13,8 +13,16 @@ export function isoDia(d: Date): string {
   ).padStart(2, "0")}`;
 }
 
-/** La jornada de hoy: de madrugada sigue siendo la de la noche anterior. */
 export function hoyIso(): string {
+  return isoDia(new Date());
+}
+
+/**
+ * La jornada de hoy: de madrugada sigue siendo la de la noche anterior. Es la
+ * que corresponde a pedidos y caja, que se agrupan por jornada; la auditoría y
+ * lo demás van por día calendario (`hoyIso`).
+ */
+export function hoyJornada(): string {
   return jornadaDe();
 }
 
@@ -31,23 +39,17 @@ function mostrar(s: string): string {
   });
 }
 
-function haceDias(n: number): string {
-  const d = desdeIso(hoyIso());
+function haceDias(hoy: string, n: number): string {
+  const d = desdeIso(hoy);
   d.setDate(d.getDate() - n);
   return isoDia(d);
 }
 
-const ATAJOS: { label: string; rango: () => [string, string] }[] = [
-  { label: "Hoy", rango: () => [hoyIso(), hoyIso()] },
-  { label: "Ayer", rango: () => [haceDias(1), haceDias(1)] },
-  { label: "7 días", rango: () => [haceDias(6), hoyIso()] },
-  {
-    label: "Este mes",
-    rango: () => {
-      const d = new Date();
-      return [isoDia(new Date(d.getFullYear(), d.getMonth(), 1)), hoyIso()];
-    },
-  },
+const ATAJOS: { label: string; rango: (hoy: string) => [string, string] }[] = [
+  { label: "Hoy", rango: (hoy) => [hoy, hoy] },
+  { label: "Ayer", rango: (hoy) => [haceDias(hoy, 1), haceDias(hoy, 1)] },
+  { label: "7 días", rango: (hoy) => [haceDias(hoy, 6), hoy] },
+  { label: "Este mes", rango: (hoy) => [`${hoy.slice(0, 8)}01`, hoy] },
 ];
 
 /**
@@ -115,18 +117,22 @@ export function DateRangeFilter({
   desde,
   hasta,
   onChange,
-  max = hoyIso(),
+  porJornada = false,
+  max = porJornada ? hoyJornada() : hoyIso(),
 }: {
   desde: string;
   hasta: string;
   onChange: (desde: string, hasta: string) => void;
+  /** Los atajos cuentan jornadas (corte a las 6) y no días calendario. */
+  porJornada?: boolean;
   max?: string;
 }) {
+  const hoy = porJornada ? hoyJornada() : hoyIso();
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex flex-wrap gap-1">
         {ATAJOS.map((a) => {
-          const [d, h] = a.rango();
+          const [d, h] = a.rango(hoy);
           const activo = d === desde && h === hasta;
           return (
             <button

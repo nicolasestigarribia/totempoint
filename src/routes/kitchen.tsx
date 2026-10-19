@@ -567,11 +567,21 @@ function Kitchen() {
       // Sin almacenamiento queda apagado.
     }
   }, []);
-  const imprimirPedidos = useCallback((lista: KitchenOrder[]) => {
-    if (lista.length === 0) return;
-    imprimirHtml(comandasHtml(lista));
-    anotarImpresos(lista.map((o) => o.id));
+  // También en memoria: si el navegador no deja guardar, la lista guardada
+  // vuelve vacía y sin esto se reimprimiría todo en cada refresco.
+  const impresosRef = useRef<Set<number>>(new Set());
+  const marcarImpresos = useCallback((ids: number[]) => {
+    for (const id of ids) impresosRef.current.add(id);
+    anotarImpresos(ids);
   }, []);
+  const imprimirPedidos = useCallback(
+    (lista: KitchenOrder[]) => {
+      if (lista.length === 0) return;
+      imprimirHtml(comandasHtml(lista));
+      marcarImpresos(lista.map((o) => o.id));
+    },
+    [marcarImpresos],
+  );
 
   // El navegador no deja sonar nada hasta el primer toque en la página: ese
   // toque, sea donde sea, destraba el sonido.
@@ -716,6 +726,7 @@ function Kitchen() {
         !esPorAceptar(o) &&
         (o.status === "recibido" || o.status === "preparacion") &&
         !(o.id in impresos) &&
+        !impresosRef.current.has(o.id) &&
         ahoraMs - llegadaACocina(o) < IMPRIMIR_HASTA_MS,
     );
     imprimirPedidos(nuevos);
@@ -730,7 +741,7 @@ function Kitchen() {
     }
     if (nuevo) {
       // Lo que ya está en pantalla no se imprime de golpe: desde ahora, los nuevos.
-      anotarImpresos(orders.map((o) => o.id));
+      marcarImpresos(orders.map((o) => o.id));
       toast.success("Desde ahora cada pedido nuevo sale impreso", {
         description:
           "Para que imprima sin preguntar, abrí Chrome con --kiosk-printing y dejá la térmica como impresora predeterminada.",
