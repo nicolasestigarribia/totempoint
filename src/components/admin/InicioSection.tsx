@@ -107,7 +107,11 @@ export function InicioSection({
           <Dato icono={<Receipt className="h-5 w-5" />} titulo="Pedidos hoy">
             {datos.hoy.pedidos}
           </Dato>
-          <Dato icono={<Wallet className="h-5 w-5" />} titulo="Vendido hoy">
+          <Dato
+            icono={<Wallet className="h-5 w-5" />}
+            titulo="Vendido hoy"
+            accion={<ContraSemanaPasada hoy={datos.hoy.vendido} antes={datos.hoy.semanaPasada} />}
+          >
             {formatPrice(datos.hoy.vendido)}
           </Dato>
           <Dato
@@ -276,6 +280,28 @@ export function InicioSection({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Cómo viene el día contra el mismo día de la semana pasada a esta hora. Un
+ * número solo ("$85.000") no dice si es mucho o poco; comparado, sí.
+ */
+function ContraSemanaPasada({ hoy, antes }: { hoy: number; antes: number | null }) {
+  if (antes === null) return null;
+  const dia = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString("es-AR", {
+    weekday: "long",
+  });
+  const cambio = Math.round(((hoy - antes) / antes) * 100);
+  const sube = cambio >= 0;
+  return (
+    <p
+      className={`text-xs font-bold ${sube ? "text-emerald-400" : "text-amber-400"}`}
+      title={`El ${dia} pasado, a esta hora, llevabas ${formatPrice(antes)}`}
+    >
+      {sube ? "▲" : "▼"} {Math.abs(cambio)}%{" "}
+      <span className="font-normal text-muted-foreground">vs. el {dia} pasado</span>
+    </p>
   );
 }
 

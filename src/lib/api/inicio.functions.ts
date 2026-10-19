@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companies,
@@ -40,7 +40,16 @@ export interface Inicio {
   /** Lo que contrató: la bienvenida habla solo de eso. */
   modulos: { online: boolean; totem: boolean; mesas: boolean };
   /** Lo de hoy en las sucursales que ve. Null si no tiene permiso de ver pedidos. */
-  hoy: { pedidos: number; vendido: number; porAceptar: number } | null;
+  hoy: {
+    pedidos: number;
+    vendido: number;
+    porAceptar: number;
+    /**
+     * Lo vendido el mismo día de la semana pasada hasta esta misma hora: la
+     * comparación justa a mitad del día. Null si ese día no hubo ventas.
+     */
+    semanaPasada: number | null;
+  } | null;
   /** El link para vender online (la portada), si la empresa tiene ese módulo. */
   link: string | null;
   /** Lo que falta para vender. Solo para el dueño. */
@@ -81,7 +90,7 @@ export const getInicio = createServerFn({ method: "GET" })
     let hoy: Inicio["hoy"] = null;
     if (dueno || canView(user, "comandera") || canView(user, "caja")) {
       const locs = await accessibleLocationIds(user);
-      hoy = { pedidos: 0, vendido: 0, porAceptar: 0 };
+      hoy = { pedidos: 0, vendido: 0, porAceptar: 0, semanaPasada: null };
       if (locs.length > 0) {
         const filas = await db
           .select({
@@ -109,6 +118,21 @@ export const getInicio = createServerFn({ method: "GET" })
             o.paymentStatus === "pendiente";
           if (o.channel !== "totem" && o.acceptedAt === null && !esperandoPago) hoy.porAceptar++;
         }
+
+        const haceUnaSemana = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const [antes] = await db
+          .select({ vendido: sql<string | null>`sum(${orders.total})` })
+          .from(orders)
+          .where(
+            and(
+              inArray(orders.locationId, locs),
+              eq(orders.businessDate, jornadaDe(haceUnaSemana)),
+              ne(orders.status, "cancelado"),
+              lte(orders.createdAt, haceUnaSemana),
+            ),
+          );
+        const vendidoAntes = Number(antes?.vendido ?? 0);
+        hoy.semanaPasada = vendidoAntes > 0 ? vendidoAntes : null;
       }
     }
 
