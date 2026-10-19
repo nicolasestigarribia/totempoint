@@ -629,6 +629,9 @@ function InfoDelLocal({ menu, horario }: { menu: OnlineMenu; horario: EstadoHora
   const minimo = Number(menu.minOrder);
   const conRegalo = menu.products.find((p) => p.regalo)?.regalo;
   const datos = [
+    // Lo primero que pregunta alguien con hambre: en cuánto lo tengo.
+    menu.demoraHoy !== null &&
+      horario.abierto && { icono: Clock, texto: `Hoy tarda unos ${menu.demoraHoy} min` },
     menu.delivery && {
       icono: Bike,
       texto:

@@ -19,6 +19,7 @@ import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { linkWhatsApp } from "@/lib/whatsapp";
+import { horaArgentina } from "@/lib/jornada";
 import { formatearDistancia } from "@/lib/delivery";
 import { AccionesPedido } from "@/components/online/AccionesPedido";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
@@ -55,8 +56,7 @@ const REFRESCO_MS = 15_000;
 /** Pasado este tiempo sin que el local lo acepte, se le avisa al cliente. */
 const DEMORA_CONFIRMACION_MS = 10 * 60 * 1000;
 
-const horaDe = (d: Date) =>
-  d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
+const horaDe = horaArgentina;
 
 /**
  * El seguimiento del pedido online. El cliente la deja abierta en el celular:

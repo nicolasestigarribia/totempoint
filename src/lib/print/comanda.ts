@@ -14,6 +14,7 @@
  */
 
 import { formatearNumeroPedido } from "@/lib/order-number";
+import { horaArgentina } from "@/lib/jornada";
 
 export interface ComandaItem {
   productName: string;
@@ -55,13 +56,7 @@ const pesos = (n: number) =>
   `$${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(Math.round(n))}`;
 
 /** La hora en Argentina: la comandera puede estar en cualquier zona, el local no. */
-const hora = (iso: string) =>
-  new Date(iso).toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-    timeZone: "America/Argentina/Buenos_Aires",
-  });
+const hora = (iso: string) => horaArgentina(iso);
 
 /** Dónde va el pedido, en mayúsculas: lo primero que se lee. */
 export function destinoComanda(p: ComandaPedido): string {

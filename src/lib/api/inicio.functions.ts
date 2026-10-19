@@ -18,6 +18,7 @@ import { requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { accessibleLocationIds, canView, companyIdOf, isOwner } from "@/lib/auth/scope";
 import { jornadaDe } from "@/lib/jornada";
+import { productosAgotados } from "@/lib/stock/control";
 
 /**
  * Un paso para dejar el local listo para vender. Lo que importa para que un
@@ -50,6 +51,12 @@ export interface Inicio {
      */
     semanaPasada: number | null;
   } | null;
+  /**
+   * Lo que se agotó y por eso no se está mostrando en el menú, por sucursal.
+   * Se esconde solo, así que sin este aviso el dueño no se entera. Null si no
+   * ve el stock.
+   */
+  agotados: { producto: string; sucursal: string }[] | null;
   /** El link para vender online (la portada), si la empresa tiene ese módulo. */
   link: string | null;
   /** Lo que falta para vender. Solo para el dueño. */
@@ -138,8 +145,42 @@ export const getInicio = createServerFn({ method: "GET" })
 
     const link = empresa.online ? `/${empresa.alias || `p/${empresa.slug}`}` : null;
 
+    let agotados: Inicio["agotados"] = null;
+    if (canView(user, "stock")) {
+      agotados = [];
+      const locs = await accessibleLocationIds(user);
+      const [sucursales, activos] = await Promise.all([
+        locs.length
+          ? db
+              .select({ id: locations.id, nombre: locations.name })
+              .from(locations)
+              .where(and(inArray(locations.id, locs), eq(locations.active, true)))
+          : [],
+        db
+          .select({ id: products.id, nombre: products.name })
+          .from(products)
+          .where(and(eq(products.companyId, companyId), eq(products.active, true))),
+      ]);
+      if (activos.length > 0) {
+        const porSucursal = await Promise.all(
+          sucursales.map(async (s) => ({
+            s,
+            ids: await productosAgotados(
+              s.id,
+              activos.map((p) => p.id),
+            ),
+          })),
+        );
+        for (const { s, ids } of porSucursal) {
+          for (const p of activos) {
+            if (ids.has(p.id)) agotados.push({ producto: p.nombre, sucursal: s.nombre });
+          }
+        }
+      }
+    }
+
     const modulos = { online: empresa.online, totem: empresa.totem, mesas: empresa.mesas };
-    if (!dueno) return { empresa: empresa.nombre, modulos, hoy, link, pasos: null };
+    if (!dueno) return { empresa: empresa.nombre, modulos, hoy, agotados, link, pasos: null };
 
     const locIds = (
       await db
@@ -310,5 +351,5 @@ export const getInicio = createServerFn({ method: "GET" })
       },
     );
 
-    return { empresa: empresa.nombre, modulos, hoy, link, pasos };
+    return { empresa: empresa.nombre, modulos, hoy, agotados, link, pasos };
   });

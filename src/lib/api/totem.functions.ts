@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { eq, and, ne, asc, inArray, isNull, sql } from "drizzle-orm";
+import { eq, and, ne, asc, inArray, isNull, isNotNull, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companies,
@@ -2028,6 +2028,29 @@ export interface OnlineMenu extends TotemMenu {
   horarios: Horarios | null;
   /** Cuántas sucursales de la empresa toman pedidos online: con más de una, se ofrece cambiar. */
   sucursalesOnline: number;
+  /**
+   * La demora que el local viene prometiendo hoy, en minutos (promedio de lo
+   * aceptado en las últimas 2 horas, redondeado a 5). Null sin pedidos
+   * recientes: un número inventado es peor que no decir nada.
+   */
+  demoraHoy: number | null;
+}
+
+/** Lo que el local viene prometiendo al aceptar, para mostrarlo antes de pedir. */
+async function demoraReciente(locationId: number): Promise<number | null> {
+  const [fila] = await db
+    .select({ promedio: sql<string | null>`avg(${orders.etaMinutes})` })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.locationId, locationId),
+        eq(orders.channel, "online"),
+        isNotNull(orders.etaMinutes),
+        gte(orders.acceptedAt, new Date(Date.now() - 2 * 60 * 60 * 1000)),
+      ),
+    );
+  const promedio = Number(fila?.promedio ?? 0);
+  return promedio > 0 ? Math.max(5, Math.round(promedio / 5) * 5) : null;
 }
 
 const onlineInput = {
@@ -2264,6 +2287,7 @@ export const getOnlineMenu = createServerFn({ method: "GET" })
       tiers: r.delivery ? r.tiers : [],
       horarios: r.horarios,
       sucursalesOnline: (await sucursalesOnlineDe(r.company.id)).length,
+      demoraHoy: await demoraReciente(r.location.id),
     };
   });
 
@@ -2945,6 +2969,7 @@ export const getMesaMenu = createServerFn({ method: "GET" })
       tiers: [],
       horarios: null,
       sucursalesOnline: 0,
+      demoraHoy: null,
       mesa: r.mesa.number,
     };
   });

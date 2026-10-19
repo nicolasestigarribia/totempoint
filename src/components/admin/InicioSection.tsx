@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Bell,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QrConLogo } from "@/components/QrConLogo";
@@ -132,6 +133,10 @@ export function InicioSection({
             {datos.hoy.porAceptar}
           </Dato>
         </div>
+      )}
+
+      {datos.agotados && datos.agotados.length > 0 && (
+        <AvisoAgotados agotados={datos.agotados} onIr={() => onIr("stock")} />
       )}
 
       <div className="grid items-start gap-6 lg:grid-cols-5">
@@ -280,6 +285,63 @@ export function InicioSection({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Lo que se agotó deja de mostrarse solo en el menú, y el dueño no se entera
+ * hasta que un cliente pregunta. Acá lo ve al entrar.
+ */
+function AvisoAgotados({
+  agotados,
+  onIr,
+}: {
+  agotados: { producto: string; sucursal: string }[];
+  onIr: () => void;
+}) {
+  const variasSucursales = new Set(agotados.map((a) => a.sucursal)).size > 1;
+  const visibles = agotados.slice(0, 12);
+  return (
+    <section className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 font-bold text-amber-300">
+            <AlertTriangle className="h-5 w-5" />
+            {agotados.length === 1
+              ? "1 producto agotado no se está mostrando"
+              : `${agotados.length} productos agotados no se están mostrando`}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Se esconden solos del menú cuando no hay stock. Si ya repusiste, cargalo y vuelven.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onIr}
+          className="h-10 rounded-xl border border-amber-500/50 px-4 text-sm font-bold text-amber-200 transition hover:bg-amber-500/10"
+        >
+          Cargar stock
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {visibles.map((a) => (
+          <span
+            key={`${a.sucursal}-${a.producto}`}
+            className="rounded-full bg-card/60 px-3 py-1 text-xs font-bold"
+          >
+            {a.producto}
+            {variasSucursales && (
+              <span className="font-normal text-muted-foreground"> · {a.sucursal}</span>
+            )}
+          </span>
+        ))}
+        {agotados.length > visibles.length && (
+          <span className="px-2 py-1 text-xs text-muted-foreground">
+            y {agotados.length - visibles.length} más
+          </span>
+        )}
+      </div>
+    </section>
   );
 }
 

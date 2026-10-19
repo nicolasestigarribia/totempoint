@@ -58,6 +58,7 @@ import { canEditSection } from "@/lib/auth/permissions";
 import { PantallaCarga } from "@/components/PantallaCarga";
 import { comandasHtml } from "@/lib/print/comanda";
 import { linkWhatsApp } from "@/lib/whatsapp";
+import { horaArgentina } from "@/lib/jornada";
 import { imprimirHtml } from "@/lib/print/navegador";
 
 export const Route = createFileRoute("/kitchen")({
@@ -215,6 +216,29 @@ const mapaUrl = (o: KitchenOrder) =>
  * El navegador no deja sonar nada hasta que alguien toca la pantalla, así que
  * el contexto se crea y se destraba con el primer toque.
  */
+/**
+ * Un "ding" corto cuando entra un pedido nuevo a las columnas (del tótem, o
+ * de mesa aceptado solo). No es la sirena de "por aceptar": ese pedido no
+ * espera a nadie, solo hay que enterarse de que llegó.
+ */
+function campanita(ctx: AudioContext | null) {
+  if (!ctx || ctx.state !== "running") return;
+  let t = ctx.currentTime;
+  for (const f of [1047, 1568]) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = f;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.7, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.5);
+    t += 0.14;
+  }
+}
+
 function pitar(ctx: AudioContext | null) {
   if (!ctx || ctx.state !== "running") return;
   const compresor = ctx.createDynamicsCompressor();
@@ -532,6 +556,9 @@ function Kitchen() {
   // cancelado porque lo canceló el cliente, quien atiende tiene que enterarse:
   // la tarjeta desaparece de "Por aceptar" y sin aviso parecería un error.
   const esperandoRef = useRef<Set<number>>(new Set());
+  // Los que ya estaban en las columnas: un id nuevo ahí es un pedido que
+  // acaba de llegar a la cocina. Null hasta la primera carga, que no suena.
+  const enColumnasRef = useRef<Set<number> | null>(null);
   // Aviso sonoro de pedidos online por aceptar. Quien los atiende está con el
   // celular en la mano haciendo otra cosa: si no suena, el pedido espera.
   const audioRef = useRef<AudioContext | null>(null);
@@ -637,7 +664,17 @@ function Kitchen() {
           );
         }
       }
+      // Uno que estaba "por aceptar" y alguien aceptó no suena: ya lo vieron.
+      const estabanEsperando = esperandoRef.current;
       esperandoRef.current = new Set(nuevos.filter(esPorAceptar).map((o) => o.id));
+      const enColumnas = new Set(
+        nuevos.filter((o) => !esPorAceptar(o) && o.status === "recibido").map((o) => o.id),
+      );
+      const antes = enColumnasRef.current;
+      if (antes && [...enColumnas].some((id) => !antes.has(id) && !estabanEsperando.has(id))) {
+        campanita(audioRef.current);
+      }
+      enColumnasRef.current = new Set([...(antes ?? []), ...enColumnas]);
       setOrders(nuevos);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudieron cargar los pedidos");
@@ -1363,11 +1400,7 @@ function Kitchen() {
                             o.dispatchedAt && (
                               <p className="mt-3 flex items-center gap-2 rounded-xl bg-sky-500/10 px-3 py-2 text-xs font-bold text-sky-300">
                                 <Bike className="h-4 w-4" /> En camino desde las{" "}
-                                {new Date(o.dispatchedAt).toLocaleTimeString("es-AR", {
-                                  hourCycle: "h23",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
+                                {horaArgentina(o.dispatchedAt)}
                               </p>
                             )}
                           {/* Un envío tiene un paso más, que el cliente sigue

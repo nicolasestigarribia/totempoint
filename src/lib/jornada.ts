@@ -25,3 +25,19 @@ export function jornadaDe(fecha: Date = new Date()): string {
     day: "2-digit",
   }).format(corrida);
 }
+
+const FORMATO_HORA = new Intl.DateTimeFormat("es-AR", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: ZONA,
+});
+
+/**
+ * "21:30" en hora argentina. Las páginas del cliente se dibujan primero en el
+ * servidor, que corre en UTC: sin la zona, el seguimiento mostraba 00:30 y
+ * después saltaba a 21:30 al cargar en el celular.
+ */
+export function horaArgentina(fecha: Date | string): string {
+  return FORMATO_HORA.format(typeof fecha === "string" ? new Date(fecha) : fecha);
+}

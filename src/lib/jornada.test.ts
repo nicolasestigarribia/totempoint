@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { jornadaDe } from "./jornada";
+import { horaArgentina, jornadaDe } from "./jornada";
 
 // Las horas van en UTC, como las ve el servidor; Argentina es UTC-3.
 describe("jornadaDe", () => {
@@ -21,5 +21,12 @@ describe("jornadaDe", () => {
 
   test("cambio de mes y de año", () => {
     expect(jornadaDe(new Date("2027-01-01T04:00:00Z"))).toBe("2026-12-31");
+  });
+});
+
+describe("horaArgentina", () => {
+  test("muestra la hora de acá aunque el servidor esté en UTC", () => {
+    expect(horaArgentina(new Date("2026-10-20T00:30:00Z"))).toBe("21:30");
+    expect(horaArgentina("2026-10-19T12:05:00.000Z")).toBe("09:05");
   });
 });
