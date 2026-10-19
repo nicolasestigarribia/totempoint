@@ -73,6 +73,7 @@ import { SalonSection } from "@/components/admin/SalonSection";
 import { InicioSection } from "@/components/admin/InicioSection";
 import { AvanzadoSection, type HerramientaAvanzada } from "@/components/admin/AvanzadoSection";
 import { ImageUploadField, LADO_MAXIMO } from "@/components/admin/ImageUploadField";
+import { guardarMarca, useFaviconMarca } from "@/lib/marca";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -520,6 +521,8 @@ function AdminPage() {
         return;
       }
       setBusiness(biz);
+      // La próxima recarga ya sale con su logo en la pantalla de carga.
+      guardarMarca({ nombre: biz.name, logo: biz.logo_url });
       setName(biz.name ?? "");
       setLogoUrl(biz.logo_url ?? "");
       setPrimaryColor(biz.primary_color ?? "#000000");
@@ -540,6 +543,7 @@ function AdminPage() {
   };
 
   const handleLogout = async () => {
+    guardarMarca(null);
     await doLogout();
     toast.success("Sesión cerrada");
     navigate({ to: "/login", replace: true });
@@ -561,6 +565,11 @@ function AdminPage() {
   };
 
   const isOwner = roles.includes("owner") || roles.includes("superadmin");
+  useFaviconMarca(business?.logo_url);
+  // La pestaña dice el nombre del negocio, no "Totempoint".
+  useEffect(() => {
+    if (business?.name) document.title = `${business.name} · Panel`;
+  }, [business?.name]);
   const visibleSections = [...SECTIONS]
     .sort((x, y) => ORDEN_NAV.indexOf(x.id) - ORDEN_NAV.indexOf(y.id))
     .filter((s) => {

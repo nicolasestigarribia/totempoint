@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { useFaviconMarca } from "@/lib/marca";
 
 /**
  * La barra de arriba del pedido online: la marca del comercio y, fuera del
@@ -28,6 +29,7 @@ export function OnlineHeader({
   /** Con varias sucursales, el nombre de la sucursal abre la hoja para elegir otra. */
   onCambiarSucursal?: () => void;
 }) {
+  useFaviconMarca(logoUrl);
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">
       <div className="mx-auto flex h-16 w-full max-w-2xl items-center gap-3 px-4">

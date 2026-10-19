@@ -15,6 +15,7 @@ import {
   estiloBoton,
   type TamanioBoton,
 } from "@/components/totem/portada-partes";
+import { useFaviconMarca } from "@/lib/marca";
 
 function StartButton({
   data,
@@ -194,6 +195,7 @@ function Split({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
  * sin llevar a ningún lado, porque ahí todavía no hay un tótem al que ir.
  */
 export function TotemHome({ data, nav }: { data: TotemHomeData; nav: TotemNav | null }) {
+  useFaviconMarca(data.logoUrl);
   const plantilla =
     data.template === "completo" ? (
       <Completo data={data} nav={nav} />

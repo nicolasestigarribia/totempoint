@@ -360,7 +360,7 @@ function SuperadminPage() {
   }, [sidebarOpen]);
 
   if (loading) {
-    return <PantallaCarga />;
+    return <PantallaCarga marca={false} />;
   }
 
   const current = SECTIONS.find((s) => s.id === section)!;

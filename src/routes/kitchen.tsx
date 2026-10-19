@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
+import { getMyBusiness } from "@/lib/api/business.functions";
+import { guardarMarca, useFaviconMarca } from "@/lib/marca";
 import {
   listKitchenOrders,
   setOrderStatus,
@@ -514,6 +516,22 @@ function anotarImpresos(ids: number[]) {
 function Kitchen() {
   const navigate = useNavigate();
   const doMe = useServerFn(me);
+  const fetchBusiness = useServerFn(getMyBusiness);
+  // La marca de la empresa en la pestaña y arriba: la comandera es del local.
+  const [marca, setMarca] = useState<{ nombre: string; logo: string | null } | null>(null);
+  useEffect(() => {
+    fetchBusiness()
+      .then((b) => {
+        if (!b) return;
+        const m = { nombre: b.name, logo: b.logo_url };
+        setMarca(m);
+        guardarMarca(m);
+      })
+      .catch(() => {
+        // Sin la marca la comandera funciona igual.
+      });
+  }, [fetchBusiness]);
+  useFaviconMarca(marca?.logo);
   const fetchOrders = useServerFn(listKitchenOrders);
   const updateStatus = useServerFn(setOrderStatus);
   const updatePaid = useServerFn(setOrderPaid);
@@ -985,6 +1003,13 @@ function Kitchen() {
                 <ArrowLeft className="h-4 w-4" />
                 <span className="hidden sm:inline">Panel</span>
               </a>
+            )}
+            {marca?.logo && (
+              <img
+                src={marca.logo}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded-full bg-white object-cover"
+              />
             )}
             <h1 className="font-display text-3xl md:text-4xl">Cocina</h1>
             <p className="text-sm text-muted-foreground">

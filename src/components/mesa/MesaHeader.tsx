@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { useFaviconMarca } from "@/lib/marca";
 
 /**
  * La barra de arriba del pedido en mesa: la marca del comercio y, bien a la
@@ -27,6 +28,7 @@ export function MesaHeader({
   /** El logo vuelve a la portada de la mesa. */
   onInicio?: () => void;
 }) {
+  useFaviconMarca(logoUrl);
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background">
       <div className="mx-auto flex h-16 w-full max-w-2xl items-center gap-3 px-4">

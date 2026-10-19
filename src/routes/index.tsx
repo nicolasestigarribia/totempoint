@@ -29,5 +29,5 @@ function Home() {
 
   if (modo === "setup") return <TotemSetupScreen />;
 
-  return <PantallaCarga />;
+  return <PantallaCarga marca={false} />;
 }

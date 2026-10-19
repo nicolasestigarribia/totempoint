@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Store } from "lucide-react";
 import { TotemPasos, type PasoTotem } from "@/components/totem/TotemPasos";
 import type { TotemNav } from "@/lib/totem-nav";
+import { useFaviconMarca } from "@/lib/marca";
 
 /**
  * Barra de arriba del tótem: marca y vuelta atrás, nada más.
@@ -59,6 +60,7 @@ export function TotemTopBar({
   /** En qué paso del pedido está. Sin esto no se muestran los pasos. */
   paso?: PasoTotem;
 }) {
+  useFaviconMarca(logoUrl);
   return (
     <header
       // Pegada arriba: en un celular la lista de productos es larga y el carrito

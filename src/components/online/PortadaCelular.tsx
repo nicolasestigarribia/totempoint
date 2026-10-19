@@ -9,6 +9,7 @@ import {
   claseBoton,
   estiloBoton,
 } from "@/components/totem/portada-partes";
+import { useFaviconMarca } from "@/lib/marca";
 
 /** La pastilla sobre la foto: "Abierto · hasta las 20:00". */
 export interface EstadoPortada {
@@ -42,6 +43,7 @@ export function PortadaCelular({
   onPedir?: () => void;
   onSoloVer?: () => void;
 }) {
+  useFaviconMarca(datos.logoUrl);
   const accent = acentoDe(datos);
   const conFoto = !!datos.heroImageUrl;
   // Sin título cargado, el título grande es el nombre de la empresa. También
