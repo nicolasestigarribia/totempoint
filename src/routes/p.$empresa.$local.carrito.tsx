@@ -28,6 +28,7 @@ import {
 import { CargaMarca } from "@/components/CargaMarca";
 import { mensajeDeError } from "@/lib/error-message";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
+import { SugerenciasCarrito } from "@/components/online/SugerenciasCarrito";
 
 export const Route = createFileRoute("/p/$empresa/$local/carrito")({
   loader: ({ params }) => getOnlineMenuCached(params.empresa, params.local),
@@ -464,6 +465,13 @@ function CarritoOnlinePage() {
         >
           <Plus className="h-4 w-4" /> Agregar algo más
         </Link>
+
+        <SugerenciasCarrito
+          cartKey={cartKey}
+          categorias={menu.categories}
+          productos={menu.products}
+          accent={accent}
+        />
 
         {/* ¿Cómo lo querés? */}
         <Bloque titulo="¿Cómo lo querés?">

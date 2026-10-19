@@ -20,15 +20,23 @@ import { formatearNumeroPedido } from "@/lib/order-number";
 import { formatearDistancia } from "@/lib/delivery";
 import { AccionesPedido } from "@/components/online/AccionesPedido";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
+import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
 
 export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
   loader: ({ params }) =>
-    getOnlineOrder({ data: { empresa: params.empresa, local: params.local, token: params.token } }),
+    conUltimoEstado(params.token, () =>
+      getOnlineOrder({
+        data: { empresa: params.empresa, local: params.local, token: params.token },
+      }),
+    ),
   head: ({ loaderData }) => ({
     meta: [
       {
         title: loaderData
-          ? `Pedido ${formatearNumeroPedido(loaderData.businessDate, loaderData.orderNumber)}`
+          ? tituloPedido(
+              loaderData,
+              `Pedido ${formatearNumeroPedido(loaderData.businessDate, loaderData.orderNumber)}`,
+            )
           : "Tu pedido",
       },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -75,6 +83,7 @@ function SeguimientoPage() {
   }, [router, terminado, esperandoPago]);
 
   const numero = formatearNumeroPedido(pedido.businessDate, pedido.orderNumber);
+  useAvisoPedido(pedido, `Pedido ${numero}`);
 
   return (
     <div className="flex min-h-svh flex-col bg-background">

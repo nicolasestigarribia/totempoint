@@ -15,13 +15,20 @@ import { OnlineError } from "@/components/online/OnlineError";
 import { MesaHeader } from "@/components/mesa/MesaHeader";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
+import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
 
 export const Route = createFileRoute("/m/$token/pedido/$tracking")({
   loader: ({ params }) =>
-    getMesaOrder({ data: { token: params.token, tracking: params.tracking } }),
-  head: () => ({
+    conUltimoEstado(params.tracking, () =>
+      getMesaOrder({ data: { token: params.token, tracking: params.tracking } }),
+    ),
+  head: ({ loaderData }) => ({
     meta: [
-      { title: "Tu pedido" },
+      {
+        title: loaderData
+          ? tituloPedido(loaderData, `Pedido #${loaderData.orderNumber}`)
+          : "Tu pedido",
+      },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
     ],
   }),
@@ -52,6 +59,7 @@ function SeguimientoMesaPage() {
 
   const terminado = pedido.status === "entregado" || pedido.status === "cancelado";
   const esperandoPago = pedido.pagarEn !== null;
+  useAvisoPedido(pedido, `Pedido #${pedido.orderNumber}`);
 
   useEffect(() => {
     if (terminado) return;

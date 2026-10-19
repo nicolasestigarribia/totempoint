@@ -23,6 +23,7 @@ import {
 import { CargaMarca } from "@/components/CargaMarca";
 import { mensajeDeError } from "@/lib/error-message";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
+import { SugerenciasCarrito } from "@/components/online/SugerenciasCarrito";
 
 export const Route = createFileRoute("/m/$token/carrito")({
   loader: ({ params }) => getMesaMenuCached(params.token),
@@ -204,6 +205,13 @@ function CarritoMesaPage() {
         >
           <Plus className="h-4 w-4" /> Agregar algo más
         </Link>
+
+        <SugerenciasCarrito
+          cartKey={cartKey}
+          categorias={menu.categories}
+          productos={menu.products}
+          accent={accent}
+        />
 
         <Bloque titulo="¿Cómo pagás?">
           <div className="grid grid-cols-2 gap-2">

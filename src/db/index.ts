@@ -39,5 +39,40 @@ const pool =
   });
 if (process.env.NODE_ENV !== "production") global_.__totempointPool = pool;
 
+// Una conexión del pool puede estar muerta sin que el pool lo sepa: MySQL la
+// cerró, se reinició, o la máquina estuvo suspendida. La primera consulta que
+// la toma falla, el pool la descarta, y la siguiente anda. Para que ese primer
+// cliente no vea un error, una LECTURA que falla por conexión cortada se
+// reintenta una vez. Las escrituras no: si la conexión se cayó después de
+// guardar, reintentar duplicaría el pedido.
+const CONEXION_CORTADA = new Set([
+  "PROTOCOL_CONNECTION_LOST",
+  "ECONNRESET",
+  "EPIPE",
+  "ETIMEDOUT",
+  "PROTOCOL_SEQUENCE_TIMEOUT",
+]);
+type ConReintento = mysql.Pool & { __conReintento?: boolean };
+const conReintento = pool as ConReintento;
+if (!conReintento.__conReintento) {
+  conReintento.__conReintento = true;
+  for (const metodo of ["query", "execute"] as const) {
+    const original = pool[metodo].bind(pool) as (...args: unknown[]) => Promise<unknown>;
+    (pool as unknown as Record<string, unknown>)[metodo] = async (...args: unknown[]) => {
+      try {
+        return await original(...args);
+      } catch (err) {
+        const codigo = (err as { code?: string }).code ?? "";
+        const sentencia =
+          typeof args[0] === "string" ? args[0] : ((args[0] as { sql?: string })?.sql ?? "");
+        if (CONEXION_CORTADA.has(codigo) && /^\s*(select|with)\b/i.test(sentencia)) {
+          return original(...args);
+        }
+        throw err;
+      }
+    };
+  }
+}
+
 export const db = drizzle(pool, { schema, mode: "default" });
 export { schema };
