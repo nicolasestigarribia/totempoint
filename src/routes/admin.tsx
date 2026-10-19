@@ -1,4 +1,4 @@
-import { BuscadorPanel } from "@/components/admin/BuscadorPanel";
+import { BarraBuscar, BuscadorPanel } from "@/components/admin/BuscadorPanel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -734,6 +734,11 @@ function AdminPage() {
             la pantalla de un celular, y sin esto el gesto se lo comía la
             página de atrás. overscroll-contain evita que al llegar al final
             el deslizamiento siga en el contenido de abajo. */}
+        {/* El buscador arriba de todo, con forma de campo para escribir: con
+            un botón chico en una esquina, nadie lo encontraba. */}
+        <div className="px-3 pt-3">
+          <BarraBuscar />
+        </div>
         <nav className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-3">
           {NAV_GROUPS.map((g) => {
             const items = visibleSections.filter((s) => enNav(s) && s.group === g.id);

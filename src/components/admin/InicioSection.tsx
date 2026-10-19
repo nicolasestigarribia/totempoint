@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { QrConLogo } from "@/components/QrConLogo";
 import { BienvenidaPanel } from "@/components/admin/BienvenidaPanel";
+import { BarraBuscar } from "@/components/admin/BuscadorPanel";
 import { getInicio, type Inicio } from "@/lib/api/inicio.functions";
 import { mensajeDeError } from "@/lib/error-message";
 import { formatPrice } from "@/lib/totem-cart";
@@ -93,6 +94,7 @@ export function InicioSection({
 
   return (
     <div className="space-y-6">
+      <BarraBuscar grande />
       {datos.pasos && (
         <BienvenidaPanel
           abierta={bienvenida}
