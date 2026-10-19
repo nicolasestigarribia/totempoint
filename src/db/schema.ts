@@ -724,6 +724,9 @@ export const orders = mysqlTable(
      */
     totemId: int("totem_id"),
     orderNumber: int("order_number").notNull(),
+    // El código de verificación que el cliente muestra al retirar (ver
+    // src/lib/codigo-pedido.ts). Null en los pedidos anteriores a que existiera.
+    codigo: varchar("codigo", { length: 8 }),
     /**
      * Por dónde entró el pedido: el tótem del mostrador o el link de pedido
      * online que el cliente abre en su celular. Un pedido online espera que

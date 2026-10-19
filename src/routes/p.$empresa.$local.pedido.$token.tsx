@@ -21,6 +21,7 @@ import { formatearDistancia } from "@/lib/delivery";
 import { AccionesPedido } from "@/components/online/AccionesPedido";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
+import { CodigoPedido } from "@/components/online/CodigoPedido";
 
 export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
   loader: ({ params }) =>
@@ -127,6 +128,16 @@ function SeguimientoPage() {
               Si necesitás cambiar algo, llamá al local.
             </p>
           )
+        )}
+
+        {pedido.status !== "cancelado" && pedido.status !== "entregado" && (
+          <div className="mt-6">
+            <CodigoPedido
+              codigo={pedido.codigo}
+              accent={accent}
+              cuando={pedido.deliveryMethod === "envio" ? "cuando te lo entreguen" : "al retirar"}
+            />
+          </div>
         )}
 
         <div className="mt-6 rounded-2xl border border-border bg-card/40 p-4">

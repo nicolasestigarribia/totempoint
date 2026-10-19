@@ -35,6 +35,8 @@ export interface TicketItem {
 export interface TicketData {
   companyName: string;
   orderNumber: number;
+  /** El código que el cliente muestra al retirar; sin él no se imprime. */
+  codigo?: string | null;
   /** Jornada del pedido (`YYYY-MM-DD`), para el número visible `MMDD-NN`. */
   businessDate: string;
   customerName: string;
@@ -153,8 +155,16 @@ export function buildTicket(data: TicketData): Uint8Array {
   cmd(SIZE_DOUBLE);
   texto(`Pedido ${formatearNumeroPedido(data.businessDate, data.orderNumber)}`);
   nl();
+  if (data.codigo) {
+    texto(`Codigo ${data.codigo}`);
+    nl();
+  }
   cmd(SIZE_NORMAL);
   cmd(BOLD_OFF);
+  if (data.codigo) {
+    texto("Mostra este codigo al retirar");
+    nl();
+  }
 
   cmd(ALIGN_LEFT);
   nl();

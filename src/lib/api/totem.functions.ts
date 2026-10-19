@@ -37,6 +37,7 @@ import {
 } from "@/lib/payments/mercadopago";
 import { acreditarPedido } from "@/lib/payments/acreditar";
 import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
+import { generarCodigoPedido } from "@/lib/codigo-pedido";
 import { estadoHorario, type Horarios } from "@/lib/horario";
 import {
   calcularRegalo,
@@ -942,7 +943,14 @@ export const createTotemOrder = createServerFn({ method: "POST" })
     }),
   )
   .handler(
-    async ({ data }): Promise<{ orderId: number; orderNumber: number; pagarEn: string | null }> => {
+    async ({
+      data,
+    }): Promise<{
+      orderId: number;
+      orderNumber: number;
+      codigo: string;
+      pagarEn: string | null;
+    }> => {
       const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
       const tomado = await tomarPedido({
         company: resuelto.company,
@@ -956,7 +964,15 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         items: data.items,
         volverA: ({ orderId }) => `/t/${data.empresa}/${data.local}/${data.totem}/listo/${orderId}`,
       });
-      return { orderId: tomado.orderId, orderNumber: tomado.orderNumber, pagarEn: tomado.pagarEn };
+      // El código vuelve solo acá, al tótem que tomó el pedido: getTotemOrder y
+      // getTotemTicket se piden por el id correlativo, y si lo devolvieran,
+      // cualquiera podría leer el de los pedidos vecinos.
+      return {
+        orderId: tomado.orderId,
+        orderNumber: tomado.orderNumber,
+        codigo: tomado.codigo,
+        pagarEn: tomado.pagarEn,
+      };
     },
   );
 
@@ -1007,6 +1023,8 @@ interface PedidoATomar {
 interface PedidoTomado {
   orderId: number;
   orderNumber: number;
+  /** El código de verificación que el cliente muestra al retirar. */
+  codigo: string;
   trackingToken: string | null;
   /** URL de pago de Mercado Pago, o null si paga en efectivo. */
   pagarEn: string | null;
@@ -1437,7 +1455,9 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
     });
   }
 
-  let creado: { orderId: number; orderNumber: number };
+  // Se sortea antes de la transacción: no depende de nada de adentro.
+  const codigo = generarCodigoPedido();
+  let creado: { orderId: number; orderNumber: number; codigo: string };
   try {
     creado = await db.transaction(async (tx) => {
       // Lo agotado no se vende. Se mira acá adentro, con las filas de stock
@@ -1473,6 +1493,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
           locationId: location.id,
           totemId: p.totemId,
           orderNumber,
+          codigo,
           channel: p.channel,
           businessDate: jornada,
           customerName: p.customerName.trim(),
@@ -1579,7 +1600,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         consumo,
       );
 
-      return { orderId, orderNumber };
+      return { orderId, orderNumber, codigo };
     });
   } catch (error) {
     if (error instanceof StockInsuficiente) throw new Error(await mensajeSinStock(error.faltantes));
@@ -2435,6 +2456,8 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
   });
 
 export interface OnlineOrderStatus {
+  /** El código para mostrar al retirar o al recibir. Null en pedidos viejos. */
+  codigo: string | null;
   /** Unidades de regalo ("cada 12, 2 más") que el local agrega a su elección. */
   regaloUnidades: number;
   /** Lo descontado por los sándwiches de regalo que el cliente agregó. */
@@ -2541,6 +2564,7 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
     }
 
     return {
+      codigo: o.codigo,
       regaloUnidades: o.regaloUnidades,
       regaloDescuento: o.regaloDescuento,
       orderNumber: o.orderNumber,
@@ -2992,6 +3016,8 @@ export const createMesaOrder = createServerFn({ method: "POST" })
 
 export interface MesaOrderStatus {
   orderNumber: number;
+  /** El código de verificación del pedido. Null en pedidos viejos. */
+  codigo: string | null;
   tableNumber: number | null;
   status: "recibido" | "preparacion" | "entregado" | "cancelado";
   /** Null mientras espera que el local lo acepte (sin aceptación automática). */
@@ -3079,6 +3105,7 @@ export const getMesaOrder = createServerFn({ method: "GET" })
 
     return {
       orderNumber: o.orderNumber,
+      codigo: o.codigo,
       tableNumber: o.tableNumber,
       status: o.status,
       acceptedAt: o.acceptedAt?.toISOString() ?? null,

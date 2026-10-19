@@ -148,6 +148,23 @@ const esPorAceptar = (o: KitchenOrder) =>
  * "Mesa 7", grande al lado del número: es lo que necesita el que lleva el
  * pedido, y lo tiene que leer de lejos.
  */
+/**
+ * El código que el cliente tiene que mostrar al retirar. Se le pide antes de
+ * entregar: el número de pedido arranca en 1 cada día y cualquiera puede decir
+ * "soy el 3".
+ */
+function ChipCodigo({ codigo }: { codigo: string | null }) {
+  if (!codigo) return null;
+  return (
+    <span
+      className="rounded-lg border border-border px-2 py-0.5 font-mono text-sm font-bold tracking-[0.2em] text-foreground"
+      title="Código del cliente: pedíselo al entregar"
+    >
+      {codigo}
+    </span>
+  );
+}
+
 function ChipMesa({ o }: { o: KitchenOrder }) {
   if (o.channel !== "mesa" || o.tableNumber === null) return null;
   return (
@@ -831,8 +848,9 @@ function Kitchen() {
                 <b>Empezar a preparar</b> cuando lo arrancan en la cocina.
               </li>
               <li>
-                <span className="font-bold text-primary">3. Entregar.</span> Cuando sale, tocá{" "}
-                <b>Listo, entregado</b>. Si fue un error, se puede revertir.
+                <span className="font-bold text-primary">3. Entregar.</span> Pedile al cliente su{" "}
+                <b>código</b> (el que está al lado del número) y tocá <b>Listo, entregado</b>. Si
+                fue un error, se puede revertir.
               </li>
               <li>
                 <span className="font-bold text-primary">4. Cobrar.</span> Al cobrar en efectivo
@@ -877,6 +895,7 @@ function Kitchen() {
                           {formatearNumeroPedido(o.businessDate, o.orderNumber)}
                         </div>
                         <ChipMesa o={o} />
+                        <ChipCodigo codigo={o.codigo} />
                       </div>
                       <div className="text-sm font-bold">{o.customerName}</div>
                       <div className="text-xs text-muted-foreground">
@@ -1021,6 +1040,7 @@ function Kitchen() {
                                   {formatearNumeroPedido(o.businessDate, o.orderNumber)}
                                 </div>
                                 <ChipMesa o={o} />
+                                <ChipCodigo codigo={o.codigo} />
                               </div>
                               <div className="text-sm font-bold">{o.customerName}</div>
                               <div className="text-xs text-muted-foreground">

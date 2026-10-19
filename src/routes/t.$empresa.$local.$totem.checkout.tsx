@@ -66,7 +66,7 @@ function CheckoutPage() {
     }
     setSending(true);
     try {
-      const { orderId, pagarEn } = await placeOrder({
+      const { orderId, codigo, pagarEn } = await placeOrder({
         data: {
           empresa: nav.empresa,
           local: nav.local,
@@ -96,7 +96,7 @@ function CheckoutPage() {
         navigate({
           to: "/t/$empresa/$local/$totem/pagar/$orderId",
           params: { ...nav, orderId: String(orderId) },
-          search: { url: pagarEn },
+          search: { url: pagarEn, c: codigo },
           replace: true,
         });
         return;
@@ -104,6 +104,9 @@ function CheckoutPage() {
       navigate({
         to: "/t/$empresa/$local/$totem/listo/$orderId",
         params: { ...nav, orderId: String(orderId) },
+        // El código viaja en la URL: el servidor no lo devuelve por el id del
+        // pedido, que es correlativo (ver createTotemOrder).
+        search: { c: codigo },
         replace: true,
       });
     } catch (err) {

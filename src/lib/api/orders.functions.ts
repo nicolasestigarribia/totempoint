@@ -45,6 +45,8 @@ export interface KitchenOrderItem {
 export interface KitchenOrder {
   id: number;
   orderNumber: number;
+  /** El código que muestra el cliente al retirar; null en pedidos viejos. */
+  codigo: string | null;
   businessDate: string;
   customerName: string;
   deliveryMethod: "local" | "mostrador" | "envio";
@@ -333,6 +335,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
     return enCocina.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
+      codigo: o.codigo,
       businessDate: o.businessDate,
       customerName: o.customerName,
       deliveryMethod: o.deliveryMethod,

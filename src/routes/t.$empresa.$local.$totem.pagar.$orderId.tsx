@@ -25,6 +25,7 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/pagar/$orderId")
   errorComponent: ({ error }) => <TotemError message={error.message} />,
   validateSearch: (search: Record<string, unknown>) => ({
     url: typeof search.url === "string" ? search.url : "",
+    c: typeof search.c === "string" ? search.c : undefined,
   }),
   component: PagarPage,
 });
@@ -36,7 +37,7 @@ function PagarPage() {
   const order = Route.useLoaderData();
   const params = Route.useParams();
   const { empresa, local, totem, orderId } = params;
-  const { url } = useSearch({ from: "/t/$empresa/$local/$totem/pagar/$orderId" });
+  const { url, c } = useSearch({ from: "/t/$empresa/$local/$totem/pagar/$orderId" });
   const navigate = useNavigate();
   useTotemTheme(order.accentColor, order.theme, order.fontTheme, order.corners);
   const accent = order.accentColor || undefined;
@@ -64,6 +65,7 @@ function PagarPage() {
           navigate({
             to: "/t/$empresa/$local/$totem/listo/$orderId",
             params,
+            search: { c },
             replace: true,
           });
         }, 1200);
@@ -148,6 +150,7 @@ function PagarPage() {
                 navigate({
                   to: "/t/$empresa/$local/$totem/listo/$orderId",
                   params,
+                  search: { c },
                   replace: true,
                 })
               }

@@ -16,6 +16,7 @@ import { MesaHeader } from "@/components/mesa/MesaHeader";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
 import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
+import { CodigoPedido } from "@/components/online/CodigoPedido";
 
 export const Route = createFileRoute("/m/$token/pedido/$tracking")({
   loader: ({ params }) =>
@@ -107,6 +108,12 @@ function SeguimientoMesaPage() {
         )}
 
         <Estado pedido={pedido} accent={accent} />
+
+        {pedido.status !== "cancelado" && pedido.status !== "entregado" && (
+          <div className="mt-6">
+            <CodigoPedido codigo={pedido.codigo} accent={accent} cuando="cuando te lo traigan" />
+          </div>
+        )}
 
         <div className="mt-6 rounded-2xl border border-border bg-card/40 p-4">
           <div className="flex items-baseline justify-between gap-3">

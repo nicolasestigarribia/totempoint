@@ -17,6 +17,7 @@ import {
   soportaReconexion,
 } from "@/lib/print/bluetooth";
 import { esAppNativa, imprimirNativo } from "@/lib/print/native";
+import { CodigoPedido } from "@/components/online/CodigoPedido";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")({
   loader: ({ params }) =>
@@ -38,6 +39,8 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")
     ],
   }),
   errorComponent: ({ error }) => <TotemError message={error.message} />,
+  validateSearch: (search: Record<string, unknown>): { c?: string } =>
+    typeof search.c === "string" ? { c: search.c } : {},
   component: ListoPage,
 });
 
@@ -51,8 +54,9 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/listo/$orderId")
  */
 const SEGUNDOS = 15;
 
-function aTicketData(t: TotemTicket): TicketData {
+function aTicketData(t: TotemTicket, codigo: string | null): TicketData {
   return {
+    codigo,
     companyName: t.companyName,
     orderNumber: t.orderNumber,
     businessDate: t.businessDate,
@@ -91,6 +95,7 @@ const ORDEN_ROL: Record<PrinterRole, number> = { totem: 0, caja: 1 };
 function ListoPage() {
   const order = Route.useLoaderData();
   const nav = Route.useParams();
+  const codigo = Route.useSearch().c ?? null;
   const navigate = useNavigate();
   const fetchTicket = useServerFn(getTotemTicket);
   useTotemTheme(order.accentColor, order.theme, order.fontTheme, order.corners);
@@ -149,7 +154,7 @@ function ListoPage() {
         orderId: Number(nav.orderId),
       },
     });
-    const bytes = buildTicket(aTicketData(ticket));
+    const bytes = buildTicket(aTicketData(ticket, codigo));
 
     // En el APK: Bluetooth nativo por MAC. La MAC de la DB (panel) gana sobre la
     // cache local, así que un cambio desde otra PC lo toma la tablet.
@@ -219,6 +224,12 @@ function ListoPage() {
           {formatearNumeroPedido(order.businessDate, order.orderNumber)}
         </div>
       </div>
+
+      {codigo && (
+        <div className="mt-4 w-full max-w-md">
+          <CodigoPedido codigo={codigo} accent={accent} cuando="al retirar" grande />
+        </div>
+      )}
 
       {/* Y lo segundo que necesita: si ya está o si todavía tiene que pagar.
           Que se vaya sin saberlo es una discusión en la caja. */}
