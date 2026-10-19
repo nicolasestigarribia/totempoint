@@ -932,7 +932,9 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       deliveryMethod: z.enum(["local", "mostrador"]),
       paymentMethod: z.enum(["efectivo", "mercadopago"]),
       comments: z.string().trim().max(500).optional(),
-      items: z.array(lineaPedido).min(1),
+      // Con tope: es público, y cada línea suma consultas dentro de la
+      // transacción que bloquea la numeración de la sucursal.
+      items: z.array(lineaPedido).min(1).max(80),
     }),
   )
   .handler(
@@ -2036,8 +2038,21 @@ export interface OnlineMenu extends TotemMenu {
   demoraHoy: number | null;
 }
 
-/** Lo que el local viene prometiendo al aceptar, para mostrarlo antes de pedir. */
+/**
+ * Lo que el local viene prometiendo al aceptar, para mostrarlo antes de pedir.
+ * Se guarda un minuto por sucursal: el menú es público y lo abre cualquiera
+ * con el QR, y la cuenta no cambia de un segundo a otro.
+ */
+const demoraCache = new Map<number, { valor: number | null; hasta: number }>();
 async function demoraReciente(locationId: number): Promise<number | null> {
+  const guardada = demoraCache.get(locationId);
+  if (guardada && guardada.hasta > Date.now()) return guardada.valor;
+  const valor = await calcularDemora(locationId);
+  demoraCache.set(locationId, { valor, hasta: Date.now() + 60_000 });
+  return valor;
+}
+
+async function calcularDemora(locationId: number): Promise<number | null> {
   const [fila] = await db
     .select({ promedio: sql<string | null>`avg(${orders.etaMinutes})` })
     .from(orders)
@@ -2373,7 +2388,9 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       paymentMethod: z.enum(["efectivo", "mercadopago"]),
       paysWith: z.number().positive().max(100_000_000).optional(),
       comments: z.string().trim().max(500).optional(),
-      items: z.array(lineaPedido).min(1),
+      // Con tope: es público, y cada línea suma consultas dentro de la
+      // transacción que bloquea la numeración de la sucursal.
+      items: z.array(lineaPedido).min(1).max(80),
       /** El total que vio el cliente, para no cobrarle uno distinto. */
       totalEsperado: z.number().nonnegative().optional(),
       // Registro del cliente (perfil global por teléfono, sin contraseña). El
@@ -2989,7 +3006,9 @@ export const createMesaOrder = createServerFn({ method: "POST" })
       customerName: z.string().trim().max(60).optional(),
       paymentMethod: z.enum(["efectivo", "mercadopago"]),
       comments: z.string().trim().max(500).optional(),
-      items: z.array(lineaPedido).min(1),
+      // Con tope: es público, y cada línea suma consultas dentro de la
+      // transacción que bloquea la numeración de la sucursal.
+      items: z.array(lineaPedido).min(1).max(80),
       totalEsperado: z.number().nonnegative().optional(),
     }),
   )

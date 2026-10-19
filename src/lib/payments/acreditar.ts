@@ -15,9 +15,13 @@ import { orders } from "@/db/schema";
  * el tótem pueden llegar casi juntos por el mismo pago.
  */
 export async function acreditarPedido(orderId: number, paymentId: string): Promise<void> {
+  // La forma de pago pasa a Mercado Pago aunque el pedido diga efectivo: el
+  // cliente online puede pasarse a efectivo y pagar igual el link viejo, que
+  // sigue vivo hasta que vence. Si la plata entró por Mercado Pago, así se
+  // cuenta, y en el mostrador ya no se le cobra de nuevo.
   await db
     .update(orders)
-    .set({ paymentStatus: "pagado", mpPaymentId: paymentId })
+    .set({ paymentStatus: "pagado", paymentMethod: "mercadopago", mpPaymentId: paymentId })
     .where(
       and(
         eq(orders.id, orderId),

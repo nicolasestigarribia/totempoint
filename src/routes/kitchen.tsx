@@ -205,18 +205,6 @@ const mapaUrl = (o: KitchenOrder) =>
       : null;
 
 /**
- * La alarma de pedido online, con Web Audio y sin archivo de sonido.
- *
- * Tiene que oírse en un local con ruido, con el celular en el bolsillo o sobre
- * la plancha. Por eso no es un pitido suave: son ondas cuadradas (llenas de
- * armónicos, el oído las percibe mucho más fuertes que una sinusoidal al mismo
- * volumen) en dos tonos que alternan, como una sirena corta, repetida dos
- * veces y pasada por un compresor que la lleva al máximo sin que distorsione.
- *
- * El navegador no deja sonar nada hasta que alguien toca la pantalla, así que
- * el contexto se crea y se destraba con el primer toque.
- */
-/**
  * Un "ding" corto cuando entra un pedido nuevo a las columnas (del tótem, o
  * de mesa aceptado solo). No es la sirena de "por aceptar": ese pedido no
  * espera a nadie, solo hay que enterarse de que llegó.
@@ -239,6 +227,18 @@ function campanita(ctx: AudioContext | null) {
   }
 }
 
+/**
+ * La alarma de pedido online, con Web Audio y sin archivo de sonido.
+ *
+ * Tiene que oírse en un local con ruido, con el celular en el bolsillo o sobre
+ * la plancha. Por eso no es un pitido suave: son ondas cuadradas (llenas de
+ * armónicos, el oído las percibe mucho más fuertes que una sinusoidal al mismo
+ * volumen) en dos tonos que alternan, como una sirena corta, repetida dos
+ * veces y pasada por un compresor que la lleva al máximo sin que distorsione.
+ *
+ * El navegador no deja sonar nada hasta que alguien toca la pantalla, así que
+ * el contexto se crea y se destraba con el primer toque.
+ */
 function pitar(ctx: AudioContext | null) {
   if (!ctx || ctx.state !== "running") return;
   const compresor = ctx.createDynamicsCompressor();
@@ -671,10 +671,18 @@ function Kitchen() {
         nuevos.filter((o) => !esPorAceptar(o) && o.status === "recibido").map((o) => o.id),
       );
       const antes = enColumnasRef.current;
-      if (antes && [...enColumnas].some((id) => !antes.has(id) && !estabanEsperando.has(id))) {
+      // Solo los que llegaron recién: uno que vuelve de "en preparación" o que
+      // se aceptó en otra pantalla hace rato no es una novedad.
+      const recien = (o: KitchenOrder) => Date.now() - llegadaACocina(o) < 2 * 60 * 1000;
+      const llegaron = nuevos.filter(
+        (o) => enColumnas.has(o.id) && !antes?.has(o.id) && !estabanEsperando.has(o.id),
+      );
+      if (antes && llegaron.some(recien)) {
         campanita(audioRef.current);
       }
-      enColumnasRef.current = new Set([...(antes ?? []), ...enColumnas]);
+      // Todos los que ya entraron a las columnas, en cualquier estado, y solo
+      // los que siguen viniendo: la pantalla queda abierta todo el día.
+      enColumnasRef.current = new Set(nuevos.filter((o) => !esPorAceptar(o)).map((o) => o.id));
       setOrders(nuevos);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudieron cargar los pedidos");
