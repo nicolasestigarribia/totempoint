@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Banknote, Smartphone, CircleDollarSign, Ban, Clock, Trophy } from "lucide-react";
+import {
+  Loader2,
+  Banknote,
+  Smartphone,
+  CircleDollarSign,
+  Ban,
+  Clock,
+  Trophy,
+  Download,
+} from "lucide-react";
 
 import {
   getCashClose,
   getMasVendidos,
+  exportPedidos,
   type CashClose,
   type MasVendido,
 } from "@/lib/api/orders.functions";
 import { mensajeDeError } from "@/lib/error-message";
 import { DateRangeFilter, hoyIso } from "@/components/admin/DateRangeFilter";
+import { formatearNumeroPedido } from "@/lib/order-number";
+import { aCsv, descargarArchivo } from "@/lib/planilla";
 
 function pesos(n: number): string {
   return `$${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -27,6 +39,8 @@ function pesos(n: number): string {
 export function CajaSection({ panelClass }: { panelClass: string }) {
   const fetchClose = useServerFn(getCashClose);
   const fetchMasVendidos = useServerFn(getMasVendidos);
+  const fetchPlanilla = useServerFn(exportPedidos);
+  const [bajando, setBajando] = useState(false);
   const [masVendidos, setMasVendidos] = useState<MasVendido[]>([]);
 
   const [desde, setDesde] = useState(hoyIso());
@@ -58,6 +72,73 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
   }, [load, desde, hasta]);
 
   const unDia = desde === hasta;
+
+  const descargar = async () => {
+    setBajando(true);
+    try {
+      const pedidos = await fetchPlanilla({ data: { desde, hasta } });
+      if (pedidos.length === 0) {
+        toast.info("No hay pedidos en esas fechas");
+        return;
+      }
+      const CANAL = { totem: "Tótem", online: "Online", mesa: "Mesa" } as const;
+      const ENTREGA = { local: "Comer en el local", mostrador: "Retiro", envio: "Envío" } as const;
+      const COBRO = {
+        pendiente: "Sin cobrar",
+        pagado: "Cobrado",
+        reembolso_pendiente: "A devolver",
+      };
+      const ESTADO = {
+        recibido: "Recibido",
+        preparacion: "En preparación",
+        entregado: "Entregado",
+        cancelado: "Cancelado",
+      };
+      const csv = aCsv([
+        [
+          "Jornada",
+          "Pedido",
+          "Hora",
+          "Sucursal",
+          "Canal",
+          "Entrega",
+          "Cliente",
+          "Teléfono",
+          "Dirección",
+          "Forma de pago",
+          "Cobro",
+          "Estado",
+          "Envío",
+          "Regalo",
+          "Total",
+          "Detalle",
+        ],
+        ...pedidos.map((p) => [
+          p.jornada,
+          formatearNumeroPedido(p.jornada, p.numero),
+          p.hora,
+          p.sucursal,
+          p.mesa !== null ? `Mesa ${p.mesa}` : CANAL[p.canal],
+          ENTREGA[p.entrega],
+          p.cliente,
+          p.telefono,
+          p.direccion,
+          p.formaDePago === "efectivo" ? "Efectivo" : "Mercado Pago",
+          COBRO[p.cobro],
+          ESTADO[p.estado],
+          p.envio,
+          p.regalo,
+          p.total,
+          p.detalle,
+        ]),
+      ]);
+      descargarArchivo(`pedidos_${desde}${unDia ? "" : `_a_${hasta}`}.csv`, csv);
+    } catch (err) {
+      toast.error(mensajeDeError(err, "No se pudo armar la planilla"));
+    } finally {
+      setBajando(false);
+    }
+  };
 
   const tiles = [
     {
@@ -92,14 +173,30 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
             Lo cobrado {unDia ? "en la jornada" : "en esas jornadas"}, separado por forma de pago.
           </p>
         </div>
-        <DateRangeFilter
-          desde={desde}
-          hasta={hasta}
-          onChange={(d, h) => {
-            setDesde(d);
-            setHasta(h);
-          }}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangeFilter
+            desde={desde}
+            hasta={hasta}
+            onChange={(d, h) => {
+              setDesde(d);
+              setHasta(h);
+            }}
+          />
+          <button
+            type="button"
+            onClick={descargar}
+            disabled={bajando}
+            className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-bold transition hover:border-primary disabled:opacity-50"
+            title="Baja los pedidos de estas fechas en una planilla que abre Excel"
+          >
+            {bajando ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Descargar planilla
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

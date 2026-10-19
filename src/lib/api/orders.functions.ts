@@ -882,3 +882,129 @@ export const getMasVendidos = createServerFn({ method: "GET" })
       total: Number(f.total),
     }));
   });
+
+export interface PedidoPlanilla {
+  jornada: string;
+  numero: number;
+  hora: string;
+  sucursal: string;
+  canal: "totem" | "online" | "mesa";
+  mesa: number | null;
+  entrega: "local" | "mostrador" | "envio";
+  cliente: string;
+  telefono: string | null;
+  direccion: string | null;
+  formaDePago: "efectivo" | "mercadopago";
+  cobro: "pendiente" | "pagado" | "reembolso_pendiente";
+  estado: OrderStatus;
+  envio: number;
+  regalo: number;
+  total: number;
+  detalle: string;
+}
+
+/**
+ * Los pedidos de un rango de jornadas, uno por fila, para bajarlos a una
+ * planilla (el contador, o el dueño que quiere hacer sus cuentas). Mismo
+ * permiso y mismas sucursales que el cierre de caja.
+ */
+export const exportPedidos = createServerFn({ method: "GET" })
+  .middleware([requireCompany])
+  .inputValidator(
+    z
+      .object({
+        desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      })
+      .refine((d) => d.desde <= d.hasta, "La fecha desde no puede ser posterior a la fecha hasta"),
+  )
+  .handler(async ({ context, data }): Promise<PedidoPlanilla[]> => {
+    const user = context.user as SessionUser;
+    assertCanViewKitchen(user);
+    const locs = await visibleLocations(user);
+    if (locs.length === 0) return [];
+
+    const filas = await db
+      .select({
+        id: orders.id,
+        businessDate: orders.businessDate,
+        orderNumber: orders.orderNumber,
+        createdAt: orders.createdAt,
+        locationId: orders.locationId,
+        channel: orders.channel,
+        tableNumber: orders.tableNumber,
+        deliveryMethod: orders.deliveryMethod,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        deliveryAddress: orders.deliveryAddress,
+        paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
+        status: orders.status,
+        deliveryFee: orders.deliveryFee,
+        regaloDescuento: orders.regaloDescuento,
+        total: orders.total,
+      })
+      .from(orders)
+      .where(
+        and(
+          inArray(
+            orders.locationId,
+            locs.map((l) => l.id),
+          ),
+          gte(orders.businessDate, data.desde),
+          lte(orders.businessDate, data.hasta),
+        ),
+      )
+      .orderBy(orders.businessDate, orders.locationId, orders.orderNumber)
+      .limit(20_000);
+    if (filas.length === 0) return [];
+
+    // El detalle en una sola celda ("2x Muzza (Grande), 1x Coca"): alcanza para
+    // leerlo, y las cantidades por producto ya están en "Lo más vendido".
+    const items = await db
+      .select({
+        orderId: orderItems.orderId,
+        productName: orderItems.productName,
+        quantity: orderItems.quantity,
+        tamanio: orderItems.tamanio,
+      })
+      .from(orderItems)
+      .where(
+        inArray(
+          orderItems.orderId,
+          filas.map((f) => f.id),
+        ),
+      );
+    const detalle = new Map<number, string[]>();
+    for (const i of items) {
+      const lista = detalle.get(i.orderId) ?? [];
+      lista.push(`${i.quantity}x ${i.productName}${i.tamanio ? ` (${i.tamanio})` : ""}`);
+      detalle.set(i.orderId, lista);
+    }
+
+    const hora = new Intl.DateTimeFormat("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
+    return filas.map((f) => ({
+      jornada: f.businessDate,
+      numero: f.orderNumber,
+      hora: hora.format(f.createdAt),
+      sucursal: locs.find((l) => l.id === f.locationId)?.name ?? "",
+      canal: f.channel,
+      mesa: f.tableNumber,
+      entrega: f.deliveryMethod,
+      cliente: f.customerName,
+      telefono: f.customerPhone,
+      direccion: f.deliveryAddress,
+      formaDePago: f.paymentMethod,
+      cobro: f.paymentStatus,
+      estado: f.status,
+      envio: Number(f.deliveryFee ?? 0),
+      regalo: Number(f.regaloDescuento ?? 0),
+      total: Number(f.total),
+      detalle: (detalle.get(f.id) ?? []).join(", "),
+    }));
+  });
