@@ -7,6 +7,8 @@ import { partirNombre } from "@/lib/menu-online";
 import { ElegirGustos } from "@/components/online/ElegirGustos";
 import { ElegirPan } from "@/components/totem/ElegirPan";
 import { ElegirTamanio } from "@/components/totem/ElegirTamanio";
+import { ElegirMitad } from "@/components/totem/ElegirMitad";
+import { nombreMitadYMitad, opcionesDeMitad, precioMitadYMitad } from "@/lib/mitades";
 import { SoloVer } from "@/components/online/menu/solo-ver";
 import { useRevelar } from "@/components/online/menu/useRevelar";
 import {
@@ -253,11 +255,14 @@ export function TarjetaProducto({
   cartKey,
   accent,
   indice,
+  menu = [],
 }: {
   producto: TotemProduct;
   cartKey: string;
   accent: string;
   indice: number;
+  /** Todo el menú, para ofrecer la otra mitad de una pizza mitad y mitad. */
+  menu?: TotemProduct[];
 }) {
   const add = useTotemCart((s) => s.add);
   const soloVer = useContext(SoloVer);
@@ -268,10 +273,17 @@ export function TarjetaProducto({
   // precio a la vista es el de ese tamaño.
   const [tamanioElegido, setTamanioElegido] = useState(p.tamanios[0]?.nombre ?? "");
   const tamanio = p.tamanios.find((t) => t.nombre === tamanioElegido) ?? p.tamanios[0];
-  const precio = tamanio?.precio ?? p.price;
+  // Mitad y mitad: la otra mitad tiene que venir en el tamaño marcado; si al
+  // cambiar de tamaño deja de venir, la pizza vuelve a ser entera.
+  const opcionesMitad = opcionesDeMitad(p, menu, tamanio?.nombre);
+  const [mitadElegida, setMitadElegida] = useState<number | null>(null);
+  const otra = opcionesMitad.find((o) => o.id === mitadElegida) ?? null;
+  const precio = otra
+    ? String(precioMitadYMitad(p, otra, tamanio?.nombre) ?? tamanio?.precio ?? p.price)
+    : (tamanio?.precio ?? p.price);
   // El − / + maneja la versión sin cambios; las personalizadas se editan en
   // "Tu pedido", donde se ven una por una.
-  const clave = itemKey("producto", p.id, [], [], pan, [], tamanio?.nombre);
+  const clave = itemKey("producto", p.id, [], [], pan, [], tamanio?.nombre, otra?.id);
   const enCarrito = useEnCarrito(
     cartKey,
     (items) => items.find((i) => claveDe(i) === clave)?.quantity ?? 0,
@@ -294,7 +306,7 @@ export function TarjetaProducto({
         </>
       }
       opciones={
-        (p.pan || p.tamanios.length > 0) && (
+        (p.pan || p.tamanios.length > 0 || opcionesMitad.length > 0) && (
           <div className="flex flex-col gap-1.5">
             {p.tamanios.length > 0 &&
               (soloVer ? (
@@ -309,6 +321,14 @@ export function TarjetaProducto({
                   accent={accent}
                 />
               ))}
+            {!soloVer && (
+              <ElegirMitad
+                opciones={opcionesMitad}
+                elegida={otra?.id ?? null}
+                onElegir={setMitadElegida}
+                accent={accent}
+              />
+            )}
             {p.pan &&
               (soloVer ? (
                 <p className="text-xs text-muted-foreground">
@@ -338,11 +358,12 @@ export function TarjetaProducto({
                 add(cartKey, {
                   kind: "producto",
                   refId: p.id,
-                  name: p.name,
+                  name: otra ? nombreMitadYMitad(p.name, otra.name) : p.name,
                   price: precio,
                   photoUrl: p.photoUrl,
                   pan,
                   tamanio: tamanio?.nombre,
+                  mitad: otra ? { id: otra.id, name: otra.name } : undefined,
                   regalo: regaloDeProducto(p),
                 })
               }

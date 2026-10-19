@@ -16,6 +16,8 @@ export interface CategoryRow {
   /** "Cada N, M de regalo". Null = la categoría no tiene regalo. */
   regaloCada: number | null;
   regaloCantidad: number | null;
+  /** Se puede pedir mitad y mitad entre productos de esta categoría. */
+  mitades: boolean;
 }
 
 /** La regla del regalo viene completa o no viene: las dos o ninguna. */
@@ -43,6 +45,7 @@ export const listCategories = createServerFn({ method: "GET" })
         active: categories.active,
         regaloCada: categories.regaloCada,
         regaloCantidad: categories.regaloCantidad,
+        mitades: categories.mitades,
       })
       .from(categories)
       .where(eq(categories.companyId, user.companyId))
@@ -60,6 +63,7 @@ export const createCategory = createServerFn({ method: "POST" })
       photoUrl: z.string().trim().max(500).optional(),
       sort: z.number().int().default(0),
       ...reglaRegalo,
+      mitades: z.boolean().optional(),
     }),
   )
   .handler(async ({ context, data }): Promise<CategoryRow> => {
@@ -73,6 +77,7 @@ export const createCategory = createServerFn({ method: "POST" })
     if (!reglaValida(data)) throw new Error(REGLA_INCOMPLETA);
     const regaloCada = data.regaloCada ?? null;
     const regaloCantidad = data.regaloCantidad ?? null;
+    const mitades = data.mitades ?? false;
 
     const [{ id }] = await db
       .insert(categories)
@@ -85,10 +90,21 @@ export const createCategory = createServerFn({ method: "POST" })
         active: true,
         regaloCada,
         regaloCantidad,
+        mitades,
       })
       .$returningId();
 
-    return { id, name, tagline, photoUrl, sort, active: true, regaloCada, regaloCantidad };
+    return {
+      id,
+      name,
+      tagline,
+      photoUrl,
+      sort,
+      active: true,
+      regaloCada,
+      regaloCantidad,
+      mitades,
+    };
   });
 
 export const updateCategory = createServerFn({ method: "POST" })
@@ -102,6 +118,7 @@ export const updateCategory = createServerFn({ method: "POST" })
       sort: z.number().int(),
       active: z.boolean(),
       ...reglaRegalo,
+      mitades: z.boolean().optional(),
     }),
   )
   .handler(async ({ context, data }) => {
@@ -117,6 +134,7 @@ export const updateCategory = createServerFn({ method: "POST" })
         ...(data.regaloCada !== undefined
           ? { regaloCada: data.regaloCada, regaloCantidad: data.regaloCantidad ?? null }
           : {}),
+        ...(data.mitades !== undefined ? { mitades: data.mitades } : {}),
         name: data.name.trim(),
         tagline: data.tagline?.trim() || null,
         photoUrl: data.photoUrl?.trim() || null,

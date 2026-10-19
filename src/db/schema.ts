@@ -378,6 +378,9 @@ export const categories = mysqlTable(
     // local regala `regaloCantidad`. Null = sin regalo. Ver `src/lib/regalo.ts`.
     regaloCada: int("regalo_cada"),
     regaloCantidad: int("regalo_cantidad"),
+    // Pizza mitad y mitad: un producto de esta categoría se puede pedir con
+    // la otra mitad de otro gusto de la misma categoría.
+    mitades: boolean("mitades").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("categories_company_idx").on(t.companyId)],
@@ -976,6 +979,8 @@ export const orderItems = mysqlTable(
     // El tamaño que eligió ("Grande"), congelado como el nombre y el precio.
     // Null si el producto se vende en un solo tamaño.
     tamanio: varchar("tamanio", { length: 40 }),
+    /** La otra mitad de una pizza mitad y mitad; el nombre ya va en `productName`. */
+    mitadProductId: int("mitad_product_id"),
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
 );

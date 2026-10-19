@@ -85,6 +85,7 @@ function CheckoutPage() {
             extras: i.extras.map((e) => ({ id: e.id, quantity: e.quantity })),
             pan: i.pan,
             tamanio: i.tamanio,
+            mitad: i.mitad?.id,
           })),
         },
       });

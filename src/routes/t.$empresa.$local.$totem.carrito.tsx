@@ -102,7 +102,8 @@ function CarritoPage() {
                 // línea, y los botones tienen que tocar la suya.
                 const clave = claveDe(i);
                 const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
-                const editable = !!prod && (prod.removables.length > 0 || prod.extras.length > 0);
+                const editable =
+                  !!prod && !i.mitad && (prod.removables.length > 0 || prod.extras.length > 0);
                 return (
                   <li
                     key={clave}
@@ -177,6 +178,7 @@ function CarritoPage() {
                             extras: i.extras,
                             pan: i.pan,
                             tamanio: i.tamanio,
+                            mitad: i.mitad,
                             regalo: i.regalo,
                           })
                         }

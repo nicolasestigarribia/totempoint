@@ -287,6 +287,7 @@ function CarritoOnlinePage() {
             extras: i.extras.map((x) => ({ id: x.id, quantity: x.quantity })),
             pan: i.pan,
             tamanio: i.tamanio,
+            mitad: i.mitad?.id,
             elecciones: i.elecciones?.map((e) => ({
               grupo: e.grupo,
               productId: e.productId,

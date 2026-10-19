@@ -13,6 +13,7 @@
  */
 import type { TotemCombo, TotemProduct } from "@/lib/api/totem.functions";
 import { regaloDeProducto, type TotemCartItem } from "@/lib/totem-cart";
+import { nombreMitadYMitad, opcionesDeMitad, precioMitadYMitad } from "@/lib/mitades";
 
 const CLAVE = "pedido-online-repetir";
 /** Pasado este tiempo ya no se ofrece: probablemente no es lo que quiere hoy. */
@@ -112,12 +113,29 @@ export function rearmarPedido(
         continue;
       }
     }
+    // Mitad y mitad: la otra mitad tiene que seguir a la venta en ese tamaño,
+    // y se cobra la más cara con los precios de hoy.
+    let nombre = p.name;
+    let precio = tamanio?.precio ?? p.price;
+    let mitad: TotemCartItem["mitad"];
+    if (i.mitad) {
+      const otra = opcionesDeMitad(p, products, tamanio?.nombre).find((o) => o.id === i.mitad!.id);
+      const total = otra ? precioMitadYMitad(p, otra, tamanio?.nombre) : null;
+      if (!otra || total === null) {
+        faltan.push(i.name);
+        continue;
+      }
+      nombre = nombreMitadYMitad(p.name, otra.name);
+      precio = String(total);
+      mitad = { id: otra.id, name: otra.name };
+    }
     const removibles = new Set(p.removables.map((r) => r.id));
     const extras = new Map(p.extras.map((e) => [e.id, e]));
     lineas.push({
       ...i,
-      name: p.name,
-      price: tamanio?.precio ?? p.price,
+      name: nombre,
+      price: precio,
+      mitad,
       tamanio: tamanio?.nombre,
       photoUrl: p.photoUrl,
       regalo: regaloDeProducto(p),

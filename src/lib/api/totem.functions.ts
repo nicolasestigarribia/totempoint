@@ -411,6 +411,11 @@ export interface TotemProduct {
   tamanios: { nombre: string; precio: string }[];
   /** "Cada 12, 2 de regalo", si su categoría lo tiene. */
   regalo: ReglaRegalo | null;
+  /**
+   * Se puede pedir mitad y mitad con otro producto de su misma categoría que
+   * venga en el mismo tamaño (lo prende el dueño en Categorías).
+   */
+  mitades: boolean;
 }
 
 export interface TotemComboItem {
@@ -589,6 +594,15 @@ async function reglasDeRegalo(companyId: number): Promise<Map<number, ReglaRegal
   );
 }
 
+/** Las categorías de la empresa donde se puede pedir mitad y mitad. */
+async function categoriasConMitades(companyId: number): Promise<Set<number>> {
+  const filas = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(eq(categories.companyId, companyId), eq(categories.mitades, true)));
+  return new Set(filas.map((f) => f.id));
+}
+
 /** Lo que suma para el regalo una unidad de cada combo, por lo que trae adentro. */
 async function regaloDeCombos(
   comboIds: number[],
@@ -747,7 +761,10 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
         .orderBy(asc(ingredients.name))
     : [];
 
-  const reglas = await reglasDeRegalo(companyId);
+  const [reglas, conMitades] = await Promise.all([
+    reglasDeRegalo(companyId),
+    categoriasConMitades(companyId),
+  ]);
   const visibleProducts: TotemProduct[] = prods.map((p) => {
     const tamanios = tamaniosDe(p.tamanios);
     return {
@@ -762,6 +779,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
       pan: p.pan,
       tamanios,
       regalo: (p.categoryId !== null && reglas.get(p.categoryId)) || null,
+      mitades: p.categoryId !== null && conMitades.has(p.categoryId),
       removables: p.customizable
         ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
         : [],
@@ -897,6 +915,9 @@ const lineaPedido = z.object({
   // El tamaño que eligió ("Grande"), en lo que se vende en más de uno. El
   // precio sale del tamaño en la base, no del celular.
   tamanio: z.string().trim().max(40).optional(),
+  // La otra mitad de una pizza mitad y mitad: el id de otro producto de la
+  // misma categoría. Se valida abajo; el precio es el de la mitad más cara.
+  mitad: z.number().int().optional(),
   // Los gustos de un combo a elección: de qué grupo, qué producto y cuántos.
   // Se validan abajo contra el combo; el cliente no decide qué se puede elegir.
   elecciones: z
@@ -1041,7 +1062,15 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   // varias líneas —una con cambios y otra sin— y la base devuelve una sola fila
   // por producto. Comparar contra la lista con repetidos rechazaba el pedido
   // entero por "no disponible".
-  const productIds = [...new Set(p.items.filter((i) => i.kind === "producto").map((i) => i.id))];
+  // La otra mitad de una pizza mitad y mitad entra también: se valida que
+  // exista, que esté a la venta y que haya stock, como cualquier producto.
+  const productIds = [
+    ...new Set(
+      p.items
+        .filter((i) => i.kind === "producto")
+        .flatMap((i) => (i.mitad !== undefined ? [i.id, i.mitad] : [i.id])),
+    ),
+  ];
   const comboIds = [...new Set(p.items.filter((i) => i.kind === "combo").map((i) => i.id))];
 
   const productRows = productIds.length
@@ -1307,6 +1336,10 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
     priceOverrides(location.id, "combo", comboIds),
   ]);
 
+  const conMitades = p.items.some((i) => i.mitad !== undefined)
+    ? await categoriasConMitades(company.id)
+    : new Set<number>();
+
   // El combo se guarda como una línea con su propio precio y sin product_id:
   // order_items ya congela nombre y precio, así que el pedido queda fiel aunque
   // después se cambie el combo.
@@ -1320,6 +1353,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         quantity: item.quantity,
         pan: null,
         tamanio: null,
+        mitadProductId: null,
       };
     }
     const product = productRows.find((r) => r.id === item.id)!;
@@ -1338,20 +1372,62 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         );
       }
     }
-    const base = Number(tamanio?.precio ?? prodOverrides.get(product.id) ?? product.price);
+    let base = Number(tamanio?.precio ?? prodOverrides.get(product.id) ?? product.price);
+    // Mitad y mitad: las dos de la misma categoría (que lo permite), en el
+    // mismo tamaño, y se cobra la mitad más cara. No se personaliza: "sin
+    // cebolla" no diría de qué mitad.
+    let productName = product.name;
+    let mitadProductId: number | null = null;
+    if (item.mitad !== undefined) {
+      const otra = productRows.find((r) => r.id === item.mitad);
+      if (
+        !otra ||
+        otra.id === product.id ||
+        product.categoryId === null ||
+        otra.categoryId !== product.categoryId ||
+        !conMitades.has(product.categoryId)
+      ) {
+        throw new Error(
+          `${product.name} ya no se puede pedir mitad y mitad así. Sacalo de tu pedido y volvé a elegirlo`,
+        );
+      }
+      if ((item.removedIngredientIds?.length ?? 0) > 0 || (item.extras?.length ?? 0) > 0) {
+        throw new Error("Una pizza mitad y mitad no se puede personalizar");
+      }
+      const tamaniosOtra = tamaniosDe(otra.tamanios);
+      let precioOtra: number;
+      if (tamanio) {
+        const igual = tamaniosOtra.find((t) => t.nombre === tamanio!.nombre);
+        if (!igual) {
+          throw new Error(
+            `${otra.name} no viene en tamaño ${tamanio.nombre}: elegí otra mitad para tu ${product.name}`,
+          );
+        }
+        precioOtra = Number(igual.precio);
+      } else {
+        if (tamaniosOtra.length > 0) {
+          throw new Error(`Elegí otra mitad para tu ${product.name}`);
+        }
+        precioOtra = Number(prodOverrides.get(otra.id) ?? otra.price);
+      }
+      base = Math.max(base, precioOtra);
+      productName = `½ ${product.name} + ½ ${otra.name}`;
+      mitadProductId = otra.id;
+    }
     // El precio unitario de la línea incluye los extras: una unidad de este
     // producto "con lo que le agregó" cuesta base + suma de los extras.
     const extras = extrasPorLinea.get(indice) ?? [];
     const extrasCost = extras.reduce((t, e) => t + Number(e.price) * e.quantity, 0);
     return {
       productId: product.id,
-      productName: product.name,
+      productName,
       unitPrice: (base + extrasCost).toFixed(2),
       quantity: item.quantity,
       // Si se hace en los dos, el que eligió (blanco si un carrito viejo no
       // lo mandó); si se hace en uno solo, ese, diga lo que diga el celular.
       pan: product.pan === "ambos" ? (item.pan ?? "blanco") : product.pan,
       tamanio: tamanio?.nombre ?? null,
+      mitadProductId,
     };
   });
 
@@ -1416,16 +1492,26 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   // el mismo criterio que con Mercado Pago más abajo.
   let consumo: Awaited<ReturnType<typeof calcularConsumo>> = [];
   const lineas: LineaVendida[] = [
-    ...p.items.map((i, indice) => ({
-      kind: i.kind,
-      refId: i.id,
-      quantity: i.quantity,
-      removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
-      extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
-        ingredientId: x.id,
-        quantity: x.quantity,
-      })),
-    })),
+    ...p.items.flatMap((i, indice): LineaVendida[] =>
+      // Mitad y mitad: media receta de cada gusto.
+      i.mitad !== undefined
+        ? [
+            { kind: "producto", refId: i.id, quantity: i.quantity / 2 },
+            { kind: "producto", refId: i.mitad, quantity: i.quantity / 2 },
+          ]
+        : [
+            {
+              kind: i.kind,
+              refId: i.id,
+              quantity: i.quantity,
+              removedIngredientIds: (sacadosPorLinea.get(indice) ?? []).map((x) => x.id),
+              extras: (extrasPorLinea.get(indice) ?? []).map((x) => ({
+                ingredientId: x.id,
+                quantity: x.quantity,
+              })),
+            },
+          ],
+    ),
     // Lo elegido en un combo a elección consume como si se vendiera suelto:
     // 18 clásicas son 18 empanadas que salen del stock.
     ...[...eleccionesPorLinea.entries()].flatMap(([indice, elegidas]) =>

@@ -77,6 +77,11 @@ export interface TotemCartItem {
   regalo?: UnidadesConRegalo[];
   /** Los gustos de un combo a elección. Ausente = combo de gustos fijos. */
   elecciones?: TotemCartEleccion[];
+  /**
+   * La otra mitad de una pizza mitad y mitad. `name` ya dice las dos ("½
+   * Muzzarella + ½ Napolitana") y `price` es el de la mitad más cara.
+   */
+  mitad?: { id: number; name: string };
 }
 
 /**
@@ -96,6 +101,7 @@ export const itemKey = (
   pan?: Pan,
   elecciones: TotemCartEleccion[] = [],
   tamanio?: string,
+  mitadId?: number,
 ) => {
   const sacados = removed
     .map((r) => r.id)
@@ -112,6 +118,8 @@ export const itemKey = (
   if (pan) clave += `-pan${pan}`;
   // Una grande y una chica son dos líneas, cada una con su precio.
   if (tamanio) clave += `-tam${tamanio}`;
+  // Media muzza y media napo no es lo mismo que una muzza entera.
+  if (mitadId !== undefined) clave += `-mitad${mitadId}`;
   // Dos "Regaladas" con gustos distintos son dos líneas, no cantidad 2.
   const gustos = elecciones
     .map((e) => `${e.grupo}:${e.productId}x${e.quantity}`)
@@ -125,9 +133,9 @@ export const itemKey = (
 export const claveDe = (
   i: Pick<
     TotemCartItem,
-    "kind" | "refId" | "removed" | "extras" | "pan" | "elecciones" | "tamanio"
+    "kind" | "refId" | "removed" | "extras" | "pan" | "elecciones" | "tamanio" | "mitad"
   >,
-) => itemKey(i.kind, i.refId, i.removed, i.extras, i.pan, i.elecciones, i.tamanio);
+) => itemKey(i.kind, i.refId, i.removed, i.extras, i.pan, i.elecciones, i.tamanio, i.mitad?.id);
 
 // Colapsa NaN/Infinity a un fallback: un precio o cantidad corrupta (dato viejo
 // migrado, string no numérico) no debe contaminar el total con "$NaN".
@@ -215,6 +223,7 @@ export const useTotemCart = create<CartState>()(
             item.pan,
             item.elecciones,
             item.tamanio,
+            item.mitad?.id,
           );
           const found = items.find((i) => claveDe(i) === clave);
           return {
@@ -247,6 +256,7 @@ export const useTotemCart = create<CartState>()(
             linea.pan,
             linea.elecciones,
             linea.tamanio,
+            linea.mitad?.id,
           );
           if (nuevaClave === claveVieja) return s;
           const resto = s.items.filter((i) => claveDe(i) !== claveVieja);
@@ -288,20 +298,38 @@ export const useTotemCart = create<CartState>()(
             // común, a su precio: es lo que el servidor va a cobrar.
             const sinTamanios = (v.tamanios ?? []).length === 0;
             const tamanio = sinTamanios ? undefined : i.tamanio;
-            const price = tamanio
+            let price = tamanio
               ? (v.tamanios?.find((t) => t.nombre === tamanio)?.precio ?? i.price)
               : v.price;
+            // Mitad y mitad: la mitad más cara, con los precios de ahora. Si la
+            // otra mitad ya no está, se deja como está: el checkout la rechaza.
+            let name = v.name;
+            let mitad = i.mitad;
+            const otra = i.mitad ? porClave.get(`producto-${i.mitad.id}`) : undefined;
+            if (i.mitad && otra) {
+              const precioOtra = tamanio
+                ? otra.tamanios?.find((t) => t.nombre === tamanio)?.precio
+                : otra.price;
+              if (precioOtra !== undefined) {
+                price = String(Math.max(num(price), num(precioOtra)));
+              }
+              name = `½ ${v.name} + ½ ${otra.name}`;
+              mitad = otra.name === i.mitad.name ? i.mitad : { id: i.mitad.id, name: otra.name };
+            } else if (i.mitad) {
+              name = i.name;
+              price = i.price;
+            }
             if (
               i.tamanio === tamanio &&
               i.price === price &&
-              i.name === v.name &&
+              i.name === name &&
               i.photoUrl === v.photoUrl &&
               !extrasCambio &&
               !regaloCambio
             )
               return i;
             cambio = true;
-            return { ...i, price, tamanio, name: v.name, photoUrl: v.photoUrl, extras, regalo };
+            return { ...i, price, tamanio, name, mitad, photoUrl: v.photoUrl, extras, regalo };
           });
           // Misma referencia si nada cambió: no dispara re-render de más.
           return cambio ? { items } : s;

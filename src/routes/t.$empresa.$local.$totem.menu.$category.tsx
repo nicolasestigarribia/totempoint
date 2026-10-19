@@ -17,6 +17,8 @@ import {
 } from "@/lib/totem-cart";
 import { ElegirPan } from "@/components/totem/ElegirPan";
 import { ElegirTamanio } from "@/components/totem/ElegirTamanio";
+import { ElegirMitad } from "@/components/totem/ElegirMitad";
+import { nombreMitadYMitad, opcionesDeMitad, precioMitadYMitad } from "@/lib/mitades";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
@@ -75,18 +77,33 @@ function MenuCategoryPage() {
   // hace después, con el botón de editar del carrito. El − / + de la tarjeta
   // maneja la versión sin cambios; las personalizadas se ven una por una en el
   // carrito.
-  const agregar = (p: TotemProduct) =>
+  // La otra mitad marcada en cada tarjeta (pizza mitad y mitad). Solo vale si
+  // sigue viniendo en el tamaño marcado; si no, la pizza va entera.
+  const [mitades, setMitades] = useState<Record<number, number | null>>({});
+  const otraMitadDe = (p: TotemProduct) =>
+    opcionesDeMitad(p, menu.products, tamanioDe(p)?.nombre).find((o) => o.id === mitades[p.id]) ??
+    null;
+  const precioDe = (p: TotemProduct) => {
+    const otra = otraMitadDe(p);
+    const base = tamanioDe(p)?.precio ?? p.price;
+    return otra ? String(precioMitadYMitad(p, otra, tamanioDe(p)?.nombre) ?? base) : base;
+  };
+
+  const agregar = (p: TotemProduct) => {
+    const otra = otraMitadDe(p);
     add(cartKey, {
       kind: "producto",
       refId: p.id,
-      name: p.name,
-      price: tamanioDe(p)?.precio ?? p.price,
+      name: otra ? nombreMitadYMitad(p.name, otra.name) : p.name,
+      price: precioDe(p),
       photoUrl: p.photoUrl,
       removed: [],
       pan: panDe(p),
       tamanio: tamanioDe(p)?.nombre,
+      mitad: otra ? { id: otra.id, name: otra.name } : undefined,
       regalo: regaloDeProducto(p),
     });
+  };
 
   return (
     // `svh` y no `dvh`: en Chrome de Android, `dvh` cambia de valor cada vez
@@ -221,12 +238,22 @@ function MenuCategoryPage() {
                   i.kind === "producto" &&
                   i.refId === p.id &&
                   (!pan || i.pan === pan) &&
-                  (!tamanio || i.tamanio === tamanio.nombre),
+                  (!tamanio || i.tamanio === tamanio.nombre) &&
+                  i.mitad?.id === otraMitadDe(p)?.id,
               )
               .reduce((n, i) => n + i.quantity, 0);
             // El − / + de la tarjeta maneja la versión sin cambios; las
             // personalizadas se editan en el carrito, donde se ven separadas.
-            const claveSinCambios = itemKey("producto", p.id, [], [], pan, [], tamanio?.nombre);
+            const claveSinCambios = itemKey(
+              "producto",
+              p.id,
+              [],
+              [],
+              pan,
+              [],
+              tamanio?.nombre,
+              otraMitadDe(p)?.id,
+            );
             return (
               <article
                 key={p.id}
@@ -264,6 +291,13 @@ function MenuCategoryPage() {
                     accent={accent ?? "var(--primary)"}
                     grande
                   />
+                  <ElegirMitad
+                    opciones={opcionesDeMitad(p, menu.products, tamanio?.nombre)}
+                    elegida={otraMitadDe(p)?.id ?? null}
+                    onElegir={(id) => setMitades((ms) => ({ ...ms, [p.id]: id }))}
+                    accent={accent ?? "var(--primary)"}
+                    grande
+                  />
                   <ElegirPan
                     pan={p.pan}
                     elegido={panes[p.id] ?? "blanco"}
@@ -279,7 +313,7 @@ function MenuCategoryPage() {
                       className="whitespace-nowrap font-display text-3xl"
                       style={{ color: accent }}
                     >
-                      {formatPrice(tamanio?.precio ?? p.price)}
+                      {formatPrice(precioDe(p))}
                     </span>
                     {inCart > 0 ? (
                       // Con unidades en el pedido el botón se abre en − cantidad +:

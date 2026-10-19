@@ -14,7 +14,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { OnlineMenu } from "@/lib/api/totem.functions";
+import type { OnlineMenu, TotemProduct } from "@/lib/api/totem.functions";
 import { mesaCartKey, onlineCartKey } from "@/lib/online-menu-cache";
 import {
   buscarEnMenu,
@@ -461,6 +461,7 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
                 busqueda={busqueda.trim()}
                 cartKey={cartKey}
                 accent={accent}
+                todos={menu.products}
               />
             ) : !abierta ? (
               <div key="grilla" className="aparece">
@@ -505,6 +506,7 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
                               <TarjetaProducto
                                 key={p.id}
                                 producto={p}
+                                menu={menu.products}
                                 cartKey={cartKey}
                                 accent={accent}
                                 indice={i}
@@ -579,11 +581,14 @@ function Resultados({
   busqueda,
   cartKey,
   accent,
+  todos,
 }: {
   resultados: NonNullable<ReturnType<typeof buscarEnMenu>>;
   busqueda: string;
   cartKey: string;
   accent: string;
+  /** Todo el menú, para la otra mitad de una pizza mitad y mitad. */
+  todos: TotemProduct[];
 }) {
   const total = resultados.combos.length + resultados.productos.length;
   if (total === 0) {
@@ -609,6 +614,7 @@ function Resultados({
           <TarjetaProducto
             key={`p${p.id}`}
             producto={p}
+            menu={todos}
             cartKey={cartKey}
             accent={accent}
             indice={resultados.combos.length + i}

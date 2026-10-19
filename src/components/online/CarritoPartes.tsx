@@ -48,7 +48,9 @@ export function LineasCarrito({
         {items.map((i) => {
           const clave = claveDe(i);
           const prod = i.kind === "producto" ? productosPorId.get(i.refId) : undefined;
-          const editable = !!prod && (prod.removables.length > 0 || prod.extras.length > 0);
+          // Una mitad y mitad no se personaliza: "sin cebolla" no diría de qué mitad.
+          const editable =
+            !!prod && !i.mitad && (prod.removables.length > 0 || prod.extras.length > 0);
           const agotado = noDisponible(i);
           return (
             <li
@@ -146,6 +148,7 @@ export function LineasCarrito({
                           extras: i.extras,
                           pan: i.pan,
                           tamanio: i.tamanio,
+                          mitad: i.mitad,
                           elecciones: i.elecciones,
                           regalo: i.regalo,
                         })

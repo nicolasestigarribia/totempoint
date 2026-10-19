@@ -12,6 +12,8 @@ export interface MenuDelCarrito {
 export function lineaNoDisponible(menu: MenuDelCarrito) {
   const productos = new Set(menu.products.map((p) => p.id));
   const combos = new Set(menu.combos.map((c) => c.id));
-  return (i: { kind: string; refId: number }) =>
-    i.kind === "producto" ? !productos.has(i.refId) : !combos.has(i.refId);
+  return (i: { kind: string; refId: number; mitad?: { id: number } }) =>
+    i.kind === "producto"
+      ? !productos.has(i.refId) || (i.mitad !== undefined && !productos.has(i.mitad.id))
+      : !combos.has(i.refId);
 }

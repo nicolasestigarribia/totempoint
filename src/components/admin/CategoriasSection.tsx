@@ -48,6 +48,8 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
   // "Cada N, M de regalo". Vacíos = sin regalo.
   const [regaloCada, setRegaloCada] = useState("");
   const [regaloCantidad, setRegaloCantidad] = useState("");
+  // Pizza mitad y mitad entre los productos de esta categoría.
+  const [mitades, setMitades] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [estadoFilter, setEstadoFilter] = useState<"todos" | "activos" | "inactivos">("todos");
@@ -76,6 +78,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
     setSort("0");
     setActive(true);
     setRegaloCada("");
+    setMitades(false);
     setRegaloCantidad("");
     setDialogOpen(true);
   }
@@ -89,6 +92,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
     setActive(row.active);
     setRegaloCada(row.regaloCada ? String(row.regaloCada) : "");
     setRegaloCantidad(row.regaloCantidad ? String(row.regaloCantidad) : "");
+    setMitades(row.mitades);
     setDialogOpen(true);
   }
 
@@ -121,6 +125,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
             active,
             regaloCada: cada,
             regaloCantidad: cantidad,
+            mitades,
           },
         });
         toast.success("Categoría actualizada");
@@ -133,6 +138,7 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
             sort: safeSort,
             regaloCada: cada,
             regaloCantidad: cantidad,
+            mitades,
           },
         });
         toast.success("Categoría creada");
@@ -336,6 +342,17 @@ export function CategoriasSection({ panelClass }: { panelClass: string }) {
                 Vacío = sin regalo. Las categorías con el mismo regalo suman juntas, y los combos
                 cuentan por lo que traen. La app solo dice cuántos: cuáles, los elige el local.
               </p>
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-xl border border-border p-3">
+              <div>
+                <Label htmlFor="category-mitades">Mitad y mitad</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  El cliente puede pedir un producto con la otra mitad de otro gusto de esta
+                  categoría, del mismo tamaño (ej: ½ muzzarella + ½ napolitana). Se cobra la mitad
+                  más cara.
+                </p>
+              </div>
+              <Switch id="category-mitades" checked={mitades} onCheckedChange={setMitades} />
             </div>
             <ImageUploadField
               id="category-photo"
