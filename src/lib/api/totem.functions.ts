@@ -541,11 +541,9 @@ export const getTotemMenu = createServerFn({ method: "GET" })
   .inputValidator(z.object(totemInput))
   .handler(async ({ data }): Promise<TotemMenu> => {
     const resuelto = await resolverTotem(data.empresa, data.local, data.totem);
-    const menu = await armarMenu(resuelto.company.id, resuelto.locationId);
-    // Los combos a elección todavía no tienen pantalla en el tótem: se venden
-    // por el pedido online. Sin esto, la tablet los agregaría sin gustos y el
-    // servidor los rechazaría al confirmar.
-    return { ...menu, combos: menu.combos.filter((c) => c.grupos.length === 0) };
+    // Los combos a elección se arman en la tarjeta del tótem (`ElegirGustos`),
+    // igual que en el pedido online.
+    return armarMenu(resuelto.company.id, resuelto.locationId);
   });
 
 /**

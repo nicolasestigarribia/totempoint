@@ -138,6 +138,11 @@ function CarritoPage() {
                           Pan {i.pan}
                         </p>
                       )}
+                      {i.elecciones && i.elecciones.length > 0 && (
+                        <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                          {i.elecciones.map((e) => `${e.quantity} ${e.name}`).join(" · ")}
+                        </p>
+                      )}
                       {i.removed.length > 0 && (
                         // Lo que se sacó va acá y no en el nombre: el cliente
                         // tiene que poder revisarlo antes de confirmar, que es
@@ -179,6 +184,7 @@ function CarritoPage() {
                             pan: i.pan,
                             tamanio: i.tamanio,
                             mitad: i.mitad,
+                            elecciones: i.elecciones,
                             regalo: i.regalo,
                           })
                         }

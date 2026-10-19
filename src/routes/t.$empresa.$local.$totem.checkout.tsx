@@ -86,6 +86,11 @@ function CheckoutPage() {
             pan: i.pan,
             tamanio: i.tamanio,
             mitad: i.mitad?.id,
+            elecciones: i.elecciones?.map((e) => ({
+              grupo: e.grupo,
+              productId: e.productId,
+              quantity: e.quantity,
+            })),
           })),
         },
       });

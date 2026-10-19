@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { ElegirGustos } from "@/components/online/ElegirGustos";
 import { ImageOff, Plus, Minus, Trash2 } from "lucide-react";
 import { getMenuCached } from "@/lib/totem-menu-cache";
 import { TotemError } from "@/components/totem/TotemError";
@@ -36,6 +39,9 @@ function CombosPage() {
   const removeOne = useTotemCart((s) => s.removeOne);
   const cart = useCartForSlug(cartKey);
   useTotemIdleReset(nav);
+  // El combo a elección que se está armando: el selector se abre dentro de su
+  // tarjeta, sin salir de la pantalla.
+  const [armando, setArmando] = useState<number | null>(null);
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -56,9 +62,16 @@ function CombosPage() {
           <h1 className="mt-1 font-display text-4xl md:text-6xl">Combos</h1>
         </div>
 
-        <div className={`grid auto-rows-fr gap-5 ${gridColsFor(menu.combos.length)}`}>
+        <div
+          className={`grid gap-5 ${armando === null ? "auto-rows-fr" : "items-start"} ${gridColsFor(menu.combos.length)}`}
+        >
           {menu.combos.map((c, i) => {
-            const inCart = cart.find((i) => i.kind === "combo" && i.refId === c.id)?.quantity ?? 0;
+            const aEleccion = c.grupos.length > 0;
+            // Un combo a elección puede estar varias veces con gustos
+            // distintos: se cuentan todas sus líneas.
+            const inCart = cart
+              .filter((i) => i.kind === "combo" && i.refId === c.id)
+              .reduce((n, i) => n + i.quantity, 0);
             return (
               <article
                 key={c.id}
@@ -88,8 +101,19 @@ function CombosPage() {
                     <p className="text-sm text-muted-foreground">{c.description}</p>
                   )}
 
-                  {c.items.length > 0 && (
+                  {(c.items.length > 0 || aEleccion) && (
                     <ul className="mt-1 space-y-1">
+                      {c.grupos.map((g) => (
+                        <li
+                          key={`g${g.indice}`}
+                          className="flex gap-2 text-sm text-muted-foreground"
+                        >
+                          <span className="font-display text-base" style={{ color: accent }}>
+                            {g.cantidad}×
+                          </span>
+                          {g.nombre}, a elección
+                        </li>
+                      ))}
                       {c.items.map((item) => (
                         <li key={item.name} className="flex gap-2 text-sm text-muted-foreground">
                           <span className="font-display text-base" style={{ color: accent }}>
@@ -101,10 +125,36 @@ function CombosPage() {
                     </ul>
                   )}
 
+                  {armando === c.id && (
+                    <ElegirGustos
+                      grupos={c.grupos}
+                      accent={accent ?? "var(--primary)"}
+                      textoBoton={`Agregar al pedido · ${formatPrice(c.price)}`}
+                      onCancelar={() => setArmando(null)}
+                      onListo={(elecciones) => {
+                        add(cartKey, {
+                          kind: "combo",
+                          refId: c.id,
+                          name: c.name,
+                          price: c.price,
+                          photoUrl: c.photoUrl,
+                          regalo: c.regalo,
+                          elecciones,
+                        });
+                        setArmando(null);
+                        toast.success(`${c.name} agregado a tu pedido`);
+                      }}
+                    />
+                  )}
+
                   {/* Si el precio y el botón no entran en una línea (tarjeta angosta,
                       precio largo), el botón baja y ocupa todo el ancho: nunca
                       se sale de la tarjeta. */}
-                  <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
+                  <div
+                    className={`mt-auto flex flex-wrap items-center justify-between gap-3 pt-3 ${
+                      armando === c.id ? "hidden" : ""
+                    }`}
+                  >
                     <span
                       className="whitespace-nowrap font-display text-3xl"
                       style={{ color: accent }}
@@ -112,7 +162,17 @@ function CombosPage() {
                       {formatPrice(c.price)}
                     </span>
 
-                    {inCart > 0 ? (
+                    {aEleccion ? (
+                      <button
+                        type="button"
+                        onClick={() => setArmando(c.id)}
+                        className="flex h-14 grow items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-6 font-display text-lg uppercase tracking-wide text-white transition hover:scale-[1.03] active:scale-[0.97]"
+                        style={{ background: accent ?? "var(--primary)" }}
+                      >
+                        <Plus className="h-5 w-5" />
+                        {inCart > 0 ? `Otro (${inCart})` : "Elegir gustos"}
+                      </button>
+                    ) : inCart > 0 ? (
                       <div
                         className="ml-auto flex items-center gap-1 rounded-2xl p-1"
                         style={{ background: accent ?? "var(--primary)" }}
