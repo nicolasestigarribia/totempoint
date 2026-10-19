@@ -1,3 +1,4 @@
+import { jornadaDe } from "@/lib/jornada";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Printer, Loader2, Check, X } from "lucide-react";
@@ -36,7 +37,7 @@ function ticketDemo(empresa: string): TicketData {
   return {
     companyName: empresa,
     orderNumber: 123,
-    businessDate: `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`,
+    businessDate: jornadaDe(hoy),
     customerName: "Prueba",
     createdAt: hoy,
     deliveryMethod: "mostrador",

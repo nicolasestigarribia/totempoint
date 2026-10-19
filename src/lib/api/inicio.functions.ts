@@ -17,6 +17,7 @@ import {
 import { requireCompany } from "@/lib/auth/middleware";
 import type { SessionUser } from "@/lib/auth/session";
 import { accessibleLocationIds, canView, companyIdOf, isOwner } from "@/lib/auth/scope";
+import { jornadaDe } from "@/lib/jornada";
 
 /**
  * Un paso para dejar el local listo para vender. Lo que importa para que un
@@ -47,12 +48,7 @@ export interface Inicio {
 }
 
 /** La jornada de hoy, con el mismo reloj con que se numeran los pedidos. */
-function diaDeHoy(): string {
-  const ahora = new Date();
-  const mes = String(ahora.getMonth() + 1).padStart(2, "0");
-  const dia = String(ahora.getDate()).padStart(2, "0");
-  return `${ahora.getFullYear()}-${mes}-${dia}`;
-}
+const diaDeHoy = () => jornadaDe();
 
 /**
  * La pantalla de entrada del panel: cómo viene el día, el link para compartir

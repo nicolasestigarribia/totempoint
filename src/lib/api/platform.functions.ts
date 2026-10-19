@@ -21,6 +21,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { slugify, isReservedSlug } from "@/lib/slug";
 import { registrarAuditoria } from "@/lib/audit/registrar";
 import { cargarMotivosBase } from "@/lib/stock/motivos-base";
+import { jornadaDe } from "@/lib/jornada";
 
 const usernameSchema = z
   .string()
@@ -82,8 +83,7 @@ export const listBusinesses = createServerFn({ method: "GET" })
 
     // Pedidos y productos por empresa, en dos consultas para toda la lista.
     const hace7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const hoy = new Date();
-    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+    const hoyStr = jornadaDe();
     const [actividad, catalogo] = await Promise.all([
       db
         .select({

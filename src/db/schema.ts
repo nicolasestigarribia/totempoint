@@ -800,6 +800,12 @@ export const orders = mysqlTable(
     /** Demora que prometió el local al aceptar, en minutos. */
     etaMinutes: int("eta_minutes"),
     /**
+     * Cuándo salió el repartidor con un pedido de envío ("En camino"). No es un
+     * estado más: el pedido sigue "en preparación" para la comandera, y esto
+     * solo le cuenta al cliente que ya va para su casa.
+     */
+    dispatchedAt: timestamp("dispatched_at"),
+    /**
      * Código aleatorio de la página de seguimiento del cliente. No se usa el id
      * porque es correlativo: cualquiera podría recorrer pedidos ajenos y ver
      * nombre, teléfono y dirección.

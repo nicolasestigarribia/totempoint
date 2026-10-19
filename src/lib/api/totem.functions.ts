@@ -38,6 +38,7 @@ import {
 import { acreditarPedido } from "@/lib/payments/acreditar";
 import { MAX_POR_LINEA, PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
 import { generarCodigoPedido } from "@/lib/codigo-pedido";
+import { jornadaDe } from "@/lib/jornada";
 import { estadoHorario, type Horarios } from "@/lib/horario";
 import {
   calcularRegalo,
@@ -115,18 +116,10 @@ async function empresaCobraConMP(companyId: number): Promise<boolean> {
 }
 
 /**
- * La jornada de hoy como "YYYY-MM-DD", en la hora del servidor.
- *
- * Los pedidos se agrupan por día para la numeración y para el cierre de caja,
- * y eso tiene que salir del reloj del negocio, no del de la tablet: si no, dos
- * tótems con la hora corrida arrancarían jornadas distintas.
+ * La jornada de hoy. Sale del reloj del servidor y no del de la tablet: dos
+ * tótems con la hora corrida arrancarían jornadas distintas. Ver `jornadaDe`.
  */
-function diaDeHoy(): string {
-  const ahora = new Date();
-  const mes = String(ahora.getMonth() + 1).padStart(2, "0");
-  const dia = String(ahora.getDate()).padStart(2, "0");
-  return `${ahora.getFullYear()}-${mes}-${dia}`;
-}
+const diaDeHoy = () => jornadaDe();
 
 /** Los tamaños de un producto tal como se venden: con nombre y precio válido. */
 function tamaniosDe(
@@ -2470,6 +2463,8 @@ export interface OnlineOrderStatus {
   /** Si el local ya lo aceptó, y con qué demora. */
   acceptedAt: string | null;
   etaMinutes: number | null;
+  /** Cuándo salió el repartidor, en un envío: el cliente ve "En camino". */
+  dispatchedAt: string | null;
   deliveryMethod: "local" | "mostrador" | "envio";
   deliveryFee: string | null;
   deliveryAddress: string | null;
@@ -2574,6 +2569,7 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
       status: o.status,
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       etaMinutes: o.etaMinutes,
+      dispatchedAt: o.dispatchedAt?.toISOString() ?? null,
       deliveryMethod: o.deliveryMethod,
       deliveryDetails: o.deliveryDetails,
       deliveryDistanceKm: o.deliveryDistanceKm,

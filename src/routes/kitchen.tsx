@@ -26,6 +26,8 @@ import {
   Gift,
   CircleHelp,
   X,
+  Printer,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
@@ -36,6 +38,7 @@ import {
   verifyOrderPayment,
   cancelOrder,
   acceptOnlineOrder,
+  markOrderDispatched,
   type KitchenOrder,
   type OrderStatus,
   type PaymentMethod,
@@ -53,6 +56,9 @@ import {
 } from "@/components/ui/dialog";
 import { canEditSection } from "@/lib/auth/permissions";
 import { PantallaCarga } from "@/components/PantallaCarga";
+import { comandasHtml } from "@/lib/print/comanda";
+import { linkWhatsApp } from "@/lib/whatsapp";
+import { imprimirHtml } from "@/lib/print/navegador";
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({ meta: [{ title: "Panel de cocina" }] }),
@@ -326,13 +332,34 @@ function DatosOnline({ o }: { o: KitchenOrder }) {
   return (
     <div className="mt-3 space-y-1.5 rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 text-sm">
       {o.customerPhone && (
-        <a
-          href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`}
-          className="flex items-center gap-2 font-bold text-sky-300 underline-offset-4 hover:underline"
-        >
-          <Phone className="h-4 w-4 shrink-0" />
-          {o.customerPhone}
-        </a>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <a
+            href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`}
+            className="flex items-center gap-2 font-bold text-sky-300 underline-offset-4 hover:underline"
+          >
+            <Phone className="h-4 w-4 shrink-0" />
+            {o.customerPhone}
+          </a>
+          {/* Para avisarle algo sin llamar ("se demora 10 minutos", "estoy en
+              la puerta"), con el número de pedido ya escrito. */}
+          {(() => {
+            const wa = linkWhatsApp(
+              o.customerPhone,
+              `Hola ${o.customerName}! Te escribimos por tu pedido ${formatearNumeroPedido(o.businessDate, o.orderNumber)}.`,
+            );
+            return wa ? (
+              <a
+                href={wa}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sky-300 underline underline-offset-4"
+              >
+                <MessageCircle className="h-4 w-4 shrink-0" />
+                WhatsApp
+              </a>
+            ) : null;
+          })()}
+        </div>
       )}
       {o.deliveryMethod === "envio" && (
         <>
@@ -411,6 +438,40 @@ function cuentaRegresiva(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/**
+ * Qué pedidos ya imprimió esta comandera. Vive en el navegador: imprimir es
+ * algo de este equipo y su impresora, no del pedido. Se olvidan solos a los
+ * dos días para que la lista no crezca.
+ */
+const CLAVE_IMPRESOS = "comandera-impresos";
+const CLAVE_AUTO = "comandera-imprimir-auto";
+// Un pedido que entró hace más que esto no se imprime solo al abrir la
+// comandera: sería tirar de golpe todo lo que llegó mientras estaba cerrada.
+const IMPRIMIR_HASTA_MS = 30 * 60 * 1000;
+
+function leerImpresos(): Record<string, number> {
+  try {
+    const crudo = JSON.parse(localStorage.getItem(CLAVE_IMPRESOS) ?? "{}");
+    return crudo && typeof crudo === "object" ? crudo : {};
+  } catch {
+    return {};
+  }
+}
+
+function anotarImpresos(ids: number[]) {
+  try {
+    const lista = leerImpresos();
+    const ahora = Date.now();
+    for (const [id, t] of Object.entries(lista)) {
+      if (ahora - t > 2 * 24 * 60 * 60 * 1000) delete lista[id];
+    }
+    for (const id of ids) lista[id] = ahora;
+    localStorage.setItem(CLAVE_IMPRESOS, JSON.stringify(lista));
+  } catch {
+    // Sin almacenamiento: puede repetir alguna comanda al recargar.
+  }
+}
+
 function Kitchen() {
   const navigate = useNavigate();
   const doMe = useServerFn(me);
@@ -420,6 +481,7 @@ function Kitchen() {
   const doVerify = useServerFn(verifyOrderPayment);
   const doCancel = useServerFn(cancelOrder);
   const doAccept = useServerFn(acceptOnlineOrder);
+  const doDispatch = useServerFn(markOrderDispatched);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -478,6 +540,23 @@ function Kitchen() {
     }
   };
   const [aceptando, setAceptando] = useState<number | null>(null);
+
+  // Comanda impresa: cada pedido que entra a la cocina sale en papel solo, si
+  // en este equipo se prendió. Apagado de entrada, porque no todos los locales
+  // tienen impresora al lado de la comandera.
+  const [autoImprimir, setAutoImprimir] = useState(false);
+  useEffect(() => {
+    try {
+      setAutoImprimir(localStorage.getItem(CLAVE_AUTO) === "1");
+    } catch {
+      // Sin almacenamiento queda apagado.
+    }
+  }, []);
+  const imprimirPedidos = useCallback((lista: KitchenOrder[]) => {
+    if (lista.length === 0) return;
+    imprimirHtml(comandasHtml(lista));
+    anotarImpresos(lista.map((o) => o.id));
+  }, []);
 
   // El navegador no deja sonar nada hasta el primer toque en la página: ese
   // toque, sea donde sea, destraba el sonido.
@@ -613,6 +692,39 @@ function Kitchen() {
     [orders],
   );
 
+  useEffect(() => {
+    if (!autoImprimir) return;
+    const impresos = leerImpresos();
+    const ahoraMs = Date.now();
+    const nuevos = orders.filter(
+      (o) =>
+        !esPorAceptar(o) &&
+        (o.status === "recibido" || o.status === "preparacion") &&
+        !(o.id in impresos) &&
+        ahoraMs - llegadaACocina(o) < IMPRIMIR_HASTA_MS,
+    );
+    imprimirPedidos(nuevos);
+  }, [orders, autoImprimir, imprimirPedidos]);
+
+  const alternarAutoImprimir = () => {
+    const nuevo = !autoImprimir;
+    try {
+      localStorage.setItem(CLAVE_AUTO, nuevo ? "1" : "0");
+    } catch {
+      // Queda así hasta recargar.
+    }
+    if (nuevo) {
+      // Lo que ya está en pantalla no se imprime de golpe: desde ahora, los nuevos.
+      anotarImpresos(orders.map((o) => o.id));
+      toast.success("Desde ahora cada pedido nuevo sale impreso", {
+        description:
+          "Para que imprima sin preguntar, abrí Chrome con --kiosk-printing y dejá la térmica como impresora predeterminada.",
+        duration: 8000,
+      });
+    }
+    setAutoImprimir(nuevo);
+  };
+
   // La pestaña avisa también, por si la comandera quedó detrás de otra.
   useEffect(() => {
     document.title =
@@ -673,6 +785,21 @@ function Kitchen() {
     } catch (err) {
       setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: previous } : o)));
       toast.error(err instanceof Error ? err.message : "No se pudo cambiar el estado");
+    }
+  };
+
+  const salioAEntregar = async (order: KitchenOrder) => {
+    const ahoraIso = new Date().toISOString();
+    setOrders((prev) =>
+      prev.map((o) => (o.id === order.id ? { ...o, dispatchedAt: ahoraIso } : o)),
+    );
+    try {
+      await doDispatch({ data: { orderId: order.id } });
+    } catch (err) {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? { ...o, dispatchedAt: order.dispatchedAt } : o)),
+      );
+      toast.error(mensajeDeError(err, "No se pudo marcar que salió"));
     }
   };
 
@@ -804,7 +931,21 @@ function Kitchen() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={alternarAutoImprimir}
+              aria-pressed={autoImprimir}
+              className={`flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-bold transition ${
+                autoImprimir
+                  ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-300"
+                  : "border-border hover:border-primary"
+              }`}
+              title="Imprime en este equipo una comanda por cada pedido que entra a la cocina"
+            >
+              <Printer className="h-4 w-4" />
+              {autoImprimir ? "Imprime solo" : "Imprimir solo"}
+            </button>
             <button
               type="button"
               onClick={handleRefresh}
@@ -850,7 +991,8 @@ function Kitchen() {
               <li>
                 <span className="font-bold text-primary">3. Entregar.</span> Pedile al cliente su{" "}
                 <b>código</b> (el que está al lado del número) y tocá <b>Listo, entregado</b>. Si
-                fue un error, se puede revertir.
+                fue un error, se puede revertir. En un envío, tocá <b>Salió a entregar</b> cuando
+                sale el repartidor: el cliente lo ve en su celular.
               </li>
               <li>
                 <span className="font-bold text-primary">4. Cobrar.</span> Al cobrar en efectivo
@@ -1071,6 +1213,17 @@ function Kitchen() {
                                   </span>
                                 );
                               })()}
+                              {o.status !== "cancelado" && (
+                                <button
+                                  type="button"
+                                  onClick={() => imprimirPedidos([o])}
+                                  aria-label={`Imprimir la comanda del ${formatearNumeroPedido(o.businessDate, o.orderNumber)}`}
+                                  title="Imprimir comanda"
+                                  className="flex items-center rounded-xl px-2 py-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </button>
+                              )}
                               {o.status !== "cancelado" && puedeOperar && (
                                 <button
                                   type="button"
@@ -1170,14 +1323,42 @@ function Kitchen() {
                             </span>
                           </div>
 
-                          {next && puedeOperar && (
+                          {o.deliveryMethod === "envio" &&
+                            o.status === "preparacion" &&
+                            o.dispatchedAt && (
+                              <p className="mt-3 flex items-center gap-2 rounded-xl bg-sky-500/10 px-3 py-2 text-xs font-bold text-sky-300">
+                                <Bike className="h-4 w-4" /> En camino desde las{" "}
+                                {new Date(o.dispatchedAt).toLocaleTimeString("es-AR", {
+                                  hourCycle: "h23",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            )}
+                          {/* Un envío tiene un paso más, que el cliente sigue
+                              desde su celular: cuando sale con el repartidor. */}
+                          {puedeOperar &&
+                          o.deliveryMethod === "envio" &&
+                          o.status === "preparacion" &&
+                          !o.dispatchedAt ? (
                             <button
-                              onClick={() => changeStatus(o, next)}
+                              onClick={() => salioAEntregar(o)}
                               className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition hover:scale-[1.02] active:scale-95"
                             >
-                              {accionHacia[next]}
-                              <ChevronRight className="h-4 w-4" />
+                              <Bike className="h-4 w-4" />
+                              Salió a entregar
                             </button>
+                          ) : (
+                            next &&
+                            puedeOperar && (
+                              <button
+                                onClick={() => changeStatus(o, next)}
+                                className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary text-sm font-extrabold uppercase tracking-wider text-primary-foreground shadow-glow transition hover:scale-[1.02] active:scale-95"
+                              >
+                                {accionHacia[next]}
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            )
                           )}
                           {o.status === "entregado" && puedeOperar && (
                             <button

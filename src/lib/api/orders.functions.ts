@@ -61,6 +61,8 @@ export interface KitchenOrder {
    */
   acceptedAt: string | null;
   etaMinutes: number | null;
+  /** Cuándo salió a entregar, en un pedido de envío ("En camino"). */
+  dispatchedAt: string | null;
   /** Datos del pedido online: cómo ubicar al cliente y cómo le llega. */
   customerPhone: string | null;
   deliveryFee: string | null;
@@ -344,6 +346,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       tableNumber: o.tableNumber,
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       etaMinutes: o.etaMinutes,
+      dispatchedAt: o.dispatchedAt?.toISOString() ?? null,
       customerPhone: o.customerPhone,
       deliveryFee: o.deliveryFee,
       deliveryAddress: o.deliveryAddress,
@@ -471,6 +474,38 @@ export const acceptOnlineOrder = createServerFn({ method: "POST" })
   });
 
 /** El pedido, si es de una sucursal que quien llama puede ver. */
+/**
+ * Un pedido de envío salió con el repartidor: el cliente pasa a ver "En camino"
+ * en su seguimiento. El pedido sigue en preparación para la comandera hasta que
+ * alguien lo marca entregado; esto solo marca la hora de salida.
+ */
+export const markOrderDispatched = createServerFn({ method: "POST" })
+  .middleware([requireCompany])
+  .inputValidator(z.object({ orderId: z.number().int() }))
+  .handler(async ({ context, data }) => {
+    const user = context.user as SessionUser;
+    assertCanOperateKitchen(user);
+
+    const target = await pedidoVisible(user, data.orderId);
+    if (target.deliveryMethod !== "envio") throw new Error("Ese pedido no es de envío");
+    if (target.status === "cancelado") throw new Error("Ese pedido está cancelado");
+    if (target.status === "entregado") throw new Error("Ese pedido ya se entregó");
+    if (!target.acceptedAt) throw new Error("Primero aceptá el pedido");
+    if (target.dispatchedAt) return { ok: true };
+
+    await db
+      .update(orders)
+      .set({ dispatchedAt: new Date(), status: "preparacion" })
+      .where(
+        and(
+          eq(orders.id, data.orderId),
+          isNull(orders.dispatchedAt),
+          ne(orders.status, "cancelado"),
+        ),
+      );
+    return { ok: true };
+  });
+
 async function pedidoVisible(user: SessionUser, orderId: number) {
   const locs = await visibleLocations(user);
   const locIds = locs.map((l) => l.id);
@@ -487,6 +522,8 @@ async function pedidoVisible(user: SessionUser, orderId: number) {
       mpPaymentId: orders.mpPaymentId,
       channel: orders.channel,
       acceptedAt: orders.acceptedAt,
+      deliveryMethod: orders.deliveryMethod,
+      dispatchedAt: orders.dispatchedAt,
       locationId: orders.locationId,
       companyId: locations.companyId,
     })

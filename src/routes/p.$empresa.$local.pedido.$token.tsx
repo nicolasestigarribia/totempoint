@@ -10,6 +10,7 @@ import {
   Bike,
   Store,
   PackageCheck,
+  MessageCircle,
 } from "lucide-react";
 import { getOnlineOrder, type OnlineOrderStatus } from "@/lib/api/totem.functions";
 import { OnlineError } from "@/components/online/OnlineError";
@@ -17,6 +18,7 @@ import { OnlineHeader } from "@/components/online/OnlineHeader";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
+import { linkWhatsApp } from "@/lib/whatsapp";
 import { formatearDistancia } from "@/lib/delivery";
 import { AccionesPedido } from "@/components/online/AccionesPedido";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
@@ -237,13 +239,34 @@ function SeguimientoPage() {
         </div>
 
         {pedido.locationPhone && (
-          <a
-            href={`tel:${pedido.locationPhone.replace(/[^\d+]/g, "")}`}
-            className="mt-4 flex h-12 items-center justify-center gap-2 rounded-2xl border border-border font-bold"
-          >
-            <Phone className="h-4 w-4" />
-            Llamar al local
-          </a>
+          // WhatsApp primero: es como se habla con un local acá. Con el número
+          // y el código ya escritos, el local lo ubica sin preguntar.
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {(() => {
+              const wa = linkWhatsApp(
+                pedido.locationPhone,
+                `Hola! Te escribo por mi pedido ${numero}${pedido.codigo ? ` (código ${pedido.codigo})` : ""} a nombre de ${pedido.customerName}.`,
+              );
+              return wa ? (
+                <a
+                  href={wa}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-border font-bold"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                </a>
+              ) : null;
+            })()}
+            <a
+              href={`tel:${pedido.locationPhone.replace(/[^\d+]/g, "")}`}
+              className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-border font-bold only:col-span-2"
+            >
+              <Phone className="h-4 w-4" />
+              Llamar al local
+            </a>
+          </div>
         )}
 
         {terminado && (
@@ -339,6 +362,19 @@ function Estado({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string 
     );
   }
 
+  if (pedido.status === "preparacion" && pedido.dispatchedAt) {
+    return (
+      <Tarjeta
+        icono={<Bike className="h-12 w-12" style={{ color: accent }} />}
+        titulo="¡Va en camino!"
+      >
+        Salió a las{" "}
+        <span className="font-bold text-foreground">{horaDe(new Date(pedido.dispatchedAt))}</span>.
+        Tené el teléfono a mano por si el repartidor te llama.
+      </Tarjeta>
+    );
+  }
+
   const llega = pedido.etaMinutes
     ? new Date(new Date(pedido.acceptedAt).getTime() + pedido.etaMinutes * 60_000)
     : null;
@@ -372,14 +408,20 @@ function Estado({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string 
 function Pasos({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string }) {
   if (pedido.status === "cancelado" || pedido.pagarEn) return null;
   const envio = pedido.deliveryMethod === "envio";
-  const pasos = ["Enviado", "Confirmado", "Preparando", envio ? "Entregado" : "Listo"];
+  // El envío tiene un paso más: el que más espera el cliente, cuando ya salió.
+  const pasos = envio
+    ? ["Enviado", "Confirmado", "Preparando", "En camino", "Entregado"]
+    : ["Enviado", "Confirmado", "Preparando", "Listo"];
+  const ultimo = pasos.length - 1;
   const actual = !pedido.acceptedAt
     ? 0
     : pedido.status === "recibido"
       ? 1
       : pedido.status === "preparacion"
-        ? 2
-        : 3;
+        ? envio && pedido.dispatchedAt
+          ? 3
+          : 2
+        : ultimo;
   return (
     <ol className="mt-4 flex items-start" aria-label="Estado del pedido">
       {pasos.map((paso, i) => {
@@ -393,7 +435,7 @@ function Pasos({ pedido, accent }: { pedido: OnlineOrderStatus; accent: string }
               />
               <span
                 className={`flex h-3 w-3 shrink-0 rounded-full transition-colors duration-700 ${
-                  i === actual && i < 3 ? "ring-4 ring-current/20 animate-pulse" : ""
+                  i === actual && i < ultimo ? "ring-4 ring-current/20 animate-pulse" : ""
                 }`}
                 style={{ background: hecho ? accent : "var(--border)", color: accent }}
               />

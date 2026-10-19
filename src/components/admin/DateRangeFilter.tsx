@@ -4,6 +4,7 @@ import { es } from "react-day-picker/locale";
 
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { jornadaDe } from "@/lib/jornada";
 
 /** "YYYY-MM-DD" de un día local, sin pasar por UTC. */
 export function isoDia(d: Date): string {
@@ -12,8 +13,9 @@ export function isoDia(d: Date): string {
   ).padStart(2, "0")}`;
 }
 
+/** La jornada de hoy: de madrugada sigue siendo la de la noche anterior. */
 export function hoyIso(): string {
-  return isoDia(new Date());
+  return jornadaDe();
 }
 
 function desdeIso(s: string): Date {
@@ -30,7 +32,7 @@ function mostrar(s: string): string {
 }
 
 function haceDias(n: number): string {
-  const d = new Date();
+  const d = desdeIso(hoyIso());
   d.setDate(d.getDate() - n);
   return isoDia(d);
 }

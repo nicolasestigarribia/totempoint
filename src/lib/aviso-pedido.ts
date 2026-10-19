@@ -5,6 +5,7 @@ interface PedidoAvisable {
   status: string;
   acceptedAt: string | null;
   pagarEn?: string | null;
+  dispatchedAt?: string | null;
 }
 
 /** El paso del pedido como lo cuenta el cliente: una palabra por momento. */
@@ -12,6 +13,7 @@ function pasoDe(p: PedidoAvisable): string {
   if (p.status === "cancelado") return "cancelado";
   if (p.pagarEn) return "pago";
   if (!p.acceptedAt) return "esperando";
+  if (p.status === "preparacion" && p.dispatchedAt) return "camino";
   return p.status; // recibido (confirmado), preparacion, entregado
 }
 
@@ -21,6 +23,7 @@ const TITULO: Record<string, string> = {
   esperando: "Esperando confirmación",
   recibido: "✅ Pedido confirmado",
   preparacion: "👨‍🍳 Lo están preparando",
+  camino: "🛵 Va en camino",
   entregado: "🎉 ¡Listo!",
 };
 
