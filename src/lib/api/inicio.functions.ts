@@ -315,9 +315,11 @@ export const getInicio = createServerFn({ method: "GET" })
           titulo: "Cargá tu WhatsApp",
           detalle:
             "Es el teléfono de la sucursal: tus clientes te escriben desde el seguimiento del pedido con un toque.",
-          listo: sucursalesEmpresa
-            .filter((l) => l.active)
-            .every((l) => numeroWhatsApp(l.phone) !== null),
+          listo:
+            sucursalesEmpresa.some((l) => l.active) &&
+            sucursalesEmpresa
+              .filter((l) => l.active)
+              .every((l) => numeroWhatsApp(l.phone) !== null),
           seccion: "empresa",
           opcional: true,
         },

@@ -287,7 +287,10 @@ function MenuCategoryPage() {
                   <ElegirTamanio
                     tamanios={p.tamanios}
                     elegido={tamanio?.nombre ?? ""}
-                    onElegir={(nuevo) => setTamanios((ts) => ({ ...ts, [p.id]: nuevo }))}
+                    onElegir={(nuevo) => {
+                      setTamanios((ts) => ({ ...ts, [p.id]: nuevo }));
+                      setMitades((ms) => ({ ...ms, [p.id]: null }));
+                    }}
                     accent={accent ?? "var(--primary)"}
                     grande
                   />

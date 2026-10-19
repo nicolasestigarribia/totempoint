@@ -248,7 +248,7 @@ export function buscarEnPanel(
         break;
       }
     }
-    if (todas) puntos > 0 && puntuados.push({ d, puntos });
+    if (todas && puntos > 0) puntuados.push({ d, puntos });
   }
   return puntuados.sort((a, b) => b.puntos - a.puntos).map((x) => x.d);
 }

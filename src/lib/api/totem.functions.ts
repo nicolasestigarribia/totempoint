@@ -1071,6 +1071,10 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
         .flatMap((i) => (i.mitad !== undefined ? [i.id, i.mitad] : [i.id])),
     ),
   ];
+  // Un combo no se pide mitad y mitad: si llega así, es un pedido armado a mano.
+  if (p.items.some((i) => i.kind === "combo" && i.mitad !== undefined)) {
+    throw new Error("Algo de tu pedido no se puede armar así. Volvé a abrir el menú");
+  }
   const comboIds = [...new Set(p.items.filter((i) => i.kind === "combo").map((i) => i.id))];
 
   const productRows = productIds.length
@@ -1494,7 +1498,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
   const lineas: LineaVendida[] = [
     ...p.items.flatMap((i, indice): LineaVendida[] =>
       // Mitad y mitad: media receta de cada gusto.
-      i.mitad !== undefined
+      i.kind === "producto" && i.mitad !== undefined
         ? [
             { kind: "producto", refId: i.id, quantity: i.quantity / 2 },
             { kind: "producto", refId: i.mitad, quantity: i.quantity / 2 },

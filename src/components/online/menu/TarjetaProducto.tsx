@@ -317,7 +317,11 @@ export function TarjetaProducto({
                 <ElegirTamanio
                   tamanios={p.tamanios}
                   elegido={tamanio?.nombre ?? ""}
-                  onElegir={setTamanioElegido}
+                  onElegir={(t) => {
+                    setTamanioElegido(t);
+                    // Otro tamaño, otra pizza: la mitad se vuelve a elegir.
+                    setMitadElegida(null);
+                  }}
                   accent={accent}
                 />
               ))}
