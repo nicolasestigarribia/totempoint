@@ -433,6 +433,21 @@ function llegadaACocina(o: KitchenOrder): number {
   return new Date(o.acceptedAt ?? o.createdAt).getTime();
 }
 
+/**
+ * Un pedido en curso que ya se pasó: de la demora que se le prometió al
+ * cliente, o de 20 minutos si no se le prometió ninguna (tótem). Es lo que
+ * hay que atender primero, y en una pantalla llena no se ve sin marcarlo.
+ */
+const SIN_DEMORA_MS = 20 * 60 * 1000;
+function minutosDeAtraso(o: KitchenOrder, ahora: number): number {
+  if (o.status !== "recibido" && o.status !== "preparacion") return 0;
+  if (o.dispatchedAt) return 0;
+  const limite = o.etaMinutes
+    ? new Date(o.acceptedAt ?? o.createdAt).getTime() + o.etaMinutes * 60_000
+    : llegadaACocina(o) + SIN_DEMORA_MS;
+  return ahora > limite ? Math.floor((ahora - limite) / 60_000) : 0;
+}
+
 function cuentaRegresiva(ms: number): string {
   const s = Math.ceil(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -1194,6 +1209,15 @@ function Kitchen() {
                                 {entregaLabel(o)}
                                 {" · "}
                                 <span className="text-gold">{timeAgo(o.createdAt)}</span>
+                                {(() => {
+                                  const atraso = minutosDeAtraso(o, ahora);
+                                  return atraso > 0 ? (
+                                    <span className="ml-1.5 inline-flex items-center gap-1 rounded bg-destructive px-1.5 py-0.5 font-bold uppercase text-destructive-foreground">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      Atrasado {atraso} min
+                                    </span>
+                                  ) : null;
+                                })()}
                               </div>
                             </div>
                             {/* Esquina: el tiempo que le queda al pedido antes
