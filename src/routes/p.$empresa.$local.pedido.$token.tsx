@@ -25,6 +25,8 @@ import { AccionesPedido } from "@/components/online/AccionesPedido";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
 import { CodigoPedido } from "@/components/online/CodigoPedido";
+import { useRecordarPedido } from "@/lib/pedidos-en-curso";
+import { GuardarSeguimiento } from "@/components/online/GuardarSeguimiento";
 
 export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
   loader: ({ params }) =>
@@ -87,6 +89,14 @@ function SeguimientoPage() {
 
   const numero = formatearNumeroPedido(pedido.businessDate, pedido.orderNumber);
   useAvisoPedido(pedido, `Pedido ${numero}`);
+  // Si cierra la pestaña, la tienda se lo vuelve a ofrecer.
+  useRecordarPedido({
+    canal: `online:${empresa}`,
+    ruta: `/p/${empresa}/${local}/pedido/${token}`,
+    numero,
+    codigo: pedido.codigo,
+    terminado,
+  });
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -138,6 +148,9 @@ function SeguimientoPage() {
               codigo={pedido.codigo}
               accent={accent}
               cuando={pedido.deliveryMethod === "envio" ? "cuando te lo entreguen" : "al retirar"}
+            />
+            <GuardarSeguimiento
+              texto={`Mi pedido ${numero} en ${pedido.companyName}${pedido.codigo ? ` (código ${pedido.codigo})` : ""}`}
             />
           </div>
         )}

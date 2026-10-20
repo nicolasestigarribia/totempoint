@@ -51,6 +51,7 @@ import {
   useTotemCart as useCarrito,
 } from "@/lib/totem-cart";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
+import { AvisoPedidoEnCurso } from "@/components/online/AvisoPedidoEnCurso";
 
 /** Por qué canal se abrió el menú. */
 export type CanalMenu =
@@ -390,6 +391,13 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
           )}
 
           <div className="mx-auto w-full max-w-2xl px-4 pt-4">
+            {!soloVer && (
+              <AvisoPedidoEnCurso
+                className="mb-4"
+                accent={accent}
+                canal={canal.tipo === "online" ? `online:${canal.empresa}` : `mesa:${canal.token}`}
+              />
+            )}
             {!horario.abierto && !soloVer && (
               <div className="mb-4 flex items-start gap-3 rounded-3xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">
                 <Clock className="mt-0.5 h-5 w-5 shrink-0" />

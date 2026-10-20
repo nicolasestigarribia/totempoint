@@ -9,6 +9,7 @@ import { PortadaCelular, type EstadoPortada } from "@/components/online/PortadaC
 import { HojaPedir, useElegirSucursal, type PasoHoja } from "@/components/online/HojaPedir";
 import { CargaMarca } from "@/components/CargaMarca";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
+import { AvisoPedidoEnCurso } from "@/components/online/AvisoPedidoEnCurso";
 
 /**
  * La portada del pedido online de la empresa: la misma pantalla de inicio del
@@ -74,6 +75,12 @@ function EmpresaPage() {
         ]}
         onPedir={pedir}
         onSoloVer={soloVer}
+        aviso={
+          <AvisoPedidoEnCurso
+            canal={`online:${Route.useParams().empresa}`}
+            accent={empresa.portada.accentColor ?? "var(--primary)"}
+          />
+        }
       />
       <HojaPedir empresa={empresa} elegir={elegir} paso={paso} onPaso={setPaso} />
       {elegir.yendo && (

@@ -17,6 +17,7 @@ import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
 import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
 import { CodigoPedido } from "@/components/online/CodigoPedido";
+import { useRecordarPedido } from "@/lib/pedidos-en-curso";
 
 export const Route = createFileRoute("/m/$token/pedido/$tracking")({
   loader: ({ params }) =>
@@ -53,7 +54,7 @@ const VUELTA_AL_MENU_S = 40;
  */
 function SeguimientoMesaPage() {
   const pedido = Route.useLoaderData();
-  const { token } = Route.useParams();
+  const { token, tracking } = Route.useParams();
   const router = useRouter();
   useTotemTheme(pedido.accentColor, pedido.theme, pedido.fontTheme, pedido.corners);
   const accent = pedido.accentColor || "var(--primary)";
@@ -61,6 +62,14 @@ function SeguimientoMesaPage() {
   const terminado = pedido.status === "entregado" || pedido.status === "cancelado";
   const esperandoPago = pedido.pagarEn !== null;
   useAvisoPedido(pedido, `Pedido #${pedido.orderNumber}`);
+  // Si cierra la pestaña, la mesa se lo vuelve a ofrecer.
+  useRecordarPedido({
+    canal: `mesa:${token}`,
+    ruta: `/m/${token}/pedido/${tracking}`,
+    numero: `#${pedido.orderNumber}`,
+    codigo: pedido.codigo,
+    terminado,
+  });
 
   useEffect(() => {
     if (terminado) return;
