@@ -9,6 +9,7 @@ import {
   orderItemExtras,
   orderItemElecciones,
   locations,
+  tableCalls,
 } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
 import {
@@ -1013,4 +1014,74 @@ export const exportPedidos = createServerFn({ method: "GET" })
       total: Number(f.total),
       detalle: (detalle.get(f.id) ?? []).join(", "),
     }));
+  });
+
+export interface LlamadoMesa {
+  id: number;
+  mesa: number;
+  tipo: "mozo" | "cuenta";
+  createdAt: string;
+  locationName: string;
+}
+
+/** Los llamados de mesa sin atender de las sucursales que ve (de las últimas 2 horas). */
+export const listLlamadosMesa = createServerFn({ method: "GET" })
+  .middleware([requireCompany])
+  .handler(async ({ context }): Promise<LlamadoMesa[]> => {
+    const user = context.user as SessionUser;
+    assertCanViewKitchen(user);
+    const locs = await visibleLocations(user);
+    if (locs.length === 0) return [];
+    const filas = await db
+      .select({
+        id: tableCalls.id,
+        mesa: tableCalls.tableNumber,
+        tipo: tableCalls.tipo,
+        createdAt: tableCalls.createdAt,
+        locationId: tableCalls.locationId,
+      })
+      .from(tableCalls)
+      .where(
+        and(
+          inArray(
+            tableCalls.locationId,
+            locs.map((l) => l.id),
+          ),
+          isNull(tableCalls.attendedAt),
+          gte(tableCalls.createdAt, new Date(Date.now() - 2 * 60 * 60 * 1000)),
+        ),
+      )
+      .orderBy(tableCalls.createdAt);
+    return filas.map((f) => ({
+      id: f.id,
+      mesa: f.mesa,
+      tipo: f.tipo,
+      createdAt: f.createdAt.toISOString(),
+      locationName: locs.find((l) => l.id === f.locationId)?.name ?? "",
+    }));
+  });
+
+/** Marca un llamado de mesa como atendido (el mozo fue). */
+export const atenderLlamadoMesa = createServerFn({ method: "POST" })
+  .middleware([requireCompany])
+  .inputValidator(z.object({ id: z.number().int() }))
+  .handler(async ({ context, data }) => {
+    const user = context.user as SessionUser;
+    assertCanOperateKitchen(user);
+    const locs = await visibleLocations(user);
+    if (locs.length === 0) throw new Error("Ese llamado no es de una sucursal tuya");
+    await db
+      .update(tableCalls)
+      .set({ attendedAt: new Date() })
+      .where(
+        and(
+          eq(tableCalls.id, data.id),
+          inArray(
+            tableCalls.locationId,
+            locs.map((l) => l.id),
+          ),
+          isNull(tableCalls.attendedAt),
+        ),
+      );
+    return { ok: true };
   });

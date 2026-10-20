@@ -28,6 +28,7 @@ import {
   X,
   Printer,
   MessageCircle,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { me } from "@/lib/api/auth.functions";
@@ -41,6 +42,9 @@ import {
   cancelOrder,
   acceptOnlineOrder,
   markOrderDispatched,
+  listLlamadosMesa,
+  atenderLlamadoMesa,
+  type LlamadoMesa,
   type KitchenOrder,
   type OrderStatus,
   type PaymentMethod,
@@ -540,6 +544,10 @@ function Kitchen() {
   const doCancel = useServerFn(cancelOrder);
   const doAccept = useServerFn(acceptOnlineOrder);
   const doDispatch = useServerFn(markOrderDispatched);
+  const fetchLlamados = useServerFn(listLlamadosMesa);
+  const doAtender = useServerFn(atenderLlamadoMesa);
+  // "Mesa 4 pide la cuenta": lo que llaman desde el celular de la mesa.
+  const [llamados, setLlamados] = useState<LlamadoMesa[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -657,7 +665,17 @@ function Kitchen() {
 
   const load = useCallback(async () => {
     try {
-      const nuevos = await fetchOrders();
+      const [nuevos, pendientesMesa] = await Promise.all([
+        fetchOrders(),
+        // Sin mesas o sin la tabla todavía, la comandera sigue igual.
+        fetchLlamados().catch(() => [] as LlamadoMesa[]),
+      ]);
+      setLlamados(pendientesMesa);
+      // Una mesa esperando suena como un pedido por aceptar: alguien tiene que ir.
+      if (pendientesMesa.length > 0 && !nuevos.some(esPorAceptar)) {
+        pitar(audioRef.current);
+        navigator.vibrate?.([200, 100, 200]);
+      }
       // Mientras haya pedidos online esperando, suena en cada refresco: uno
       // solo al llegar se pierde si nadie estaba mirando.
       if (nuevos.some(esPorAceptar)) {
@@ -1140,6 +1158,50 @@ function Kitchen() {
                 tocá <b>Marcar cobrado</b>. Mercado Pago se marca solo cuando entra el pago.
               </li>
             </ol>
+          </section>
+        )}
+
+        {llamados.length > 0 && (
+          <section className="mb-6 rounded-3xl border-2 border-violet-500/70 bg-violet-500/10 p-4 md:p-5">
+            <h2 className="mb-3 flex items-center gap-2 font-display text-2xl">
+              <Bell className="h-5 w-5 text-violet-300" /> Llaman de las mesas
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {llamados.map((l) => (
+                <div
+                  key={l.id}
+                  className="flex items-center justify-between gap-3 rounded-2xl bg-card p-3"
+                >
+                  <div>
+                    <p className="font-display text-2xl">Mesa {l.mesa}</p>
+                    <p className="text-sm font-bold text-violet-300">
+                      {l.tipo === "cuenta" ? "Pide la cuenta" : "Llama al mozo"}
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        · hace {timeAgo(l.createdAt)}
+                      </span>
+                    </p>
+                  </div>
+                  {puedeOperar && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLlamados((ls) => ls.filter((x) => x.id !== l.id));
+                        try {
+                          await doAtender({ data: { id: l.id } });
+                        } catch (err) {
+                          toast.error(mensajeDeError(err, "No se pudo marcar como atendido"));
+                          void load();
+                        }
+                      }}
+                      className="h-11 shrink-0 rounded-xl bg-violet-500 px-4 text-sm font-extrabold text-white transition active:scale-95"
+                    >
+                      Atendido
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
         )}
 

@@ -27,6 +27,7 @@ import {
   deliveryTiers,
   customers,
   diningTables,
+  tableCalls,
   mesaSettings,
 } from "@/db/schema";
 import { destroySession } from "@/lib/auth/session";
@@ -3134,6 +3135,38 @@ const mesaInput = {
 };
 
 /** La mesa de un QR, con su sucursal y su empresa. Falla si no está tomando pedidos. */
+/**
+ * "Llamar al mozo" o "pedir la cuenta" desde la mesa. Público, por el token de
+ * la mesa. Si ya hay un llamado igual sin atender, no se suma otro: tocar el
+ * botón diez veces sigue siendo un solo aviso en la comandera.
+ */
+export const llamarMozo = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ ...mesaInput, tipo: z.enum(["mozo", "cuenta"]) }))
+  .handler(async ({ data }): Promise<{ ok: true }> => {
+    const r = await resolverMesa(data.token);
+    const [pendiente] = await db
+      .select({ id: tableCalls.id })
+      .from(tableCalls)
+      .where(
+        and(
+          eq(tableCalls.tableId, r.mesa.id),
+          eq(tableCalls.tipo, data.tipo),
+          isNull(tableCalls.attendedAt),
+          gte(tableCalls.createdAt, new Date(Date.now() - 2 * 60 * 60 * 1000)),
+        ),
+      )
+      .limit(1);
+    if (!pendiente) {
+      await db.insert(tableCalls).values({
+        locationId: r.location.id,
+        tableId: r.mesa.id,
+        tableNumber: r.mesa.number,
+        tipo: data.tipo,
+      });
+    }
+    return { ok: true };
+  });
+
 async function resolverMesa(token: string) {
   const [row] = await db
     .select({

@@ -143,6 +143,28 @@ export const diningTables = mysqlTable(
 );
 
 /**
+ * "Llamar al mozo" y "pedir la cuenta" desde el celular de la mesa. La
+ * comandera los muestra hasta que alguien los marca atendidos. El número de
+ * mesa queda congelado, como en el pedido.
+ */
+export const tableCalls = mysqlTable(
+  "table_calls",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    locationId: int("location_id").notNull(),
+    tableId: int("table_id").notNull(),
+    tableNumber: int("table_number").notNull(),
+    tipo: mysqlEnum("tipo", ["mozo", "cuenta"]).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    attendedAt: timestamp("attended_at"),
+  },
+  (t) => [
+    index("table_calls_location_idx").on(t.locationId, t.attendedAt),
+    index("table_calls_table_idx").on(t.tableId),
+  ],
+);
+
+/**
  * El tamaño del salón de cada sucursal, en celdas de la grilla. Sin fila, el
  * salón tiene el tamaño por defecto (`COLUMNAS` × `FILAS` en src/lib/salon.ts).
  */

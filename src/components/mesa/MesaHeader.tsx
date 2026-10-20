@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useFaviconMarca } from "@/lib/marca";
+import { LlamarMozo } from "@/components/mesa/LlamarMozo";
 
 /**
  * La barra de arriba del pedido en mesa: la marca del comercio y, bien a la
@@ -59,8 +60,10 @@ export function MesaHeader({
           <p className="truncate font-display text-xl leading-tight">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{sucursal}</p>
         </div>
+        <div className="ml-auto" />
+        <LlamarMozo token={token} accent={accent} />
         <span
-          className="ml-auto shrink-0 rounded-full px-4 py-1.5 text-sm font-extrabold text-white"
+          className="shrink-0 rounded-full px-4 py-1.5 text-sm font-extrabold text-white"
           style={{ background: accent }}
         >
           Mesa {mesa}
