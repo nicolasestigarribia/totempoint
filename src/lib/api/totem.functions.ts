@@ -63,6 +63,7 @@ import {
   StockInsuficiente,
   mismoItem,
 } from "@/lib/stock/control";
+import { formatearNumeroPedido } from "@/lib/order-number";
 
 /**
  * El access token de la empresa, o null si no tiene el cobro andando.
@@ -1080,6 +1081,8 @@ interface PedidoTomado {
   orderNumber: number;
   /** El código de verificación que el cliente muestra al retirar. */
   codigo: string;
+  /** El número como lo ve el cliente ("1019-02"). */
+  numero: string;
   trackingToken: string | null;
   /** URL de pago de Mercado Pago, o null si paga en efectivo. */
   pagarEn: string | null;
@@ -1752,6 +1755,8 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
       : "Stock insuficiente. Probá con menos cantidad o cambialo por otro.";
   }
 
+  const numero = formatearNumeroPedido(jornada, creado.orderNumber);
+
   // El pedido ya está guardado. Si es con Mercado Pago, recién ahora se pide la
   // preferencia: así, si Mercado Pago está caído, el pedido no se pierde y el
   // local lo puede cobrar en efectivo igual.
@@ -1821,10 +1826,10 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
 
     await db.update(orders).set({ mpPreferenceId: pref.id }).where(eq(orders.id, creado.orderId));
 
-    return { ...creado, trackingToken, pagarEn: pref.initPoint };
+    return { ...creado, numero, trackingToken, pagarEn: pref.initPoint };
   }
 
-  return { ...creado, trackingToken, pagarEn: null };
+  return { ...creado, numero, trackingToken, pagarEn: null };
 }
 
 export interface TotemOrderSummary {
@@ -2528,95 +2533,110 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       guardarDatos: z.boolean().optional(),
     }),
   )
-  .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
-    const r = await resolverOnline(data.empresa, data.local);
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      trackingToken: string;
+      pagarEn: string | null;
+      numero: string;
+      codigo: string;
+    }> => {
+      const r = await resolverOnline(data.empresa, data.local);
 
-    // Fuera de horario no se toma, aunque el celular haya dejado armar el pedido
-    // (la página pudo quedar abierta desde antes de que cerraran).
-    const horario = estadoHorario(r.horarios);
-    if (!horario.abierto) {
-      throw new Error(`Ahora estamos cerrados. Tomamos pedidos de nuevo ${horario.texto}`);
-    }
+      // Fuera de horario no se toma, aunque el celular haya dejado armar el pedido
+      // (la página pudo quedar abierta desde antes de que cerraran).
+      const horario = estadoHorario(r.horarios);
+      if (!horario.abierto) {
+        throw new Error(`Ahora estamos cerrados. Tomamos pedidos de nuevo ${horario.texto}`);
+      }
 
-    if (data.deliveryMethod === "mostrador" && !r.pickup) {
-      throw new Error("Esta sucursal no está tomando pedidos para retirar");
-    }
-    if (data.deliveryMethod === "envio" && !r.delivery) {
-      throw new Error("Esta sucursal no está haciendo envíos en este momento");
-    }
+      if (data.deliveryMethod === "mostrador" && !r.pickup) {
+        throw new Error("Esta sucursal no está tomando pedidos para retirar");
+      }
+      if (data.deliveryMethod === "envio" && !r.delivery) {
+        throw new Error("Esta sucursal no está haciendo envíos en este momento");
+      }
 
-    // El costo del envío sale de la distancia entre la sucursal y el punto que
-    // marcó el cliente, con los tramos guardados: nunca de lo que diga el celular.
-    let envio: DatosOnline["envio"] = null;
-    if (data.deliveryMethod === "envio") {
-      if (data.lat === undefined || data.lng === undefined) {
-        throw new Error("Marcá en el mapa dónde te lo llevamos");
+      // El costo del envío sale de la distancia entre la sucursal y el punto que
+      // marcó el cliente, con los tramos guardados: nunca de lo que diga el celular.
+      let envio: DatosOnline["envio"] = null;
+      if (data.deliveryMethod === "envio") {
+        if (data.lat === undefined || data.lng === undefined) {
+          throw new Error("Marcá en el mapa dónde te lo llevamos");
+        }
+        if (!data.address || data.address.length < 3) {
+          throw new Error("Escribí la dirección de entrega");
+        }
+        // Distancia por ruta real (Google); si Google no responde, línea recta,
+        // para no perder la venta (misma regla que Mercado Pago).
+        const destino = { lat: data.lat, lng: data.lng };
+        const km =
+          (await distanciaPorRutaKm(r.origin!, destino)) ?? distanciaKm(r.origin!, destino);
+        const cotizado = cotizarEnvio(r.tiers, km);
+        if (!cotizado.llega) {
+          throw new Error(
+            `No llegamos hasta ahí: estás a ${formatearDistancia(km)} y hacemos envíos hasta ${formatearDistancia(cotizado.maxKm)}`,
+          );
+        }
+        envio = {
+          fee: cotizado.precio,
+          km,
+          address: data.address,
+          details: data.details || null,
+          lat: data.lat,
+          lng: data.lng,
+          aproximada: data.aproximada ?? false,
+        };
       }
-      if (!data.address || data.address.length < 3) {
-        throw new Error("Escribí la dirección de entrega");
+
+      if (data.paymentMethod === "efectivo" && !r.cash) {
+        throw new Error("Esta sucursal no está aceptando efectivo en pedidos online");
       }
-      // Distancia por ruta real (Google); si Google no responde, línea recta,
-      // para no perder la venta (misma regla que Mercado Pago).
-      const destino = { lat: data.lat, lng: data.lng };
-      const km = (await distanciaPorRutaKm(r.origin!, destino)) ?? distanciaKm(r.origin!, destino);
-      const cotizado = cotizarEnvio(r.tiers, km);
-      if (!cotizado.llega) {
-        throw new Error(
-          `No llegamos hasta ahí: estás a ${formatearDistancia(km)} y hacemos envíos hasta ${formatearDistancia(cotizado.maxKm)}`,
-        );
+      // Se mira antes de tomar el pedido: si no, quedaría guardado un pedido de
+      // Mercado Pago que no hay forma de pagar.
+      if (data.paymentMethod === "mercadopago" && !r.mercadoPago) {
+        throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
       }
-      envio = {
-        fee: cotizado.precio,
-        km,
-        address: data.address,
-        details: data.details || null,
-        lat: data.lat,
-        lng: data.lng,
-        aproximada: data.aproximada ?? false,
+
+      // Registro del cliente (perfil global por teléfono), solo si aceptó guardar
+      // sus datos. El teléfono se normaliza a dígitos para que sea una llave
+      // estable. Si ya existe, se actualiza el nombre y —si lo dio— el mail; un
+      // mail vacío no pisa el que ya tenía.
+      const customerId = await registrarCliente(data.customerName, data.phone, {
+        email: data.email,
+        guardar: data.guardarDatos ?? false,
+      });
+
+      const tomado = await tomarPedido({
+        company: r.company,
+        locationId: r.location.id,
+        totemId: null,
+        channel: "online",
+        customerName: data.customerName,
+        deliveryMethod: data.deliveryMethod,
+        paymentMethod: data.paymentMethod,
+        comments: data.comments,
+        items: data.items,
+        online: {
+          phone: data.phone,
+          envio,
+          paysWith: data.paysWith ?? null,
+          minOrder: r.minOrder,
+          customerId,
+        },
+        totalEsperado: data.totalEsperado,
+        volverA: ({ trackingToken }) => `/p/${data.empresa}/${data.local}/pedido/${trackingToken}`,
+      });
+
+      return {
+        trackingToken: tomado.trackingToken!,
+        pagarEn: tomado.pagarEn,
+        numero: tomado.numero,
+        codigo: tomado.codigo,
       };
-    }
-
-    if (data.paymentMethod === "efectivo" && !r.cash) {
-      throw new Error("Esta sucursal no está aceptando efectivo en pedidos online");
-    }
-    // Se mira antes de tomar el pedido: si no, quedaría guardado un pedido de
-    // Mercado Pago que no hay forma de pagar.
-    if (data.paymentMethod === "mercadopago" && !r.mercadoPago) {
-      throw new Error("Este comercio no está cobrando con Mercado Pago en este momento");
-    }
-
-    // Registro del cliente (perfil global por teléfono), solo si aceptó guardar
-    // sus datos. El teléfono se normaliza a dígitos para que sea una llave
-    // estable. Si ya existe, se actualiza el nombre y —si lo dio— el mail; un
-    // mail vacío no pisa el que ya tenía.
-    const customerId = await registrarCliente(data.customerName, data.phone, {
-      email: data.email,
-      guardar: data.guardarDatos ?? false,
-    });
-
-    const tomado = await tomarPedido({
-      company: r.company,
-      locationId: r.location.id,
-      totemId: null,
-      channel: "online",
-      customerName: data.customerName,
-      deliveryMethod: data.deliveryMethod,
-      paymentMethod: data.paymentMethod,
-      comments: data.comments,
-      items: data.items,
-      online: {
-        phone: data.phone,
-        envio,
-        paysWith: data.paysWith ?? null,
-        minOrder: r.minOrder,
-        customerId,
-      },
-      totalEsperado: data.totalEsperado,
-      volverA: ({ trackingToken }) => `/p/${data.empresa}/${data.local}/pedido/${trackingToken}`,
-    });
-
-    return { trackingToken: tomado.trackingToken!, pagarEn: tomado.pagarEn };
-  });
+    },
+  );
 
 export interface OnlineOrderStatus {
   /** El código para mostrar al retirar o al recibir. Null en pedidos viejos. */
@@ -3141,47 +3161,61 @@ export const createMesaOrder = createServerFn({ method: "POST" })
       totalEsperado: z.number().nonnegative().optional(),
     }),
   )
-  .handler(async ({ data }): Promise<{ trackingToken: string; pagarEn: string | null }> => {
-    const r = await resolverMesa(data.token);
-    const [{ abiertos }] = await db
-      .select({ abiertos: sql<number>`COUNT(*)` })
-      .from(orders)
-      .where(
-        and(
-          eq(orders.tableId, r.mesa.id),
-          inArray(orders.status, ["recibido", "preparacion"]),
-          sql`${orders.createdAt} > NOW() - INTERVAL 6 HOUR`,
-        ),
-      );
-    if (Number(abiertos) >= MAX_PEDIDOS_ABIERTOS_POR_MESA) {
-      throw new Error(
-        "Esta mesa ya tiene varios pedidos en curso. Esperá a que lleguen o pedile al mozo",
-      );
-    }
-    const mp = await empresaCobraConMP(r.company.id);
-    if (data.paymentMethod === "mercadopago" && !mp) {
-      throw new Error("Este comercio no está cobrando con Mercado Pago. Elegí pagar en efectivo");
-    }
-    if (data.paymentMethod === "efectivo" && !mesaAceptaEfectivo(r.cashEnabled, mp)) {
-      throw new Error("Desde la mesa se paga con Mercado Pago");
-    }
-    const tomado = await tomarPedido({
-      company: r.company,
-      locationId: r.location.id,
-      totemId: null,
-      channel: "mesa",
-      // El nombre es opcional: el mozo lo lleva a la mesa, no llama a nadie.
-      customerName: data.customerName?.trim() || `Mesa ${r.mesa.number}`,
-      deliveryMethod: "local",
-      paymentMethod: data.paymentMethod,
-      comments: data.comments,
-      items: data.items,
-      totalEsperado: data.totalEsperado,
-      mesa: { tableId: r.mesa.id, number: r.mesa.number, autoAccept: r.autoAccept },
-      volverA: ({ trackingToken }) => `/m/${data.token}/pedido/${trackingToken}`,
-    });
-    return { trackingToken: tomado.trackingToken!, pagarEn: tomado.pagarEn };
-  });
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      trackingToken: string;
+      pagarEn: string | null;
+      numero: string;
+      codigo: string;
+    }> => {
+      const r = await resolverMesa(data.token);
+      const [{ abiertos }] = await db
+        .select({ abiertos: sql<number>`COUNT(*)` })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.tableId, r.mesa.id),
+            inArray(orders.status, ["recibido", "preparacion"]),
+            sql`${orders.createdAt} > NOW() - INTERVAL 6 HOUR`,
+          ),
+        );
+      if (Number(abiertos) >= MAX_PEDIDOS_ABIERTOS_POR_MESA) {
+        throw new Error(
+          "Esta mesa ya tiene varios pedidos en curso. Esperá a que lleguen o pedile al mozo",
+        );
+      }
+      const mp = await empresaCobraConMP(r.company.id);
+      if (data.paymentMethod === "mercadopago" && !mp) {
+        throw new Error("Este comercio no está cobrando con Mercado Pago. Elegí pagar en efectivo");
+      }
+      if (data.paymentMethod === "efectivo" && !mesaAceptaEfectivo(r.cashEnabled, mp)) {
+        throw new Error("Desde la mesa se paga con Mercado Pago");
+      }
+      const tomado = await tomarPedido({
+        company: r.company,
+        locationId: r.location.id,
+        totemId: null,
+        channel: "mesa",
+        // El nombre es opcional: el mozo lo lleva a la mesa, no llama a nadie.
+        customerName: data.customerName?.trim() || `Mesa ${r.mesa.number}`,
+        deliveryMethod: "local",
+        paymentMethod: data.paymentMethod,
+        comments: data.comments,
+        items: data.items,
+        totalEsperado: data.totalEsperado,
+        mesa: { tableId: r.mesa.id, number: r.mesa.number, autoAccept: r.autoAccept },
+        volverA: ({ trackingToken }) => `/m/${data.token}/pedido/${trackingToken}`,
+      });
+      return {
+        trackingToken: tomado.trackingToken!,
+        pagarEn: tomado.pagarEn,
+        numero: tomado.numero,
+        codigo: tomado.codigo,
+      };
+    },
+  );
 
 export interface MesaOrderStatus {
   orderNumber: number;

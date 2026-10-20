@@ -24,6 +24,7 @@ import { CargaMarca } from "@/components/CargaMarca";
 import { mensajeDeError } from "@/lib/error-message";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { SugerenciasCarrito } from "@/components/online/SugerenciasCarrito";
+import { recordarPedido } from "@/lib/pedidos-en-curso";
 
 export const Route = createFileRoute("/m/$token/carrito")({
   loader: ({ params }) => getMesaMenuCached(params.token),
@@ -113,6 +114,15 @@ function CarritoMesaPage() {
           })),
           totalEsperado: total,
         },
+      });
+      // Apenas el servidor lo tomó: si cierra la pestaña mientras carga el
+      // seguimiento, la mesa igual se lo ofrece.
+      recordarPedido({
+        canal: `mesa:${token}`,
+        ruta: `/m/${token}/pedido/${r.trackingToken}`,
+        numero: r.numero,
+        codigo: r.codigo,
+        terminado: false,
       });
       if (r.pagarEn) {
         setAPagar(r.pagarEn);

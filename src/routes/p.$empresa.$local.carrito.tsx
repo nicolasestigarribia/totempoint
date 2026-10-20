@@ -29,6 +29,7 @@ import { CargaMarca } from "@/components/CargaMarca";
 import { mensajeDeError } from "@/lib/error-message";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { SugerenciasCarrito } from "@/components/online/SugerenciasCarrito";
+import { recordarPedido } from "@/lib/pedidos-en-curso";
 
 export const Route = createFileRoute("/p/$empresa/$local/carrito")({
   loader: ({ params }) => getOnlineMenuCached(params.empresa, params.local),
@@ -298,6 +299,15 @@ function CarritoOnlinePage() {
         },
       });
       guardarUltimo({ sucursal: cartKey, token: r.trackingToken, hecho: Date.now() });
+      // Apenas el servidor lo tomó, antes de cambiar de pantalla: si cierra la
+      // pestaña mientras carga el seguimiento, la tienda igual se lo ofrece.
+      recordarPedido({
+        canal: `online:${empresa}`,
+        ruta: `/p/${empresa}/${local}/pedido/${r.trackingToken}`,
+        numero: r.numero,
+        codigo: r.codigo,
+        terminado: false,
+      });
       // Para ofrecerle "repetir" la próxima vez que entre.
       guardarParaRepetir(cartKey, items);
       // Con Mercado Pago se paga en la página de Mercado Pago, que al terminar
