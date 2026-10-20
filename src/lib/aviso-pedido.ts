@@ -115,3 +115,34 @@ export async function conUltimoEstado<T>(clave: string, pedir: () => Promise<T>)
     throw err;
   }
 }
+
+/** Cada cuánto el seguimiento vuelve a preguntar cómo va el pedido. */
+export const REFRESCO_SEGUIMIENTO_MS = 4_000;
+
+/**
+ * Mantiene el seguimiento al día: pregunta cada pocos segundos mientras el
+ * pedido no terminó, y al instante cuando el cliente vuelve a la pestaña o
+ * recupera la señal. Con el teléfono en otra app el navegador frena los
+ * relojes de la página: sin esto, al volver de WhatsApp el cliente veía el
+ * estado viejo hasta el próximo turno.
+ */
+export function useRefrescoSeguimiento(refrescar: () => void, terminado: boolean): void {
+  const ref = useRef(refrescar);
+  ref.current = refrescar;
+  useEffect(() => {
+    if (terminado) return;
+    const id = setInterval(() => ref.current(), REFRESCO_SEGUIMIENTO_MS);
+    const alVolver = () => {
+      if (document.visibilityState === "visible") ref.current();
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("focus", alVolver);
+    window.addEventListener("online", alVolver);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("focus", alVolver);
+      window.removeEventListener("online", alVolver);
+    };
+  }, [terminado]);
+}

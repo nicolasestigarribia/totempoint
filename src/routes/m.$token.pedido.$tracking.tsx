@@ -15,7 +15,12 @@ import { OnlineError } from "@/components/online/OnlineError";
 import { MesaHeader } from "@/components/mesa/MesaHeader";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { formatPrice } from "@/lib/totem-cart";
-import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
+import {
+  conUltimoEstado,
+  tituloPedido,
+  useAvisoPedido,
+  useRefrescoSeguimiento,
+} from "@/lib/aviso-pedido";
 import { CodigoPedido } from "@/components/online/CodigoPedido";
 import { useRecordarPedido } from "@/lib/pedidos-en-curso";
 
@@ -38,9 +43,6 @@ export const Route = createFileRoute("/m/$token/pedido/$tracking")({
   component: SeguimientoMesaPage,
 });
 
-/** Cada cuánto se vuelve a preguntar. Más seguido mientras se espera un pago. */
-const REFRESCO_PAGO_MS = 4_000;
-const REFRESCO_MS = 10_000;
 /**
  * Entregado, la pantalla vuelve sola al menú después de este tiempo: el
  * cliente ya tiene lo suyo en la mesa y lo próximo es pedir otra cosa.
@@ -60,7 +62,6 @@ function SeguimientoMesaPage() {
   const accent = pedido.accentColor || "var(--primary)";
 
   const terminado = pedido.status === "entregado" || pedido.status === "cancelado";
-  const esperandoPago = pedido.pagarEn !== null;
   useAvisoPedido(pedido, `Pedido #${pedido.orderNumber}`);
   // Si cierra la pestaña, la mesa se lo vuelve a ofrecer.
   useRecordarPedido({
@@ -71,14 +72,7 @@ function SeguimientoMesaPage() {
     terminado,
   });
 
-  useEffect(() => {
-    if (terminado) return;
-    const id = setInterval(
-      () => void router.invalidate(),
-      esperandoPago ? REFRESCO_PAGO_MS : REFRESCO_MS,
-    );
-    return () => clearInterval(id);
-  }, [router, terminado, esperandoPago]);
+  useRefrescoSeguimiento(() => void router.invalidate(), terminado);
 
   const entregado = pedido.status === "entregado";
   const navigate = useNavigate();

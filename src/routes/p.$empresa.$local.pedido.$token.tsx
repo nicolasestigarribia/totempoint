@@ -23,7 +23,12 @@ import { horaArgentina } from "@/lib/jornada";
 import { formatearDistancia, linkNavegacionADireccion } from "@/lib/delivery";
 import { AccionesPedido } from "@/components/online/AccionesPedido";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
-import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
+import {
+  conUltimoEstado,
+  tituloPedido,
+  useAvisoPedido,
+  useRefrescoSeguimiento,
+} from "@/lib/aviso-pedido";
 import { CodigoPedido } from "@/components/online/CodigoPedido";
 import { useRecordarPedido } from "@/lib/pedidos-en-curso";
 import { GuardarSeguimiento } from "@/components/online/GuardarSeguimiento";
@@ -52,9 +57,6 @@ export const Route = createFileRoute("/p/$empresa/$local/pedido/$token")({
   component: SeguimientoPage,
 });
 
-/** Cada cuánto se vuelve a preguntar. Más seguido mientras se espera un pago. */
-const REFRESCO_PAGO_MS = 4_000;
-const REFRESCO_MS = 15_000;
 /** Pasado este tiempo sin que el local lo acepte, se le avisa al cliente. */
 const DEMORA_CONFIRMACION_MS = 10 * 60 * 1000;
 
@@ -74,18 +76,10 @@ function SeguimientoPage() {
   const accent = pedido.accentColor || "var(--primary)";
 
   const terminado = pedido.status === "entregado" || pedido.status === "cancelado";
-  const esperandoPago = pedido.pagarEn !== null;
 
   // Se refresca el loader, que vuelve a pedir el estado (y a preguntarle a
   // Mercado Pago si el pago sigue pendiente).
-  useEffect(() => {
-    if (terminado) return;
-    const id = setInterval(
-      () => void router.invalidate(),
-      esperandoPago ? REFRESCO_PAGO_MS : REFRESCO_MS,
-    );
-    return () => clearInterval(id);
-  }, [router, terminado, esperandoPago]);
+  useRefrescoSeguimiento(() => void router.invalidate(), terminado);
 
   const numero = formatearNumeroPedido(pedido.businessDate, pedido.orderNumber);
   useAvisoPedido(pedido, `Pedido ${numero}`);
