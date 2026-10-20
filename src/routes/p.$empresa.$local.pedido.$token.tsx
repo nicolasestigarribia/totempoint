@@ -20,7 +20,7 @@ import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { linkWhatsApp } from "@/lib/whatsapp";
 import { horaArgentina } from "@/lib/jornada";
-import { formatearDistancia } from "@/lib/delivery";
+import { formatearDistancia, linkNavegacionADireccion } from "@/lib/delivery";
 import { AccionesPedido } from "@/components/online/AccionesPedido";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { conUltimoEstado, tituloPedido, useAvisoPedido } from "@/lib/aviso-pedido";
@@ -235,7 +235,25 @@ function SeguimientoPage() {
               <span>
                 {pedido.deliveryMethod === "envio"
                   ? `Envío a: ${pedido.deliveryAddress}`
-                  : "Lo retirás en el local"}
+                  : `Lo retirás en ${pedido.locationName}`}
+                {pedido.deliveryMethod !== "envio" &&
+                  pedido.locationAddress &&
+                  pedido.locationAddress !== pedido.locationName && (
+                    <span className="block">{pedido.locationAddress}</span>
+                  )}
+                {pedido.deliveryMethod !== "envio" &&
+                  pedido.locationAddress &&
+                  /\d/.test(pedido.locationAddress) && (
+                    <a
+                      href={linkNavegacionADireccion(pedido.locationAddress)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-0.5 block font-bold underline-offset-4 hover:underline"
+                      style={{ color: accent }}
+                    >
+                      Cómo llegar
+                    </a>
+                  )}
                 {pedido.deliveryDetails && <span className="block">{pedido.deliveryDetails}</span>}
               </span>
             </p>

@@ -2765,6 +2765,8 @@ export interface OnlineOrderStatus {
   companyName: string;
   locationName: string;
   locationPhone: string | null;
+  /** Dónde se retira: la dirección de la sucursal. */
+  locationAddress: string | null;
   logoUrl: string | null;
   accentColor: string | null;
   theme: TotemThemeName;
@@ -2864,6 +2866,7 @@ export const getOnlineOrder = createServerFn({ method: "GET" })
       companyName: company.name,
       locationName: location.name,
       locationPhone: location.phone,
+      locationAddress: location.address,
       logoUrl: row.logoUrl,
       accentColor: row.accentColor ?? row.primaryColor,
       theme: row.theme ?? "oscuro",

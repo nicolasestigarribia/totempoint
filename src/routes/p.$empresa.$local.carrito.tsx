@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Loader2, Bike, Store, Banknote, Smartphone, ShoppingBag, Clock } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  Bike,
+  Store,
+  Banknote,
+  Smartphone,
+  ShoppingBag,
+  Clock,
+  MapPin,
+} from "lucide-react";
 import { toast } from "sonner";
 import { createOnlineOrder } from "@/lib/api/totem.functions";
 import { PRECIOS_CAMBIARON } from "@/lib/pedido-reglas";
@@ -16,7 +26,7 @@ import { tomarEleccion } from "@/lib/online-eleccion";
 import { useHorario } from "@/components/online/useHorario";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { DireccionEntrega, type Destino } from "@/components/online/DireccionEntrega";
-import { cotizarEnvio, distanciaKm } from "@/lib/delivery";
+import { cotizarEnvio, distanciaKm, linkNavegacionADireccion } from "@/lib/delivery";
 import {
   useTotemCart,
   useCartForSlug,
@@ -511,9 +521,43 @@ function CarritoOnlinePage() {
             )}
           </div>
 
-          {entrega === "mostrador" && menu.locationAddress && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Lo retirás en {menu.locationAddress}.
+          {entrega === "mostrador" && (
+            // Dónde y para cuándo: lo que el que retira necesita saber antes
+            // de mandar el pedido, no después.
+            <div className="mt-3 rounded-2xl border border-border bg-card/40 p-3 text-sm">
+              <p className="flex items-start gap-2">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0" style={{ color: accent }} />
+                <span>
+                  Lo retirás en <b>{menu.locationName}</b>
+                  {menu.locationAddress && menu.locationAddress !== menu.locationName && (
+                    <span className="block text-muted-foreground">{menu.locationAddress}</span>
+                  )}
+                </span>
+              </p>
+              {menu.demoraHoy !== null && (
+                <p className="mt-1.5 flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  Hoy está listo en unos {menu.demoraHoy} min
+                </p>
+              )}
+              {/* Solo con calle y altura: con "Mar del Plata" llevaría al centro. */}
+              {menu.locationAddress && /\d/.test(menu.locationAddress) && (
+                <a
+                  href={linkNavegacionADireccion(menu.locationAddress)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline"
+                  style={{ color: accent }}
+                >
+                  Cómo llegar
+                </a>
+              )}
+            </div>
+          )}
+          {entrega === "envio" && menu.demoraHoy !== null && (
+            <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4 shrink-0" />
+              Hoy está tardando unos {menu.demoraHoy} min más el viaje
             </p>
           )}
 

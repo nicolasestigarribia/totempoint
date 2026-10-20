@@ -184,7 +184,12 @@ export const getInicio = createServerFn({ method: "GET" })
     if (!dueno) return { empresa: empresa.nombre, modulos, hoy, agotados, link, pasos: null };
 
     const sucursalesEmpresa = await db
-      .select({ id: locations.id, phone: locations.phone, active: locations.active })
+      .select({
+        id: locations.id,
+        phone: locations.phone,
+        address: locations.address,
+        active: locations.active,
+      })
       .from(locations)
       .where(eq(locations.companyId, companyId));
     const locIds = sucursalesEmpresa.map((l) => l.id);
@@ -308,6 +313,16 @@ export const getInicio = createServerFn({ method: "GET" })
           detalle: "Hasta dónde llegás y cuánto cobrás. Si solo hacés retiro, salteá este paso.",
           listo: online.some((o) => o.delivery && o.lat !== null && tramos.length > 0),
           seccion: "online:entrega",
+          opcional: true,
+        },
+        {
+          id: "direccion",
+          titulo: "Cargá la dirección de tu sucursal",
+          detalle: "Con calle y altura: el que retira ve dónde queda y un botón de “Cómo llegar”.",
+          listo:
+            sucursalesEmpresa.some((l) => l.active) &&
+            sucursalesEmpresa.filter((l) => l.active).every((l) => /\d/.test(l.address ?? "")),
+          seccion: "empresa",
           opcional: true,
         },
         {

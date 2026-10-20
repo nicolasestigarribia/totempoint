@@ -1,5 +1,35 @@
 import { useEffect, useRef } from "react";
 
+/** Dos notas cortas, con Web Audio y sin archivo de sonido. */
+function sonarAviso(): void {
+  try {
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) return;
+    const ctx = new Ctor();
+    void ctx.resume().then(() => {
+      let t = ctx.currentTime;
+      for (const f of [880, 1320]) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.45);
+        t += 0.18;
+      }
+      setTimeout(() => void ctx.close(), 1500);
+    });
+  } catch {
+    // Sin sonido queda el título de la pestaña.
+  }
+}
+
 /** Lo mínimo del pedido para saber en qué paso está. */
 interface PedidoAvisable {
   status: string;
@@ -55,6 +85,9 @@ export function useAvisoPedido(pedido: PedidoAvisable, numero: string): void {
       } catch {
         // Sin vibración (iPhone, o la página no tiene el foco): queda el título.
       }
+      // Y un "ding": el iPhone no vibra desde una página, pero suena si el
+      // cliente ya tocó algo en ella (lo hizo, para mandar el pedido).
+      if (paso !== "cancelado") sonarAviso();
     }
     anterior.current = paso;
     // Solo cuando cambia el paso o el número, no en cada refresco.
