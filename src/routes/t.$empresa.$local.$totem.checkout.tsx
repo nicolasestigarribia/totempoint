@@ -18,6 +18,7 @@ import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
 import { CargaMarca } from "@/components/CargaMarca";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
+import { useClaveEnvio } from "@/lib/clave-envio";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/checkout")({
   loader: ({ params }) => getMenuCached(params.empresa, params.local, Number(params.totem)),
@@ -42,6 +43,8 @@ function CheckoutPage() {
   useTotemIdleReset(nav);
 
   const items = useCartForSlug(cartKey);
+  // Reenviar el mismo carrito (se cortó la señal) no duplica el pedido.
+  const claveEnvio = useClaveEnvio(items);
   const clear = useTotemCart((s) => s.clear);
   const placeOrder = useServerFn(createTotemOrder);
 
@@ -75,6 +78,7 @@ function CheckoutPage() {
           deliveryMethod: delivery,
           paymentMethod: pago,
           comments: comments.trim() || undefined,
+          clave: claveEnvio,
           items: items.map((i) => ({
             kind: i.kind,
             id: i.refId,

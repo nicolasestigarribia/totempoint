@@ -25,6 +25,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { SugerenciasCarrito } from "@/components/online/SugerenciasCarrito";
 import { recordarPedido } from "@/lib/pedidos-en-curso";
+import { useClaveEnvio } from "@/lib/clave-envio";
 
 export const Route = createFileRoute("/m/$token/carrito")({
   loader: ({ params }) => getMesaMenuCached(params.token),
@@ -58,6 +59,8 @@ function CarritoMesaPage() {
   const placeOrder = useServerFn(createMesaOrder);
 
   const items = useCartForSlug(cartKey);
+  // Reenviar el mismo carrito (se cortó la señal) no duplica el pedido.
+  const claveEnvio = useClaveEnvio(items);
   const carritoCargado = useCarritoCargado();
   const clear = useTotemCart((s) => s.clear);
 
@@ -113,6 +116,7 @@ function CarritoMesaPage() {
             })),
           })),
           totalEsperado: total,
+          clave: claveEnvio,
         },
       });
       // Apenas el servidor lo tomó: si cierra la pestaña mientras carga el

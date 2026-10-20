@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useTotemCart } from "@/lib/totem-cart";
 import { olvidarMenu } from "@/lib/totem-menu-cache";
 import type { TotemNav } from "@/lib/totem-nav";
+import { usePantallaEncendida } from "@/lib/pantalla-encendida";
 
 const IDLE_MS = 90_000;
 
@@ -15,6 +16,8 @@ export function useTotemIdleReset(nav: TotemNav) {
   // de la pantalla, y con una dependencia que cambia de identidad en cada
   // render los estaría poniendo y sacando todo el tiempo.
   const { empresa, local, totem } = nav;
+  // El tótem queda prendido: una tablet que se bloquea no vende.
+  usePantallaEncendida();
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;

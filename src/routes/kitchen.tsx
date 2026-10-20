@@ -48,7 +48,7 @@ import {
 import { formatPrice } from "@/lib/totem-cart";
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { formatearDistancia, linkNavegacion, linkNavegacionADireccion } from "@/lib/delivery";
-import { mensajeDeError } from "@/lib/error-message";
+import { esErrorTecnico, mensajeDeError } from "@/lib/error-message";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,7 @@ import { comandasHtml } from "@/lib/print/comanda";
 import { linkWhatsApp } from "@/lib/whatsapp";
 import { horaArgentina } from "@/lib/jornada";
 import { imprimirHtml } from "@/lib/print/navegador";
+import { usePantallaEncendida } from "@/lib/pantalla-encendida";
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({ meta: [{ title: "Panel de cocina" }] }),
@@ -600,6 +601,10 @@ function Kitchen() {
     }
   };
   const [aceptando, setAceptando] = useState<number | null>(null);
+  // Desde cuándo no se pueden traer los pedidos. Null = todo bien.
+  const [sinConexion, setSinConexion] = useState<number | null>(null);
+  // La tablet de la cocina no se bloquea sola: dormida, no suena.
+  usePantallaEncendida();
 
   // Comanda impresa: cada pedido que entra a la cocina sale en papel solo, si
   // en este equipo se prendió. Apagado de entrada, porque no todos los locales
@@ -702,10 +707,33 @@ function Kitchen() {
       // los que siguen viniendo: la pantalla queda abierta todo el día.
       enColumnasRef.current = new Set(nuevos.filter((o) => !esPorAceptar(o)).map((o) => o.id));
       setOrders(nuevos);
+      setSinConexion((antes) => {
+        if (antes !== null) toast.success("Volvió la conexión: los pedidos entran de nuevo");
+        return null;
+      });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudieron cargar los pedidos");
+      const mensaje = err instanceof Error ? err.message : "";
+      // Sin internet (o el servidor no contesta) no es un aviso más: la franja
+      // roja queda fija hasta que vuelva, en vez de un cartelito cada 10 s.
+      if (!navigator.onLine || esErrorTecnico(mensaje) || mensaje === "") {
+        setSinConexion((antes) => antes ?? Date.now());
+      } else {
+        toast.error(mensajeDeError(err, "No se pudieron cargar los pedidos"));
+      }
     }
   }, [fetchOrders]);
+
+  // El aviso de "sin internet" del sistema llega antes que el próximo refresco.
+  useEffect(() => {
+    const caida = () => setSinConexion((antes) => antes ?? Date.now());
+    const vuelve = () => void load();
+    window.addEventListener("offline", caida);
+    window.addEventListener("online", vuelve);
+    return () => {
+      window.removeEventListener("offline", caida);
+      window.removeEventListener("online", vuelve);
+    };
+  }, [load]);
 
   useEffect(() => {
     let alive = true;
@@ -989,6 +1017,23 @@ function Kitchen() {
 
   return (
     <div className="min-h-dvh bg-background">
+      {sinConexion !== null && (
+        <div
+          role="alert"
+          className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-3 bg-destructive px-4 py-3 text-center font-bold text-destructive-foreground"
+        >
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          Sin conexión desde las {horaArgentina(new Date(sinConexion).toISOString())}: los pedidos
+          nuevos no están entrando. Revisá el wifi.
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-lg bg-white/20 px-3 py-1 text-sm hover:bg-white/30"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <main className="mx-auto max-w-[1700px] px-6 py-8 md:px-10">
         {/* Encabezado al mínimo: cada píxel que se lleva el título es un pedido
             menos a la vista, y acá lo que importa son los pedidos. */}

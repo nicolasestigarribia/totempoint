@@ -30,6 +30,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { SugerenciasCarrito } from "@/components/online/SugerenciasCarrito";
 import { recordarPedido } from "@/lib/pedidos-en-curso";
+import { useClaveEnvio } from "@/lib/clave-envio";
 
 export const Route = createFileRoute("/p/$empresa/$local/carrito")({
   loader: ({ params }) => getOnlineMenuCached(params.empresa, params.local),
@@ -148,6 +149,8 @@ function CarritoOnlinePage() {
   const placeOrder = useServerFn(createOnlineOrder);
 
   const items = useCartForSlug(cartKey);
+  // Reenviar el mismo carrito (se cortó la señal) no duplica el pedido.
+  const claveEnvio = useClaveEnvio(items);
   const carritoCargado = useCarritoCargado();
   // Fuera de horario se puede armar, pero no enviar: lo frena también el servidor.
   const horario = useHorario(menu.horarios);
@@ -296,6 +299,7 @@ function CarritoOnlinePage() {
             })),
           })),
           totalEsperado: total,
+          clave: claveEnvio,
         },
       });
       guardarUltimo({ sucursal: cartKey, token: r.trackingToken, hecho: Date.now() });

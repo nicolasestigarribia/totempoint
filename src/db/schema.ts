@@ -731,6 +731,12 @@ export const orders = mysqlTable(
     // src/lib/codigo-pedido.ts). Null en los pedidos anteriores a que existiera.
     codigo: varchar("codigo", { length: 8 }),
     /**
+     * La clave con que el carrito mandó este pedido. Si el mismo intento llega
+     * otra vez (la respuesta se perdió y el cliente reintentó), se devuelve
+     * este pedido en lugar de crear uno igual. Null en pedidos viejos.
+     */
+    clave: varchar("clave", { length: 40 }),
+    /**
      * Por dónde entró el pedido: el tótem del mostrador o el link de pedido
      * online que el cliente abre en su celular. Un pedido online espera que
      * alguien del local lo acepte (`acceptedAt`) antes de ir a la cocina.
@@ -853,6 +859,8 @@ export const orders = mysqlTable(
     // pero esta unique key garantiza que dos pedidos nunca compartan número.
     unique("orders_location_date_number_uq").on(t.locationId, t.businessDate, t.orderNumber),
     unique("orders_tracking_token_uq").on(t.trackingToken),
+    // La clave del intento: el mismo pedido mandado dos veces es uno solo.
+    unique("orders_location_clave_uq").on(t.locationId, t.clave),
   ],
 );
 

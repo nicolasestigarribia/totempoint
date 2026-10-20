@@ -7,6 +7,7 @@ import { useTotemDevice } from "@/lib/use-totem-device";
 import { useTotemFullscreen } from "@/lib/use-totem-fullscreen";
 import { TotemHome } from "@/components/totem/TotemHome";
 import { TotemError } from "@/components/totem/TotemError";
+import { usePantallaEncendida } from "@/lib/pantalla-encendida";
 
 export const Route = createFileRoute("/t/$empresa/$local/$totem/")({
   loader: ({ params }) =>
@@ -42,6 +43,7 @@ export const Route = createFileRoute("/t/$empresa/$local/$totem/")({
 });
 
 function TotemHomePage() {
+  usePantallaEncendida();
   const data = Route.useLoaderData();
   const nav = Route.useParams();
   useTotemTheme(data.accentColor, data.theme, data.fontTheme, data.corners);

@@ -996,6 +996,11 @@ export const createTotemOrder = createServerFn({ method: "POST" })
       // Con tope: es público, y cada línea suma consultas dentro de la
       // transacción que bloquea la numeración de la sucursal.
       items: z.array(lineaPedido).min(1).max(80),
+      // La clave del intento: si llega dos veces, es el mismo pedido.
+      clave: z
+        .string()
+        .regex(/^[A-Za-z0-9-]{8,40}$/)
+        .optional(),
     }),
   )
   .handler(
@@ -1018,6 +1023,7 @@ export const createTotemOrder = createServerFn({ method: "POST" })
         paymentMethod: data.paymentMethod,
         comments: data.comments,
         items: data.items,
+        clave: data.clave,
         volverA: ({ orderId }) => `/t/${data.empresa}/${data.local}/${data.totem}/listo/${orderId}`,
       });
       // El código vuelve solo acá, al tótem que tomó el pedido: getTotemOrder y
@@ -1074,6 +1080,8 @@ interface PedidoATomar {
   totalEsperado?: number;
   /** Ruta (sin origen) a la que vuelve el cliente después de pagar con Mercado Pago. */
   volverA: (pedido: { orderId: number; trackingToken: string | null }) => string;
+  /** La clave del intento, para no duplicar un pedido reenviado. */
+  clave?: string;
 }
 
 interface PedidoTomado {
@@ -1096,7 +1104,71 @@ interface PedidoTomado {
  * dos venden el mismo menú, y una regla de precio o de disponibilidad que se
  * arregle en uno no puede quedar rota en el otro.
  */
+/**
+ * Un pedido ya tomado con esa clave en esa sucursal, tal como lo devuelve
+ * `tomarPedido`: el reintento recibe el mismo número, código y link de pago.
+ */
+async function pedidoPorClave(locationId: number, clave: string): Promise<PedidoTomado | null> {
+  const [o] = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      codigo: orders.codigo,
+      businessDate: orders.businessDate,
+      trackingToken: orders.trackingToken,
+      paymentMethod: orders.paymentMethod,
+      paymentStatus: orders.paymentStatus,
+      mpPreferenceId: orders.mpPreferenceId,
+      status: orders.status,
+    })
+    .from(orders)
+    .where(and(eq(orders.locationId, locationId), eq(orders.clave, clave)))
+    .limit(1);
+  if (!o) return null;
+  return {
+    orderId: o.id,
+    orderNumber: o.orderNumber,
+    codigo: o.codigo ?? "",
+    numero: formatearNumeroPedido(o.businessDate, o.orderNumber),
+    trackingToken: o.trackingToken,
+    pagarEn:
+      o.paymentMethod === "mercadopago" &&
+      o.paymentStatus === "pendiente" &&
+      o.status !== "cancelado" &&
+      o.mpPreferenceId
+        ? `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${o.mpPreferenceId}`
+        : null,
+  };
+}
+
+/**
+ * Toma un pedido una sola vez por intento. Con señal mala el pedido puede
+ * llegar y la respuesta perderse: el cliente ve un error, vuelve a tocar
+ * "Enviar" y la cocina recibía dos pedidos iguales. El carrito manda una clave
+ * por intento; si ya hay un pedido con ella, se devuelve ese. Si dos llegan a
+ * la vez, el índice único deja pasar uno y el otro devuelve ese mismo.
+ */
 async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
+  if (!p.clave) return tomarPedidoNuevo(p);
+  const previo = await pedidoPorClave(p.locationId, p.clave);
+  if (previo) return previo;
+  try {
+    return await tomarPedidoNuevo(p);
+  } catch (error) {
+    // Drizzle envuelve el error de MySQL: el "Duplicate entry" viene en la causa.
+    const causa = (error as { cause?: { code?: string; message?: string } })?.cause;
+    if (
+      causa?.code === "ER_DUP_ENTRY" ||
+      /orders_location_clave_uq/i.test(`${String(error)} ${causa?.message ?? ""}`)
+    ) {
+      const ganador = await pedidoPorClave(p.locationId, p.clave);
+      if (ganador) return ganador;
+    }
+    throw error;
+  }
+}
+
+async function tomarPedidoNuevo(p: PedidoATomar): Promise<PedidoTomado> {
   const company = p.company;
   const location = { id: p.locationId };
 
@@ -1621,6 +1693,7 @@ async function tomarPedido(p: PedidoATomar): Promise<PedidoTomado> {
           totemId: p.totemId,
           orderNumber,
           codigo,
+          clave: p.clave ?? null,
           channel: p.channel,
           businessDate: jornada,
           customerName: p.customerName.trim(),
@@ -2525,6 +2598,11 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       // Con tope: es público, y cada línea suma consultas dentro de la
       // transacción que bloquea la numeración de la sucursal.
       items: z.array(lineaPedido).min(1).max(80),
+      // La clave del intento: si llega dos veces, es el mismo pedido.
+      clave: z
+        .string()
+        .regex(/^[A-Za-z0-9-]{8,40}$/)
+        .optional(),
       /** El total que vio el cliente, para no cobrarle uno distinto. */
       totalEsperado: z.number().nonnegative().optional(),
       // Registro del cliente (perfil global por teléfono, sin contraseña). El
@@ -2626,6 +2704,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
           customerId,
         },
         totalEsperado: data.totalEsperado,
+        clave: data.clave,
         volverA: ({ trackingToken }) => `/p/${data.empresa}/${data.local}/pedido/${trackingToken}`,
       });
 
@@ -3158,6 +3237,11 @@ export const createMesaOrder = createServerFn({ method: "POST" })
       // Con tope: es público, y cada línea suma consultas dentro de la
       // transacción que bloquea la numeración de la sucursal.
       items: z.array(lineaPedido).min(1).max(80),
+      // La clave del intento: si llega dos veces, es el mismo pedido.
+      clave: z
+        .string()
+        .regex(/^[A-Za-z0-9-]{8,40}$/)
+        .optional(),
       totalEsperado: z.number().nonnegative().optional(),
     }),
   )
@@ -3206,6 +3290,7 @@ export const createMesaOrder = createServerFn({ method: "POST" })
         items: data.items,
         totalEsperado: data.totalEsperado,
         mesa: { tableId: r.mesa.id, number: r.mesa.number, autoAccept: r.autoAccept },
+        clave: data.clave,
         volverA: ({ trackingToken }) => `/m/${data.token}/pedido/${trackingToken}`,
       });
       return {
