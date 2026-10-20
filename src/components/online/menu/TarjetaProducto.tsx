@@ -10,6 +10,7 @@ import { ElegirTamanio } from "@/components/totem/ElegirTamanio";
 import { ElegirMitad } from "@/components/totem/ElegirMitad";
 import { nombreMitadYMitad, opcionesDeMitad, precioMitadYMitad } from "@/lib/mitades";
 import { SoloVer } from "@/components/online/menu/solo-ver";
+import { EtiquetaMasPedido } from "@/components/online/menu/LoMasPedido";
 import { useRevelar } from "@/components/online/menu/useRevelar";
 import {
   useTotemCart,
@@ -45,7 +46,13 @@ function TarjetaGrande({
   contenido,
   opciones,
   pie,
+  etiqueta,
+  ancla,
 }: {
+  /** Algo que va sobre la foto (o al lado del nombre), como "Más pedido". */
+  etiqueta?: React.ReactNode;
+  /** Id del elemento, para llegar a esta tarjeta desde "Lo más pedido". */
+  ancla?: string;
   accent: string;
   foto: string | null;
   nombre: string;
@@ -67,7 +74,8 @@ function TarjetaGrande({
     // entrada demoraría también la respuesta al dedo.
     <div
       ref={revelar}
-      className={`revela ${visible ? "visible" : ""}`}
+      id={ancla}
+      className={`revela scroll-mt-40 ${visible ? "visible" : ""}`}
       // En dos columnas, la de la derecha entra un instante después.
       style={{ transitionDelay: `${(indice % 2) * 90}ms` }}
     >
@@ -85,6 +93,7 @@ function TarjetaGrande({
           <div className="relative h-48 w-full overflow-hidden">
             <FotoGrande url={foto} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+            {etiqueta && <span className="absolute right-3 top-3">{etiqueta}</span>}
             {numero && (
               <span
                 className="absolute left-3 top-3 rounded-full px-2 py-1 text-xs font-black leading-none text-white"
@@ -118,6 +127,7 @@ function TarjetaGrande({
               </span>
             )}
             <h3 className="font-display text-3xl leading-none">{resto}</h3>
+            {etiqueta && <span className="ml-auto shrink-0">{etiqueta}</span>}
           </div>
         )}
         <div className="flex flex-1 flex-col gap-2 p-4">
@@ -297,6 +307,8 @@ export function TarjetaProducto({
       nombre={p.name}
       indice={indice}
       enCarrito={enCarrito > 0}
+      ancla={`producto-${p.id}`}
+      etiqueta={p.masPedido ? <EtiquetaMasPedido /> : undefined}
       contenido={
         <>
           {p.description && <p>{p.description}</p>}

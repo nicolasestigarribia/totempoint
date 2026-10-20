@@ -649,9 +649,22 @@ function CarritoOnlinePage() {
                 </span>
               </div>
               {faltaParaMinimo > 0 && (
-                <p className="text-amber-400">
-                  El mínimo es {formatPrice(minimo)}: te faltan {formatPrice(faltaParaMinimo)}.
-                </p>
+                // Una barra que se llena dice "te falta poco" mejor que un
+                // aviso en amarillo: invita a sumar algo en vez de frenar.
+                <div className="mt-1">
+                  <p className="text-sm font-bold text-amber-300">
+                    Te faltan {formatPrice(faltaParaMinimo)} para el mínimo de {formatPrice(minimo)}
+                  </p>
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, ((minimo - faltaParaMinimo) / minimo) * 100)}%`,
+                        background: accent,
+                      }}
+                    />
+                  </div>
+                </div>
               )}
             </div>
             {!horario.abierto && (

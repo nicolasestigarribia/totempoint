@@ -46,16 +46,20 @@ export function GrillaCategorias({
   categorias,
   accent,
   onAbrir,
+  destacados,
 }: {
   categorias: CategoriaVisible[];
   accent: string;
   onAbrir: (id: string) => void;
+  /** Lo que va entre el título y la grilla ("Lo más pedido"). */
+  destacados?: React.ReactNode;
 }) {
   return (
     <section aria-label="Categorías" className="pb-6">
       <h1 className="mb-4 font-display text-5xl leading-[0.9]">
         ¿Qué vas a <span style={{ color: accent }}>pedir</span>?
       </h1>
+      {destacados}
       <div className="grid grid-cols-2 gap-3">
         {categorias.map((c, i) => (
           <button

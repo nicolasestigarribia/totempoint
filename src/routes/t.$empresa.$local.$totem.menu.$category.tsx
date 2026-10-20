@@ -18,6 +18,7 @@ import {
 import { ElegirPan } from "@/components/totem/ElegirPan";
 import { ElegirTamanio } from "@/components/totem/ElegirTamanio";
 import { ElegirMitad } from "@/components/totem/ElegirMitad";
+import { EtiquetaMasPedido } from "@/components/online/menu/LoMasPedido";
 import { nombreMitadYMitad, opcionesDeMitad, precioMitadYMitad } from "@/lib/mitades";
 import { useTotemIdleReset } from "@/lib/use-totem-idle";
 import { totemCartKey } from "@/lib/totem-nav";
@@ -276,6 +277,11 @@ function MenuCategoryPage() {
                     <div className="flex h-full w-full items-center justify-center">
                       <ImageOff className="h-8 w-8 text-muted-foreground" />
                     </div>
+                  )}
+                  {p.masPedido && (
+                    <span className="absolute right-3 top-3">
+                      <EtiquetaMasPedido grande />
+                    </span>
                   )}
                 </div>
 

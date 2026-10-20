@@ -416,6 +416,8 @@ export interface TotemProduct {
    * venga en el mismo tamaño (lo prende el dueño en Categorías).
    */
   mitades: boolean;
+  /** Entre lo más vendido de esta sucursal en los últimos 30 días ("🔥 Más pedido"). */
+  masPedido: boolean;
 }
 
 export interface TotemComboItem {
@@ -627,6 +629,43 @@ async function regaloDeCombos(
   return porCombo;
 }
 
+/**
+ * Los productos más vendidos de la sucursal en los últimos 30 días, para
+ * marcarlos "Más pedido": lo que eligen los demás es lo primero que mira el
+ * que no sabe qué pedir. Hasta 5, y solo con unas cuantas ventas, para que un
+ * local recién abierto no destaque un pedido de prueba. Se guarda unos
+ * minutos por sucursal: el menú es público y se abre todo el tiempo.
+ */
+const MAS_PEDIDOS_MINIMO = 3;
+const masPedidosCache = new Map<number, { ids: Set<number>; hasta: number }>();
+async function masPedidosDe(locationId: number): Promise<Set<number>> {
+  const guardado = masPedidosCache.get(locationId);
+  if (guardado && guardado.hasta > Date.now()) return guardado.ids;
+  let ids = new Set<number>();
+  try {
+    const filas = await db
+      .select({ id: orderItems.productId, unidades: sql<string>`sum(${orderItems.quantity})` })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(
+        and(
+          eq(orders.locationId, locationId),
+          ne(orders.status, "cancelado"),
+          gte(orders.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+          isNotNull(orderItems.productId),
+        ),
+      )
+      .groupBy(orderItems.productId)
+      .orderBy(sql`sum(${orderItems.quantity}) desc`)
+      .limit(5);
+    ids = new Set(filas.filter((f) => Number(f.unidades) >= MAS_PEDIDOS_MINIMO).map((f) => f.id!));
+  } catch {
+    // Sin el ranking el menú se muestra igual, sin la etiqueta.
+  }
+  masPedidosCache.set(locationId, { ids, hasta: Date.now() + 5 * 60_000 });
+  return ids;
+}
+
 async function armarMenu(companyId: number, locationId: number): Promise<TotemMenu> {
   const [row] = await db
     .select({
@@ -759,9 +798,10 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
         .orderBy(asc(ingredients.name))
     : [];
 
-  const [reglas, conMitades] = await Promise.all([
+  const [reglas, conMitades, masPedidos] = await Promise.all([
     reglasDeRegalo(companyId),
     categoriasConMitades(companyId),
+    masPedidosDe(locationId),
   ]);
   const visibleProducts: TotemProduct[] = prods.map((p) => {
     const tamanios = tamaniosDe(p.tamanios);
@@ -778,6 +818,7 @@ async function armarMenu(companyId: number, locationId: number): Promise<TotemMe
       tamanios,
       regalo: (p.categoryId !== null && reglas.get(p.categoryId)) || null,
       mitades: p.categoryId !== null && conMitades.has(p.categoryId),
+      masPedido: masPedidos.has(p.id),
       removables: p.customizable
         ? quitables.filter((q) => q.productId === p.id).map((q) => ({ id: q.id, name: q.name }))
         : [],

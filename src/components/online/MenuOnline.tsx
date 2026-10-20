@@ -30,6 +30,7 @@ import { useHorario } from "@/components/online/useHorario";
 import { SoloVer } from "@/components/online/menu/solo-ver";
 import { TarjetaCombo, TarjetaProducto } from "@/components/online/menu/TarjetaProducto";
 import { GrillaCategorias, type CategoriaVisible } from "@/components/online/menu/GrillaCategorias";
+import { LoMasPedido } from "@/components/online/menu/LoMasPedido";
 import { CarruselCategorias } from "@/components/online/menu/CarruselCategorias";
 import { useRevelar } from "@/components/online/menu/useRevelar";
 import type { EstadoHorario } from "@/lib/horario";
@@ -222,6 +223,17 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
       hashScrollIntoView: false,
     } as never);
   };
+  // Desde "Lo más pedido": abre su categoría y baja hasta su tarjeta.
+  const abrirProducto = (productId: number, categoryId: number) => {
+    const seccion = idDeCategoria(categoryId);
+    if (!ids.includes(seccion)) return;
+    abrir(seccion);
+    scrollPendiente.current = { a: `producto-${productId}` };
+  };
+  const masPedidos = useMemo(
+    () => menu.products.filter((p) => p.masPedido).slice(0, 6),
+    [menu.products],
+  );
   const volver = () => {
     scrollPendiente.current = "arriba";
     // Si entró desde la grilla, volver es el "atrás" de siempre; si abrió el
@@ -465,7 +477,18 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
               />
             ) : !abierta ? (
               <div key="grilla" className="aparece">
-                <GrillaCategorias categorias={bloques} accent={accent} onAbrir={abrir} />
+                <GrillaCategorias
+                  categorias={bloques}
+                  accent={accent}
+                  onAbrir={abrir}
+                  destacados={
+                    <LoMasPedido
+                      productos={masPedidos}
+                      accent={accent}
+                      onElegir={(p) => abrirProducto(p.id, p.categoryId)}
+                    />
+                  }
+                />
               </div>
             ) : (
               <div key="lista" className="entra-vista">

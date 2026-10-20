@@ -3,6 +3,14 @@ import { toast } from "sonner";
 import {
   MessageCircle,
   Sparkles,
+  Monitor,
+  Smartphone,
+  Radio,
+  Printer,
+  ShieldCheck,
+  Flame,
+  Pizza,
+  Search,
   ArrowRight,
   Send,
   HelpCircle,
@@ -70,6 +78,36 @@ const PORQUE: { icon: LucideIcon; title: string; desc: string }[] = [
   },
 ];
 
+/** Los tres canales: el dueño elige uno o los tres, con el mismo menú y la misma cocina. */
+const CANALES: { icon: LucideIcon; nombre: string; desc: string; puntos: string[] }[] = [
+  {
+    icon: Monitor,
+    nombre: "Tótem en el mostrador",
+    desc: "El cliente pide solo en la pantalla y paga por QR o en caja.",
+    puntos: ["Sin fila en hora pico", "Combos y extras a la vista", "Con tu marca y tus fotos"],
+  },
+  {
+    icon: Smartphone,
+    nombre: "Pedido online, sin comisión",
+    desc: "Tu link y tu QR para Instagram y WhatsApp. Envío o retiro.",
+    puntos: [
+      "Lo que vendés es tuyo, sin porcentaje por pedido",
+      "Envío calculado por kilómetro",
+      "El cliente sigue su pedido en vivo",
+    ],
+  },
+  {
+    icon: QrCode,
+    nombre: "Pedido desde la mesa",
+    desc: "Un QR en cada mesa: piden desde el celular y llega con el número.",
+    puntos: [
+      "Menos idas y vueltas del mozo",
+      "Rotás más rápido las mesas",
+      "Cobro en mesa o por QR",
+    ],
+  },
+];
+
 const MODULOS: { icon: LucideIcon; nombre: string; desc: string }[] = [
   {
     icon: Boxes,
@@ -111,6 +149,36 @@ const MODULOS: { icon: LucideIcon; nombre: string; desc: string }[] = [
     nombre: "Encargados y permisos",
     desc: "Cada uno ve solo lo que maneja.",
   },
+  {
+    icon: Radio,
+    nombre: "Seguimiento en vivo",
+    desc: "El cliente ve “confirmado → preparando → en camino” en su celular. Te llaman menos.",
+  },
+  {
+    icon: Pizza,
+    nombre: "Tamaños y mitad y mitad",
+    desc: "Grande o chica, media muzza y media napo: se cobra solo, como en tu pizzería.",
+  },
+  {
+    icon: Flame,
+    nombre: "Lo más pedido",
+    desc: "El menú destaca lo que más se vende para el que no sabe qué elegir.",
+  },
+  {
+    icon: Printer,
+    nombre: "Comanda impresa",
+    desc: "Cada pedido sale en papel en la cocina, con lo que va sin y lo que falta cobrar.",
+  },
+  {
+    icon: ShieldCheck,
+    nombre: "Código para retirar",
+    desc: "Cada pedido trae un código: nadie se lleva el pedido de otro.",
+  },
+  {
+    icon: Search,
+    nombre: "Panel simple",
+    desc: "Un buscador para encontrar cualquier ajuste. Se usa sin capacitación.",
+  },
 ];
 
 const FAQS: { q: string; a: string }[] = [
@@ -129,6 +197,14 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: "¿Cómo se cobra?",
     a: "Efectivo o Mercado Pago por QR, a tu cuenta.",
+  },
+  {
+    q: "¿Cobran comisión por pedido?",
+    a: "No. Es un abono mensual: lo que vendés por el tótem, la web o la mesa es todo tuyo.",
+  },
+  {
+    q: "¿Puedo vender online y en el local a la vez?",
+    a: "Sí. Tótem, pedido online y QR en la mesa usan el mismo menú y llegan a la misma comandera.",
   },
   {
     q: "¿Cuánto tarda la implementación?",
@@ -561,8 +637,9 @@ export function VariantAurora({
                   className="aur-up mt-7 max-w-xl text-lg text-[oklch(0.45_0.02_260)] md:text-xl"
                   style={{ animationDelay: "200ms" }}
                 >
-                  El cliente pide desde la pantalla, paga y la comanda llega sola a la cocina. Menos
-                  fila, menos errores y una caja que cuadra al final del día.
+                  El cliente pide desde el tótem, su celular o la mesa, paga y la comanda llega sola
+                  a la cocina. Sin comisión por pedido, menos fila, menos errores y una caja que
+                  cuadra al final del día.
                 </p>
                 <div
                   className="aur-up mt-10 flex flex-wrap gap-3"
@@ -624,6 +701,41 @@ export function VariantAurora({
                     </div>
                   ))}
                 </div>
+              </div>
+            </section>
+
+            {/* CANALES */}
+            <section id="canales" className="mx-auto max-w-6xl px-6 py-16 md:px-10">
+              <Reveal>
+                <TituloSeccion
+                  kicker="Tres formas de vender"
+                  title="Un menú, tres canales, una cocina"
+                  sub="Elegí uno o los tres: todo llega a la misma comandera."
+                />
+              </Reveal>
+              <div className="mt-12 grid gap-4 md:grid-cols-3">
+                {CANALES.map((c, i) => (
+                  <Reveal key={c.nombre} delay={i * 100}>
+                    <div className="h-full rounded-3xl border border-black/5 bg-white/80 p-7 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.25)] backdrop-blur">
+                      <div
+                        className="flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg"
+                        style={{ background: ACENTO }}
+                      >
+                        <c.icon className="h-7 w-7" />
+                      </div>
+                      <h3 className="mt-4 text-xl font-semibold tracking-tight">{c.nombre}</h3>
+                      <p className="mt-2 text-sm text-[oklch(0.5_0.02_260)]">{c.desc}</p>
+                      <ul className="mt-4 space-y-2">
+                        {c.puntos.map((pt) => (
+                          <li key={pt} className="flex items-start gap-2 text-sm">
+                            <Check className="mt-0.5 h-4 w-4 shrink-0" style={{ color: ACENTO }} />
+                            {pt}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </Reveal>
+                ))}
               </div>
             </section>
 
