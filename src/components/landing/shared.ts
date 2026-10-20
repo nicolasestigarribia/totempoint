@@ -1,9 +1,9 @@
 import { Timer, UsersRound, BadgeCheck, TrendingUp, Wallet, BarChart3 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-// TODO: reemplazar por el número real de WhatsApp (formato internacional sin +,
-// espacios ni guiones, ej. 5491112345678). Placeholder hasta que lo dé Nicolas.
-export const WHATSAPP_NUMERO = "5490000000000";
+// El WhatsApp de ventas de Totempoint (Sebastián): formato internacional sin
+// +, espacios ni guiones. Es a donde llegan todos los "Solicitar una demo".
+export const WHATSAPP_NUMERO = "5492235924929";
 const WHATSAPP_MENSAJE = encodeURIComponent("Hola, quiero conocer Totempoint para mi negocio.");
 export const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMERO}?text=${WHATSAPP_MENSAJE}`;
 
