@@ -226,6 +226,20 @@ function PasoEnvio({
   // Para centrar la búsqueda: la primera sucursal que hace envíos.
   const cerca = empresa.sucursales.find((s) => s.origin)?.origin ?? null;
 
+  // Una sola sucursal abierta que llega: no hay nada que elegir, se sigue
+  // directo al menú. Pedirle que toque "la sucursal" a quien tiene un solo
+  // local era un paso de más que mucha gente no entendía. La lista queda para
+  // cuando hay de verdad para elegir, o para avisar que no llegan o están cerradas.
+  const unica = useMemo(() => {
+    const abiertas = opciones.filter((o) => o.horario.abierto);
+    return abiertas.length === 1 ? abiertas[0] : null;
+  }, [opciones]);
+  const elegirRef = useRef(onElegir);
+  elegirRef.current = onElegir;
+  useEffect(() => {
+    if (unica && lugar) elegirRef.current(unica.s, lugar);
+  }, [unica, lugar]);
+
   // Con la dirección elegida, la hoja baja hasta la sucursal: en el celular
   // quedaba debajo del teclado y del botón de ubicación, y no se veía.
   const resultado = useRef<HTMLDivElement>(null);
