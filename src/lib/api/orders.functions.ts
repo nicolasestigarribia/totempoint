@@ -9,6 +9,7 @@ import {
   orderItemExtras,
   orderItemElecciones,
   locations,
+  companies,
   tableCalls,
 } from "@/db/schema";
 import { requireCompany } from "@/lib/auth/middleware";
@@ -65,6 +66,11 @@ export interface KitchenOrder {
   etaMinutes: number | null;
   /** Cuándo salió a entregar, en un pedido de envío ("En camino"). */
   dispatchedAt: string | null;
+  /**
+   * La dirección (sin origen) del seguimiento de un pedido online, para
+   * mandársela al cliente por WhatsApp. Null en el tótem y la mesa.
+   */
+  seguimiento: string | null;
   /** Datos del pedido online: cómo ubicar al cliente y cómo le llega. */
   customerPhone: string | null;
   deliveryFee: string | null;
@@ -144,8 +150,14 @@ async function visibleLocations(user: SessionUser) {
   const allowed = await accessibleLocationIds(user);
   if (allowed.length === 0) return [];
   return db
-    .select({ id: locations.id, name: locations.name })
+    .select({
+      id: locations.id,
+      name: locations.name,
+      slug: locations.slug,
+      empresaSlug: companies.slug,
+    })
     .from(locations)
+    .innerJoin(companies, eq(companies.id, locations.companyId))
     .where(inArray(locations.id, allowed));
 }
 
@@ -349,6 +361,12 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       etaMinutes: o.etaMinutes,
       dispatchedAt: o.dispatchedAt?.toISOString() ?? null,
+      seguimiento: (() => {
+        const loc = locs.find((l) => l.id === o.locationId);
+        return o.channel === "online" && o.trackingToken && loc
+          ? `/p/${loc.empresaSlug}/${loc.slug}/pedido/${o.trackingToken}`
+          : null;
+      })(),
       customerPhone: o.customerPhone,
       deliveryFee: o.deliveryFee,
       deliveryAddress: o.deliveryAddress,

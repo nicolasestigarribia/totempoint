@@ -64,6 +64,7 @@ import { canEditSection } from "@/lib/auth/permissions";
 import { PantallaCarga } from "@/components/PantallaCarga";
 import { comandasHtml } from "@/lib/print/comanda";
 import { linkWhatsApp } from "@/lib/whatsapp";
+import { linkAvisoRecibido } from "@/lib/aviso-cliente";
 import { horaArgentina } from "@/lib/jornada";
 import { imprimirHtml } from "@/lib/print/navegador";
 import { usePantallaEncendida } from "@/lib/pantalla-encendida";
@@ -866,12 +867,67 @@ function Kitchen() {
       porAceptar.length > 0 ? `(${porAceptar.length}) Por aceptar` : "Panel de cocina";
   }, [porAceptar.length]);
 
+  // A qué pedidos ya se les mandó el "recibimos tu pedido" por WhatsApp desde
+  // esta pantalla: el botón grande se achica para no insistir.
+  const [avisados, setAvisados] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    try {
+      setAvisados(new Set(JSON.parse(localStorage.getItem("comandera-avisados") ?? "[]")));
+    } catch {
+      // Sin almacenamiento: se ofrece de nuevo al recargar.
+    }
+  }, []);
+  const avisoDe = (o: KitchenOrder) =>
+    o.channel === "online"
+      ? linkAvisoRecibido(
+          {
+            customerName: o.customerName,
+            customerPhone: o.customerPhone,
+            numero: formatearNumeroPedido(o.businessDate, o.orderNumber),
+            codigo: o.codigo,
+            deliveryMethod: o.deliveryMethod,
+            acceptedAt: o.acceptedAt,
+            etaMinutes: o.etaMinutes,
+            seguimiento: o.seguimiento ? `${window.location.origin}${o.seguimiento}` : null,
+          },
+          marca?.nombre ?? "",
+        )
+      : null;
+  const avisarPorWhatsApp = (o: KitchenOrder) => {
+    const link = avisoDe(o);
+    if (!link) return;
+    window.open(link, "_blank", "noopener,noreferrer");
+    setAvisados((prev) => {
+      const nuevo = new Set(prev).add(o.id);
+      try {
+        localStorage.setItem("comandera-avisados", JSON.stringify([...nuevo].slice(-200)));
+      } catch {
+        // Queda marcado hasta recargar.
+      }
+      return nuevo;
+    });
+  };
+
   const aceptar = async (order: KitchenOrder, etaMinutes: number) => {
     setAceptando(order.id);
     try {
       await doAccept({ data: { orderId: order.id, etaMinutes } });
+      const aceptado: KitchenOrder = {
+        ...order,
+        acceptedAt: new Date().toISOString(),
+        etaMinutes,
+      };
       toast.success(
         `Pedido ${formatearNumeroPedido(order.businessDate, order.orderNumber)} aceptado: ${etaMinutes} min`,
+        avisoDe(aceptado)
+          ? {
+              duration: 15_000,
+              action: {
+                label: "Avisarle por WhatsApp",
+                onClick: () => avisarPorWhatsApp(aceptado),
+              },
+            }
+          : undefined,
       );
       await load();
     } catch (err) {
@@ -1452,6 +1508,28 @@ function Kitchen() {
                           </div>
 
                           {o.channel === "online" && <DatosOnline o={o} />}
+                          {/* "Recibimos tu pedido" por WhatsApp, con dos toques. */}
+                          {o.status !== "cancelado" &&
+                            o.status !== "entregado" &&
+                            avisoDe(o) &&
+                            (avisados.has(o.id) ? (
+                              <button
+                                type="button"
+                                onClick={() => avisarPorWhatsApp(o)}
+                                className="mt-2 flex items-center gap-1.5 text-xs font-bold text-emerald-400 underline-offset-4 hover:underline"
+                              >
+                                <CheckCheck className="h-4 w-4" /> Avisado por WhatsApp · reenviar
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => avisarPorWhatsApp(o)}
+                                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] text-sm font-extrabold text-white transition active:scale-95"
+                              >
+                                <MessageCircle className="h-4 w-4" /> Avisarle por WhatsApp que lo
+                                recibimos
+                              </button>
+                            ))}
                           <LineasPedido
                             items={o.items}
                             regalo={o.regaloUnidades}
