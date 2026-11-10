@@ -25,7 +25,8 @@ export interface PedidoAvisable {
 
 export function mensajeRecibido(p: PedidoAvisable, empresa: string): string {
   const nombre = p.customerName.trim().split(/\s+/)[0] || p.customerName;
-  const lineas = [`¡Hola ${nombre}! 👋 Recibimos tu pedido ${p.numero} en ${empresa} ✅`];
+  // Sin emojis: el link de WhatsApp (wa.me) rompe algunos y llegan como "�".
+  const lineas = [`¡Hola ${nombre}! Recibimos tu pedido ${p.numero} en ${empresa}.`];
   if (p.acceptedAt && p.etaMinutes) {
     const hora = horaArgentina(new Date(new Date(p.acceptedAt).getTime() + p.etaMinutes * 60_000));
     lineas.push(
