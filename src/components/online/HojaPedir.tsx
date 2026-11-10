@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Bike, ChevronRight, Clock, MapPin, Store } from "lucide-react";
 import type { OnlineEmpresa, SucursalOnline } from "@/lib/api/totem.functions";
@@ -226,51 +226,66 @@ function PasoEnvio({
   // Para centrar la búsqueda: la primera sucursal que hace envíos.
   const cerca = empresa.sucursales.find((s) => s.origin)?.origin ?? null;
 
+  // Con la dirección elegida, la hoja baja hasta la sucursal: en el celular
+  // quedaba debajo del teclado y del botón de ubicación, y no se veía.
+  const resultado = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!lugar) return;
+    const t = window.setTimeout(
+      () => resultado.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+      250,
+    );
+    return () => window.clearTimeout(t);
+  }, [lugar]);
+
   return (
     <section className="space-y-3">
       <Encabezado titulo="¿A dónde te lo llevamos?" volver={volver} />
-      <BuscadorDireccion cerca={cerca} onElegir={setLugar} />
-      {lugar &&
-        (opciones.length === 0 ? (
-          <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-            No llegamos a esa dirección desde ninguna sucursal.
-            {verRetiro && (
-              <button
-                type="button"
-                onClick={verRetiro}
-                className="mt-2 block font-bold underline underline-offset-4"
-              >
-                Ver dónde retirar
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">
-              {opciones.length === 1
-                ? "Te llega desde esta sucursal:"
-                : "Te llegan desde estas sucursales. Elegí una:"}
-            </p>
-            <ul className="space-y-2">
-              {opciones.map(({ s, km, cotizacion, horario }) => (
-                <li key={s.slug}>
-                  <FilaSucursal
-                    nombre={s.name}
-                    detalle={`A ${formatearDistancia(km)} · Envío ${
-                      cotizacion.llega && cotizacion.precio > 0
-                        ? formatPrice(cotizacion.precio)
-                        : "gratis"
-                    }`}
-                    abierta={horario.abierto}
-                    abre={horario.texto}
-                    accent={accent}
-                    onClick={() => onElegir(s, lugar)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </>
-        ))}
+      <BuscadorDireccion cerca={cerca} onElegir={setLugar} sinGps={!!lugar} />
+      <div ref={resultado} className="scroll-mb-6">
+        {lugar &&
+          (opciones.length === 0 ? (
+            <div className="rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+              No llegamos a esa dirección desde ninguna sucursal.
+              {verRetiro && (
+                <button
+                  type="button"
+                  onClick={verRetiro}
+                  className="mt-2 block font-bold underline underline-offset-4"
+                >
+                  Ver dónde retirar
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {opciones.length === 1
+                  ? "Te llega desde esta sucursal:"
+                  : "Te llegan desde estas sucursales. Elegí una:"}
+              </p>
+              <ul className="space-y-2">
+                {opciones.map(({ s, km, cotizacion, horario }) => (
+                  <li key={s.slug}>
+                    <FilaSucursal
+                      nombre={s.name}
+                      detalle={`A ${formatearDistancia(km)} · Envío ${
+                        cotizacion.llega && cotizacion.precio > 0
+                          ? formatPrice(cotizacion.precio)
+                          : "gratis"
+                      }`}
+                      abierta={horario.abierto}
+                      abre={horario.texto}
+                      accent={accent}
+                      destacada
+                      onClick={() => onElegir(s, lugar)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          ))}
+      </div>
     </section>
   );
 }
@@ -329,6 +344,7 @@ function FilaSucursal({
   abierta,
   abre,
   accent,
+  destacada = false,
   onClick,
 }: {
   nombre: string;
@@ -336,6 +352,8 @@ function FilaSucursal({
   abierta: boolean;
   abre: string | null;
   accent: string;
+  /** Con el borde de la marca: es el paso siguiente y tiene que notarse. */
+  destacada?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -343,7 +361,10 @@ function FilaSucursal({
       type="button"
       onClick={onClick}
       disabled={!abierta}
-      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card/40 p-4 text-left transition enabled:hover:border-primary disabled:opacity-50"
+      className={`flex w-full items-center gap-3 rounded-2xl bg-card/40 p-4 text-left transition enabled:hover:border-primary disabled:opacity-50 ${
+        destacada && abierta ? "border-2" : "border border-border"
+      }`}
+      style={destacada && abierta ? { borderColor: accent } : undefined}
     >
       <MapPin className="h-5 w-5 shrink-0" style={{ color: abierta ? accent : undefined }} />
       <span className="min-w-0 flex-1">

@@ -25,11 +25,14 @@ export function BuscadorDireccion({
   onElegir,
   placeholder = "Calle y altura, o esquina",
   inputClassName = "h-12 rounded-xl",
+  sinGps = false,
 }: {
   cerca: Punto | null;
   onElegir: (lugar: Lugar) => void;
   placeholder?: string;
   inputClassName?: string;
+  /** Sin "Usar mi ubicación actual" (ya eligió y lo que sigue tiene que quedar a la vista). */
+  sinGps?: boolean;
 }) {
   const [texto, setTexto] = useState("");
   const [sugerencias, setSugerencias] = useState<Prediccion[]>([]);
@@ -76,7 +79,14 @@ export function BuscadorDireccion({
     };
   }, [texto, cerca]);
 
+  // Elegida la dirección, el teclado se cierra: abierto tapaba media pantalla
+  // y lo que seguía (la sucursal, el mapa) quedaba fuera de la vista.
+  const cerrarTeclado = () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  };
+
   const elegir = async (p: Prediccion) => {
+    cerrarTeclado();
     elegido.current = true;
     setTexto(p.label);
     setSugerencias([]);
@@ -108,6 +118,7 @@ export function BuscadorDireccion({
         const punto = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const label = (await direccionDe(punto)) ?? "Mi ubicación";
         setGps("nada");
+        cerrarTeclado();
         elegido.current = true;
         setTexto(label);
         setSugerencias([]);
@@ -185,19 +196,21 @@ export function BuscadorDireccion({
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={usarGps}
-        disabled={gps === "buscando"}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-sm font-bold"
-      >
-        {gps === "buscando" ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <LocateFixed className="h-4 w-4" />
-        )}
-        Usar mi ubicación actual
-      </button>
+      {!sinGps && (
+        <button
+          type="button"
+          onClick={usarGps}
+          disabled={gps === "buscando"}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-sm font-bold"
+        >
+          {gps === "buscando" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LocateFixed className="h-4 w-4" />
+          )}
+          Usar mi ubicación actual
+        </button>
+      )}
       {gps === "error" && (
         <p className="text-sm text-amber-400">
           No pudimos tomar tu ubicación. Buscá la dirección o tocá el mapa donde estás.
