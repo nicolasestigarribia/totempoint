@@ -70,7 +70,16 @@ import { imprimirHtml } from "@/lib/print/navegador";
 import { usePantallaEncendida } from "@/lib/pantalla-encendida";
 
 export const Route = createFileRoute("/kitchen")({
-  head: () => ({ meta: [{ title: "Panel de cocina" }] }),
+  head: () => ({
+    meta: [
+      { title: "Panel de cocina" },
+      { name: "theme-color", content: "#100a0c" },
+      { name: "mobile-web-app-capable", content: "yes" },
+    ],
+    // Instalable como app: abierta desde su ícono, Chrome la deja sonar sin
+    // pedir un toque cada vez (ver `PantallaSonido`).
+    links: [{ rel: "manifest", href: "/comandera.webmanifest" }],
+  }),
   component: Kitchen,
 });
 
@@ -552,6 +561,12 @@ function PantallaSonido({
         Así la comandera {nombre ? `de ${nombre} ` : ""}suena con cada pedido nuevo. El navegador no
         deja sonar nada hasta que alguien toca la pantalla.
       </span>
+      <span className="max-w-md rounded-2xl border border-border bg-card/60 p-4 text-sm text-muted-foreground">
+        <b className="text-foreground">Para que no lo pida más:</b> instalá la comandera como app.
+        En Chrome tocá el menú <b className="text-foreground">⋮</b> →{" "}
+        <b className="text-foreground">“Instalar app”</b> (o “Agregar a la pantalla de inicio”) y
+        abrila siempre desde ese ícono.
+      </span>
     </button>
   );
 }
@@ -627,7 +642,9 @@ function Kitchen() {
   // Aviso sonoro de pedidos online por aceptar. Quien los atiende está con el
   // celular en la mano haciendo otra cosa: si no suena, el pedido espera.
   const audioRef = useRef<AudioContext | null>(null);
-  const [sonidoActivo, setSonidoActivo] = useState(false);
+  // null mientras se averigua si el navegador ya deja sonar: así la pantalla
+  // de "tocá para empezar" no aparece de más cuando no hace falta.
+  const [sonidoActivo, setSonidoActivo] = useState<boolean | null>(null);
   // La guía de cómo se usa: abierta la primera vez en esta tablet, después
   // solo si la piden. Quien la cerró no la vuelve a ver al recargar.
   const [guiaAbierta, setGuiaAbierta] = useState(false);
@@ -706,6 +723,16 @@ function Kitchen() {
       setSonidoActivo(false);
     }
   }, []);
+
+  // Al abrir se intenta sonar sin toque: instalada como app (o en una tablet
+  // donde Chrome ya confía en la comandera) el navegador lo permite, y entonces
+  // no se pide nada. Solo si queda bloqueado aparece la pantalla del toque.
+  useEffect(() => {
+    void activarSonido();
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/comandera-sw.js", { scope: "/kitchen" }).catch(() => {});
+    }
+  }, [activarSonido]);
 
   // Cualquier toque destraba el sonido si se había silenciado; y cada pocos
   // segundos se mira si el navegador lo suspendió, para volver a pedir el toque.
@@ -1157,7 +1184,7 @@ function Kitchen() {
 
   return (
     <div className="min-h-dvh bg-background">
-      {!sonidoActivo && (
+      {sonidoActivo === false && (
         <PantallaSonido
           logo={marca?.logo ?? null}
           nombre={marca?.nombre ?? null}
