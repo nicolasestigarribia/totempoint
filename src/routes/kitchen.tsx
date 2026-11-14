@@ -519,6 +519,43 @@ function anotarImpresos(ids: number[]) {
   }
 }
 
+/**
+ * Lo que tapa la comandera hasta que alguien la toca: sin ese toque el
+ * navegador no la deja sonar, y una comandera muda pierde pedidos. Toda la
+ * pantalla es el botón.
+ */
+function PantallaSonido({
+  logo,
+  nombre,
+  onTocar,
+}: {
+  logo: string | null;
+  nombre: string | null;
+  onTocar: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onTocar}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-background/95 px-6 text-center backdrop-blur"
+    >
+      {logo ? (
+        <img src={logo} alt="" className="h-24 w-24 rounded-full bg-white object-cover" />
+      ) : (
+        <ChefHat className="h-20 w-20 text-primary" />
+      )}
+      <span className="flex h-20 w-20 animate-pulse items-center justify-center rounded-full bg-primary text-primary-foreground shadow-glow">
+        <Volume2 className="h-10 w-10" />
+      </span>
+      <span className="font-display text-4xl md:text-5xl">Tocá la pantalla para empezar</span>
+      <span className="max-w-md text-base text-muted-foreground">
+        Así la comandera {nombre ? `de ${nombre} ` : ""}suena con cada pedido nuevo. El navegador no
+        deja sonar nada hasta que alguien toca la pantalla.
+      </span>
+    </button>
+  );
+}
+
 function Kitchen() {
   const navigate = useNavigate();
   const doMe = useServerFn(me);
@@ -642,26 +679,55 @@ function Kitchen() {
     [marcarImpresos],
   );
 
-  // El navegador no deja sonar nada hasta el primer toque en la página: ese
-  // toque, sea donde sea, destraba el sonido.
-  const activarSonido = useCallback(async () => {
+  // El navegador no deja sonar nada hasta que alguien toca la página, y no hay
+  // forma de saltear esa regla desde el código. Por eso la comandera no es
+  // opcional: hasta ese toque la tapa una pantalla que lo pide (`PantallaSonido`),
+  // y si el navegador la vuelve a silenciar (tablet bloqueada, pestaña en segundo
+  // plano) vuelve a aparecer. Una comandera que no suena pierde pedidos.
+  const sonidoDisponible = useRef(true);
+  const activarSonido = useCallback(async (conPrueba = false) => {
     try {
       const Ctor =
         window.AudioContext ??
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) return;
+      if (!Ctor) {
+        // Un navegador sin Web Audio no puede sonar: no se lo bloquea por eso.
+        sonidoDisponible.current = false;
+        setSonidoActivo(true);
+        return;
+      }
       audioRef.current ??= new Ctor();
       await audioRef.current.resume();
-      setSonidoActivo(audioRef.current.state === "running");
+      const ok = audioRef.current.state === "running";
+      setSonidoActivo(ok);
+      // El toque de inicio suena: así quien está en la cocina sabe cómo suena.
+      if (ok && conPrueba) campanita(audioRef.current);
     } catch {
-      // Sin sonido la comandera igual funciona: queda el cartel.
+      setSonidoActivo(false);
     }
   }, []);
 
+  // Cualquier toque destraba el sonido si se había silenciado; y cada pocos
+  // segundos se mira si el navegador lo suspendió, para volver a pedir el toque.
   useEffect(() => {
     const alTocar = () => void activarSonido();
-    window.addEventListener("pointerdown", alTocar, { once: true });
-    return () => window.removeEventListener("pointerdown", alTocar);
+    window.addEventListener("pointerdown", alTocar);
+    const vigilar = window.setInterval(() => {
+      const ctx = audioRef.current;
+      if (!sonidoDisponible.current || !ctx) return;
+      if (ctx.state === "running") return;
+      // Se intenta volver solo; si el navegador no lo deja, se pide el toque.
+      ctx
+        .resume()
+        .then(() => {
+          if (ctx.state !== "running") setSonidoActivo(false);
+        })
+        .catch(() => setSonidoActivo(false));
+    }, 3000);
+    return () => {
+      window.removeEventListener("pointerdown", alTocar);
+      window.clearInterval(vigilar);
+    };
   }, [activarSonido]);
 
   const load = useCallback(async () => {
@@ -1091,6 +1157,13 @@ function Kitchen() {
 
   return (
     <div className="min-h-dvh bg-background">
+      {!sonidoActivo && (
+        <PantallaSonido
+          logo={marca?.logo ?? null}
+          nombre={marca?.nombre ?? null}
+          onTocar={() => void activarSonido(true)}
+        />
+      )}
       {sinConexion !== null && (
         <div
           role="alert"
@@ -1271,16 +1344,6 @@ function Kitchen() {
                   {porAceptar.length}
                 </span>
               </div>
-              {!sonidoActivo && (
-                <button
-                  type="button"
-                  onClick={activarSonido}
-                  className="flex h-10 items-center gap-2 rounded-xl border border-sky-500/60 px-3 text-sm font-bold text-sky-300"
-                >
-                  <Volume2 className="h-4 w-4" />
-                  Activar el aviso con sonido
-                </button>
-              )}
             </header>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
