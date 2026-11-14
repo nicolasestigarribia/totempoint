@@ -25,6 +25,17 @@ const args = process.argv.slice(2);
 const aplicar = args.includes("--aplicar");
 const respaldo = args.find((a) => a.startsWith("--respaldo="))?.slice("--respaldo=".length);
 const empresa = args.find((a) => a.startsWith("--empresa="))?.slice("--empresa=".length);
+// Con --ids=117,118 borra solo esos pedidos (y solo si son de esas sucursales):
+// cuando la empresa ya vende de verdad, un pedido real que entra mientras tanto
+// no se toca.
+const soloIds = args
+  .find((a) => a.startsWith("--ids="))
+  ?.slice("--ids=".length)
+  .split(",")
+  .map((x) => Number(x.trim()))
+  .filter((x) => Number.isInteger(x) && x > 0);
+if (soloIds && soloIds.length === 0)
+  throw new Error("--ids vacío: pasá los números de pedido (id)");
 
 const filas = async (q: SQL) => (await db.execute(q))[0] as unknown as Record<string, unknown>[];
 
@@ -47,7 +58,19 @@ async function main() {
     sql`, `,
   )})`;
 
-  const pedidos = await filas(sql`SELECT * FROM orders WHERE location_id IN ${enSucursales}`);
+  const pedidos = await filas(
+    soloIds
+      ? sql`SELECT * FROM orders WHERE location_id IN ${enSucursales} AND id IN (${sql.join(
+          soloIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`
+      : sql`SELECT * FROM orders WHERE location_id IN ${enSucursales}`,
+  );
+  if (soloIds && pedidos.length !== soloIds.length) {
+    throw new Error(
+      `De ${soloIds.length} ids pedidos encontré ${pedidos.length} en esas sucursales: revisalos`,
+    );
+  }
   const ids = pedidos.map((p) => Number(p.id));
   console.log(`${empresa ? `Empresa ${empresa}` : "Todas las empresas"}: ${ids.length} pedidos.`);
   if (ids.length === 0) process.exit(0);
@@ -127,7 +150,16 @@ async function main() {
       await tx.execute(sql`DELETE FROM order_items WHERE id IN ${enItems}`);
     }
     await tx.execute(sql`DELETE FROM orders WHERE id IN ${enPedidos}`);
-    await tx.execute(sql`DELETE FROM order_sequences WHERE location_id IN ${enSucursales}`);
+    // El contador vuelve a 1 solo en los días que quedaron sin pedidos: si
+    // quedó uno real, reiniciarlo haría chocar el próximo número con el suyo.
+    await tx.execute(sql`
+      DELETE s FROM order_sequences s
+      WHERE s.location_id IN ${enSucursales}
+        AND NOT EXISTS (
+          SELECT 1 FROM orders o
+          WHERE o.location_id = s.location_id AND o.business_date = s.business_date
+        )
+    `);
   });
 
   const [{ n }] = await filas(
