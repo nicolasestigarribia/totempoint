@@ -151,20 +151,12 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
               autoComplete="off"
             />
             <p className="text-xs text-muted-foreground">
-              Lo sacás de{" "}
-              <a
-                href="https://www.mercadopago.com.ar/developers/panel/app"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-foreground"
-              >
-                tu panel de desarrollador de Mercado Pago
-                <ExternalLink className="h-3 w-3" />
-              </a>
-              , en “Credenciales de producción”. Empieza con <code>APP_USR-</code>. Los de prueba
-              empiezan con <code>TEST-</code> y sirven para probar sin mover plata real.
+              Empieza con <code>APP_USR-</code>. Si no lo tenés, seguí la guía de abajo: son 5
+              minutos.
             </p>
           </div>
+
+          {!listo && <GuiaCredenciales />}
 
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4">
             <div>
@@ -227,6 +219,12 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
         </div>
       </div>
 
+      {listo && (
+        <div className={`p-6 ${panelClass}`}>
+          <GuiaCredenciales cerrada />
+        </div>
+      )}
+
       <div className={`p-6 ${panelClass}`}>
         <h4 className="font-bold">Cómo queda el circuito</h4>
         <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
@@ -240,5 +238,97 @@ export function PagosSection({ panelClass }: { panelClass: string }) {
         </ol>
       </div>
     </div>
+  );
+}
+
+const PANEL_MP = "https://www.mercadopago.com.ar/developers/panel/app";
+const AYUDA_MP = `https://wa.me/5492235924929?text=${encodeURIComponent(
+  "Hola! Necesito ayuda para conectar Mercado Pago en Totempoint.",
+)}`;
+
+/**
+ * Cómo sacar el Access Token, paso a paso y con el botón que lleva al lugar.
+ * Lo hace el dueño del local, que no es programador: los nombres de los
+ * botones son los que ve en Mercado Pago. Las credenciales de prueba también
+ * empiezan con APP_USR-, así que la diferencia la marca el selector
+ * "Producción", no el prefijo.
+ */
+function GuiaCredenciales({ cerrada = false }: { cerrada?: boolean }) {
+  const [abierta, setAbierta] = useState(!cerrada);
+  return (
+    <div className="rounded-2xl border border-sky-500/40 bg-sky-500/5 p-4">
+      <button
+        type="button"
+        onClick={() => setAbierta((v) => !v)}
+        aria-expanded={abierta}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="font-bold">Cómo conseguir tu Access Token</span>
+        <span className="text-xs font-bold text-sky-300">{abierta ? "Ocultar" : "Ver guía"}</span>
+      </button>
+      {abierta && (
+        <div className="mt-3 space-y-4 text-sm">
+          <ol className="space-y-3">
+            <Paso n={1}>
+              Entrá a Mercado Pago <b>con la cuenta donde querés recibir la plata</b> (la del
+              local).
+              <a
+                href={PANEL_MP}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-500 font-bold text-white transition hover:bg-sky-400"
+              >
+                Abrir mi panel de Mercado Pago
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </Paso>
+            <Paso n={2}>
+              Tocá <b>“Crear aplicación”</b> (o “Crear manualmente”). Ponele de nombre{" "}
+              <b>Totempoint</b> y, cuando te pregunte qué vas a usar, elegí{" "}
+              <b>pagos online / Checkout Pro</b>.
+            </Paso>
+            <Paso n={3}>
+              Entrá a la aplicación que creaste. Arriba cambiá el selector a <b>“Producción”</b> y
+              en el menú tocá <b>“Credenciales”</b>.
+            </Paso>
+            <Paso n={4}>
+              Tocá <b>“Activar ambiente de producción”</b>. Te pide el rubro (elegí gastronomía) y
+              el sitio web: poné el link de tu tienda online o tu Instagram. Aceptá los términos y
+              tocá <b>“Activar”</b>.
+            </Paso>
+            <Paso n={5}>
+              Copiá el <b>“Access Token”</b> (empieza con <code>APP_USR-</code>) y pegalo arriba, en
+              el campo Access token. Después tocá Guardar.
+            </Paso>
+          </ol>
+          <p className="flex items-start gap-2 rounded-xl bg-amber-500/10 p-3 text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            Fijate que arriba diga <b>&nbsp;“Producción”&nbsp;</b> antes de copiarlo: el de prueba
+            también empieza con APP_USR- pero no cobra plata real. Y no lo compartas con nadie: es
+            la llave de tu cuenta.
+          </p>
+          <a
+            href={AYUDA_MP}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 font-bold text-sky-300 underline-offset-4 hover:underline"
+          >
+            ¿Te trabaste? Escribinos por WhatsApp y te ayudamos
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Paso({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-500 text-xs font-black text-white">
+        {n}
+      </span>
+      <div className="min-w-0 flex-1 leading-relaxed">{children}</div>
+    </li>
   );
 }
