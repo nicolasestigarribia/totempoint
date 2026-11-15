@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Loader2, Package, X, Search, ImageOff } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Package,
+  X,
+  Search,
+  ImageOff,
+  ScanText,
+} from "lucide-react";
+import { ImportarCartaDialog } from "@/components/admin/ImportarCartaDialog";
 import { formatPrice } from "@/lib/totem-cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +93,7 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
   const [saving, setSaving] = useState(false);
   const [pestaniaProd, setPestaniaProd] = useState<"basico" | "opciones" | "receta">("basico");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [importarOpen, setImportarOpen] = useState(false);
 
   const [categoryFilter, setCategoryFilter] = useState<string>("todas");
   const [estadoFilter, setEstadoFilter] = useState<"todos" | "activos" | "inactivos">("todos");
@@ -467,12 +479,42 @@ export function ProductosSection({ panelClass }: { panelClass: string }) {
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-bold">Productos</h3>
         {!readOnly && (
-          <Button className="gap-2" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Nuevo producto
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setImportarOpen(true)}>
+              <ScanText className="h-4 w-4" />
+              Cargar desde la carta
+            </Button>
+            <Button className="gap-2" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Nuevo producto
+            </Button>
+          </div>
         )}
       </div>
+
+      {!readOnly && !loading && rows.length === 0 && (
+        <button
+          type="button"
+          onClick={() => setImportarOpen(true)}
+          className="flex w-full items-center gap-4 rounded-xl border border-dashed border-primary/50 bg-primary/5 p-4 text-left transition hover:bg-primary/10"
+        >
+          <ScanText className="h-8 w-8 shrink-0 text-primary" />
+          <span>
+            <span className="block font-semibold">¿Tenés tu carta en papel o en PDF?</span>
+            <span className="block text-sm text-muted-foreground">
+              Sacale una foto y cargamos todos tus productos con sus precios. Vos solo revisás.
+            </span>
+          </span>
+        </button>
+      )}
+
+      <ImportarCartaDialog
+        open={importarOpen}
+        onOpenChange={setImportarOpen}
+        onCargado={loadAll}
+        categorias={categories}
+        productos={rows.map((r) => r.name)}
+      />
 
       <DataTable
         rows={rows}

@@ -57,6 +57,12 @@ export const DESTINOS: DestinoBusqueda[] = [
     claves: "producto precio foto agregar plato menu carta",
   },
   {
+    titulo: "Cargar el menú desde la carta",
+    donde: "Menú → Productos → Cargar desde la carta",
+    ir: "productos",
+    claves: "importar foto carta pdf cargar todo menu rapido escanear",
+  },
+  {
     titulo: "Tamaños (grande, chica)",
     donde: "Productos → abrir un producto",
     ir: "productos",

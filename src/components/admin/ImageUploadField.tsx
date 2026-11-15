@@ -32,7 +32,7 @@ function tieneTransparencia(ctx: CanvasRenderingContext2D, w: number, h: number)
 // un logo de 463 KB etiquetado como WebP). Por eso se mira qué formato salió de
 // verdad y, si no es WebP, se usa JPEG, o PNG cuando la imagen tiene
 // transparencia (un logo recortado sobre JPEG quedaría con fondo negro).
-function compress(file: File, maxSide: number): Promise<{ mimeType: Formato; data: string }> {
+export function compress(file: File, maxSide: number): Promise<{ mimeType: Formato; data: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
