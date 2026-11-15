@@ -78,13 +78,18 @@ export function ImportarCartaDialog({
           toast.error(`Como mucho ${MAX_ARCHIVOS} archivos por vez`);
           break;
         }
-        if (f.type === "application/pdf") {
+        // Algunos celulares (y archivos que vienen de Drive o WhatsApp) llegan
+        // sin tipo: se reconocen por la extensión.
+        if (f.type === "application/pdf" || (!f.type && /\.pdf$/i.test(f.name))) {
           if (f.size > MAX_PDF) {
             toast.error(`${f.name} pesa más de 20 MB`);
             continue;
           }
           nuevos.push({ file: f, url: null });
-        } else if (f.type.startsWith("image/")) {
+        } else if (
+          f.type.startsWith("image/") ||
+          (!f.type && /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name))
+        ) {
           nuevos.push({ file: f, url: URL.createObjectURL(f) });
         } else {
           toast.error(`${f.name} no es una foto ni un PDF`);
@@ -100,6 +105,13 @@ export function ImportarCartaDialog({
   }
 
   async function leerArchivos() {
+    // Sin archivos el botón no se apaga: avisa y abre el selector, para que
+    // nunca parezca que no hace nada.
+    if (archivos.length === 0) {
+      toast.info("Primero elegí una foto o el PDF de tu carta");
+      inputRef.current?.click();
+      return;
+    }
     setLeyendo(true);
     setProgreso({ mensaje: "Preparando…", fraccion: 0 });
     try {
@@ -303,11 +315,7 @@ export function ImportarCartaDialog({
                   )}
                   {archivos.length === 0 ? "Elegir fotos o PDF" : "Agregar otra página"}
                 </Button>
-                <Button
-                  className="gap-2"
-                  disabled={archivos.length === 0 || preparando}
-                  onClick={leerArchivos}
-                >
+                <Button className="gap-2" disabled={preparando} onClick={leerArchivos}>
                   <ScanText className="h-4 w-4" />
                   Leer la carta
                 </Button>

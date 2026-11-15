@@ -131,7 +131,16 @@ export async function textoDeArchivos(archivos: File[], progreso: Progreso): Pro
             ? `Leyendo la foto ${i + 1} de ${archivos.length}`
             : "Leyendo la foto";
         avisar(etiqueta, 0);
-        const { mimeType, data } = await compress(a, LADO_LECTURA);
+        let foto: Awaited<ReturnType<typeof compress>>;
+        try {
+          foto = await compress(a, LADO_LECTURA);
+        } catch {
+          // Típico: una foto de iPhone en HEIC abierta desde Chrome en la compu.
+          throw new Error(
+            `No pudimos abrir ${a.name}. Probá sacándole una captura de pantalla o guardándola como JPG.`,
+          );
+        }
+        const { mimeType, data } = foto;
         textos.push(
           await leerImagen(`data:${mimeType};base64,${data}`, (f) => avisar(etiqueta, f)),
         );
