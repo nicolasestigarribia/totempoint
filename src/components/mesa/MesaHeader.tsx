@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useFaviconMarca } from "@/lib/marca";
 import { LlamarMozo } from "@/components/mesa/LlamarMozo";
+import { nombreLugar, type Lugar } from "@/lib/lugar";
 
 /**
  * La barra de arriba del pedido en mesa: la marca del comercio y, bien a la
@@ -14,6 +15,7 @@ export function MesaHeader({
   sucursal,
   logoUrl,
   mesa,
+  lugar,
   accent,
   volver,
   onInicio,
@@ -23,6 +25,8 @@ export function MesaHeader({
   sucursal: string;
   logoUrl: string | null;
   mesa: number;
+  /** Mesa, carpa o sombrilla. */
+  lugar: Lugar;
   accent: string;
   /** Con texto, muestra la flecha para volver al menú. */
   volver?: string;
@@ -66,7 +70,7 @@ export function MesaHeader({
           className="shrink-0 rounded-full px-4 py-1.5 text-sm font-extrabold text-white"
           style={{ background: accent }}
         >
-          Mesa {mesa}
+          {nombreLugar(lugar, mesa)}
         </span>
       </div>
     </header>

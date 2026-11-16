@@ -14,7 +14,10 @@ import {
   Plus,
   Printer,
   Save,
+  Rows3,
+  Tent,
   Trash2,
+  Umbrella,
   X,
 } from "lucide-react";
 
@@ -22,6 +25,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -49,6 +60,7 @@ import {
   type MesaRow,
 } from "@/lib/api/salon.functions";
 import { mensajeDeError } from "@/lib/error-message";
+import { LUGARES, nombreLugar, sustantivo, Sustantivo, type Lugar } from "@/lib/lugar";
 import {
   COLUMNAS,
   FILAS,
@@ -56,6 +68,7 @@ import {
   LUGARES_MIN,
   MESA_MAX,
   SALON_MAX,
+  crearVarias,
   libre,
   primerHueco,
   proximoNumero,
@@ -86,6 +99,13 @@ const NOMBRE_FORMA: Record<Forma, string> = {
   redonda: "Redonda",
   cuadrada: "Cuadrada",
   rectangular: "Rectangular",
+};
+
+/** El ícono de cada lugar: una silla, una carpa, una sombrilla. */
+const ICONO_LUGAR: Record<Lugar, typeof Armchair> = {
+  mesa: Armchair,
+  carpa: Tent,
+  sombrilla: Umbrella,
 };
 
 /** La URL que va en el QR de una mesa. */
@@ -122,6 +142,11 @@ export function SalonSection({
   const [locationId, setLocationId] = useState<number | null>(null);
   const [mesas, setMesas] = useState<MesaEditor[]>([]);
   const [salon, setSalon] = useState<Salon>({ columnas: COLUMNAS, filas: FILAS });
+  // Mesa, carpa o sombrilla: cómo se llama en esta sucursal.
+  const [lugar, setLugar] = useState<Lugar>("mesa");
+  // Solo un balneario (lo prende el superadmin) ve carpa / sombrilla y "Agregar varias".
+  const [balneario, setBalneario] = useState(false);
+  const [variasAbierto, setVariasAbierto] = useState(false);
   const [autoAccept, setAutoAccept] = useState(true);
   const [efectivo, setEfectivo] = useState(true);
   const [mercadoPago, setMercadoPago] = useState(false);
@@ -166,6 +191,8 @@ export function SalonSection({
         if (!vivo) return;
         setMesas(salon.mesas.map(desdeServidor));
         setSalon({ columnas: salon.columnas, filas: salon.filas });
+        setLugar(salon.lugar);
+        setBalneario(salon.balneario);
         setIdsConocidos(salon.mesas.map((m) => m.id));
         setAutoAccept(salon.autoAccept);
         setEfectivo(salon.efectivo);
@@ -217,7 +244,7 @@ export function SalonSection({
     const { w, h } = tamanioInicial("cuadrada", 4);
     const hueco = primerHueco(w, h, mesas, salon);
     if (!hueco) {
-      toast.error("No queda lugar en el salón. Mové o achicá alguna mesa");
+      toast.error(`No queda lugar en el plano. Mové o achicá alguna ${sustantivo(lugar)}`);
       return;
     }
     const nueva: MesaEditor = {
@@ -240,11 +267,31 @@ export function SalonSection({
     if (!actual) return false;
     const propuesta = { ...actual, ...cambio };
     if (!libre(propuesta, otrasQue(clave), salon)) {
-      toast.error("Así no entra: pisaría otra mesa o quedaría afuera del salón");
+      toast.error(`Así no entra: pisaría otra ${sustantivo(lugar)} o quedaría afuera del plano`);
       return false;
     }
     cambiar(mesas.map((m) => (m.clave === clave ? propuesta : m)));
     return true;
+  };
+
+  /** Suma las que creó "Agregar varias" y agranda el plano si hace falta. */
+  const agregarVarias = (nuevas: Omit<MesaEditor, "clave" | "active">[], nuevoSalon: Salon) => {
+    cambiar([
+      ...mesas,
+      ...nuevas.map((m) => ({ ...m, clave: `nueva-${crypto.randomUUID()}`, active: true })),
+    ]);
+    setSalon(nuevoSalon);
+    setSeleccionada(null);
+    setVariasAbierto(false);
+    toast.success(
+      `Agregaste ${nuevas.length} ${sustantivo(lugar, nuevas.length > 1)}. Tocá «Guardar salón» para crear sus QR.`,
+    );
+  };
+
+  const cambiarLugar = (nuevo: Lugar) => {
+    if (nuevo === lugar) return;
+    setLugar(nuevo);
+    setSinGuardar(true);
   };
 
   const borrar = (m: MesaEditor) => {
@@ -263,6 +310,7 @@ export function SalonSection({
           idsConocidos,
           columnas: salon.columnas,
           filas: salon.filas,
+          lugar,
           mesas: mesas.map(({ id, number, seats, shape, x, y, w, h, active }) => ({
             id,
             number,
@@ -325,7 +373,7 @@ export function SalonSection({
     const guardadas = mesas.filter((m) => m.token && m.active);
     const hoja = document.getElementById("salon-qrs-para-imprimir");
     if (guardadas.length === 0 || !hoja) {
-      toast.error("No hay mesas guardadas y activas para imprimir");
+      toast.error(`No hay ${sustantivo(lugar, true)} guardadas y activas para imprimir`);
       return;
     }
     const ventana = window.open("", "_blank");
@@ -334,7 +382,7 @@ export function SalonSection({
       return;
     }
     ventana.document
-      .write(`<!doctype html><html><head><meta charset="utf-8"><title>QR de las mesas</title>
+      .write(`<!doctype html><html><head><meta charset="utf-8"><title>QR de las ${sustantivo(lugar, true)}</title>
       <style>
         body { font-family: system-ui, sans-serif; margin: 0; }
         .hoja { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12mm; padding: 12mm; }
@@ -402,8 +450,14 @@ export function SalonSection({
             <>
               <Button variant="outline" className="gap-2" onClick={agregar}>
                 <Plus className="h-4 w-4" />
-                Agregar mesa
+                Agregar {sustantivo(lugar)}
               </Button>
+              {balneario && (
+                <Button variant="outline" className="gap-2" onClick={() => setVariasAbierto(true)}>
+                  <Rows3 className="h-4 w-4" />
+                  Agregar varias
+                </Button>
+              )}
               <Button className="gap-2" onClick={guardar} disabled={!sinGuardar || guardando}>
                 {guardando ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -416,6 +470,34 @@ export function SalonSection({
           )}
         </div>
       </div>
+
+      {balneario && (
+        <div className={`flex flex-wrap items-center gap-3 p-4 ${panelClass}`}>
+          <span className="text-sm font-medium">En esta sucursal el cliente pide desde una</span>
+          <div className="flex gap-2">
+            {LUGARES.map((l) => {
+              const Icono = ICONO_LUGAR[l];
+              return (
+                <Button
+                  key={l}
+                  type="button"
+                  size="sm"
+                  variant={lugar === l ? "default" : "outline"}
+                  className="gap-2"
+                  disabled={soloVer}
+                  onClick={() => cambiarLugar(l)}
+                >
+                  <Icono className="h-4 w-4" />
+                  {Sustantivo(l)}
+                </Button>
+              );
+            })}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            Es lo que ven la cocina, el ticket y el cliente: «{nombreLugar(lugar, 23)}».
+          </span>
+        </div>
+      )}
 
       <div className={`flex flex-wrap items-center gap-3 p-4 ${panelClass}`}>
         <Switch
@@ -456,7 +538,8 @@ export function SalonSection({
 
       {sinGuardar && (
         <p className="text-sm font-medium text-amber-500">
-          Hay cambios sin guardar. Los QR de las mesas nuevas aparecen al guardar.
+          Hay cambios sin guardar. Los QR de las {sustantivo(lugar, true)} nuevas aparecen al
+          guardar.
         </p>
       )}
 
@@ -482,6 +565,7 @@ export function SalonSection({
             <PanelMesa
               key={mesaSeleccionada.clave}
               mesa={mesaSeleccionada}
+              lugar={lugar}
               origin={origin}
               soloVer={soloVer}
               panelClass={panelClass}
@@ -494,11 +578,11 @@ export function SalonSection({
             <div className={`p-5 text-sm text-muted-foreground ${panelClass}`}>
               {mesas.length === 0
                 ? soloVer
-                  ? "Esta sucursal todavía no tiene mesas."
-                  : "Todavía no hay mesas. Tocá «Agregar mesa» y arrastrala a su lugar."
+                  ? `Esta sucursal todavía no tiene ${sustantivo(lugar, true)}.`
+                  : `Todavía no hay ${sustantivo(lugar, true)}. Tocá «Agregar ${sustantivo(lugar)}» y arrastrala a su lugar${balneario ? ", o «Agregar varias» para crear muchas de una vez" : ""}.`
                 : soloVer
-                  ? "Tocá una mesa para ver su QR."
-                  : "Arrastrá las mesas para ubicarlas. Tocá una para cambiarle el número, los lugares o ver su QR."}
+                  ? `Tocá una ${sustantivo(lugar)} para ver su QR.`
+                  : `Arrastrá las ${sustantivo(lugar, true)} para ubicarlas. Tocá una para cambiarle el número, los lugares o ver su QR.`}
             </div>
           )}
         </div>
@@ -512,7 +596,7 @@ export function SalonSection({
             .sort((a, b) => a.number - b.number)
             .map((m) => (
               <div key={m.clave} className="tarjeta">
-                <p className="mesa">Mesa {m.number}</p>
+                <p className="mesa">{nombreLugar(lugar, m.number)}</p>
                 <QrConLogo value={urlDeMesa(origin, m.token!)} size={256} marginSize={1} />
                 <p className="ayuda">Escaneá para ver el menú y pedir</p>
               </div>
@@ -523,10 +607,12 @@ export function SalonSection({
       <AlertDialog open={aBorrar !== null} onOpenChange={(open) => !open && setABorrar(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar la mesa {aBorrar?.number}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              ¿Eliminar la {sustantivo(lugar)} {aBorrar?.number}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Su QR deja de tomar pedidos cuando guardes el salón. Los pedidos que ya hizo esa mesa
-              no se tocan.
+              Su QR deja de tomar pedidos cuando guardes el salón. Los pedidos que ya hizo esa{" "}
+              {sustantivo(lugar)} no se tocan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -540,6 +626,15 @@ export function SalonSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AgregarVarias
+        abierto={variasAbierto}
+        onCerrar={() => setVariasAbierto(false)}
+        lugar={lugar}
+        mesas={mesas}
+        salon={salon}
+        onCrear={agregarVarias}
+      />
     </div>
   );
 }
@@ -866,6 +961,7 @@ function Paso({
 /** El costado del editor: los datos de la mesa elegida y su QR. */
 function PanelMesa({
   mesa,
+  lugar,
   origin,
   soloVer,
   panelClass,
@@ -875,6 +971,7 @@ function PanelMesa({
   onCerrar,
 }: {
   mesa: MesaEditor;
+  lugar: Lugar;
   origin: string;
   soloVer: boolean;
   panelClass: string;
@@ -892,10 +989,10 @@ function PanelMesa({
   const aplicarNumero = () => {
     const n = Number(numero);
     if (!Number.isInteger(n) || n < 1 || n > 999) {
-      toast.error("El número de mesa va de 1 a 999");
+      toast.error(`El número de ${sustantivo(lugar)} va de 1 a 999`);
       setNumero(String(mesa.number));
     } else if (numerosOcupados.includes(n)) {
-      toast.error(`Ya hay una mesa ${n}`);
+      toast.error(`Ya hay una ${sustantivo(lugar)} ${n}`);
       setNumero(String(mesa.number));
     } else if (n !== mesa.number) {
       onEditar({ number: n });
@@ -905,7 +1002,7 @@ function PanelMesa({
   const aplicarLugares = () => {
     const n = Number(lugares);
     if (!Number.isInteger(n) || n < LUGARES_MIN || n > LUGARES_MAX) {
-      toast.error(`Una mesa tiene entre ${LUGARES_MIN} y ${LUGARES_MAX} lugares`);
+      toast.error(`Una ${sustantivo(lugar)} tiene entre ${LUGARES_MIN} y ${LUGARES_MAX} lugares`);
       setLugares(String(mesa.seats));
     } else if (n !== mesa.seats && !onEditar({ seats: n })) {
       setLugares(String(mesa.seats));
@@ -913,6 +1010,7 @@ function PanelMesa({
   };
 
   const url = mesa.token ? urlDeMesa(origin, mesa.token) : null;
+  const Icono = ICONO_LUGAR[lugar];
 
   const copiar = async () => {
     if (!url) return;
@@ -929,15 +1027,15 @@ function PanelMesa({
       onClick={onBorrar}
     >
       <Trash2 className="h-4 w-4" />
-      Eliminar mesa
+      Eliminar {sustantivo(lugar)}
     </Button>
   );
 
   return (
     <div className={`space-y-4 p-5 ${panelClass}`}>
       <div className="flex items-center gap-2">
-        <Armchair className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-bold">Mesa {mesa.number}</h3>
+        <Icono className="h-5 w-5 text-primary" />
+        <h3 className="text-lg font-bold">{nombreLugar(lugar, mesa.number)}</h3>
         <Button variant="ghost" size="icon" className="ml-auto h-8 w-8" onClick={onCerrar}>
           <X className="h-4 w-4" />
         </Button>
@@ -1006,7 +1104,7 @@ function PanelMesa({
       </div>
 
       <div className="space-y-2 border-t border-border pt-4">
-        <Label>QR de la mesa</Label>
+        <Label>QR de la {sustantivo(lugar)}</Label>
         {url && origin ? (
           // Los botones al costado del QR, para que el panel no se haga largo.
           <div className="flex items-start gap-3">
@@ -1034,5 +1132,130 @@ function PanelMesa({
 
       {!(url && origin) && botonBorrar}
     </div>
+  );
+}
+
+/**
+ * "Agregar varias": de la 1 a la 120, en filas de 10, debajo de las que ya
+ * hay. Para un balneario con cientos de carpas, que no se arrastran de a una.
+ */
+function AgregarVarias({
+  abierto,
+  onCerrar,
+  lugar,
+  mesas,
+  salon,
+  onCrear,
+}: {
+  abierto: boolean;
+  onCerrar: () => void;
+  lugar: Lugar;
+  mesas: MesaEditor[];
+  salon: Salon;
+  onCrear: (nuevas: Omit<MesaEditor, "clave" | "active">[], salon: Salon) => void;
+}) {
+  const [desde, setDesde] = useState("1");
+  const [cantidad, setCantidad] = useState("20");
+  const [porFila, setPorFila] = useState("10");
+  const [lugares, setLugares] = useState("4");
+  const [forma, setForma] = useState<Forma>("cuadrada");
+  const [tamanio, setTamanio] = useState("2");
+  const [separacion, setSeparacion] = useState("1");
+
+  // Cada vez que se abre, empieza en el número que sigue.
+  useEffect(() => {
+    if (abierto) setDesde(String(proximoNumero(mesas)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abierto]);
+
+  const lado = Number(tamanio);
+  const pedido = {
+    desde: Number(desde),
+    cantidad: Number(cantidad),
+    porFila: Number(porFila),
+    seats: Number(lugares),
+    shape: forma,
+    // Una rectangular es el doble de ancha que de larga.
+    w: forma === "rectangular" ? Math.min(MESA_MAX, lado * 2) : lado,
+    h: lado,
+    separacion: Number(separacion),
+  };
+  const resultado = crearVarias(pedido, mesas, salon, sustantivo(lugar, true));
+  const filas = Math.ceil(pedido.cantidad / Math.max(1, Math.min(pedido.porFila, pedido.cantidad)));
+  const plural = sustantivo(lugar, true);
+
+  const campo = (id: string, label: string, valor: string, set: (v: string) => void) => (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        inputMode="numeric"
+        value={valor}
+        onChange={(e) => set(e.target.value.replace(/\D/g, ""))}
+      />
+    </div>
+  );
+
+  return (
+    <Dialog open={abierto} onOpenChange={(v) => !v && onCerrar()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Agregar varias {plural}</DialogTitle>
+          <DialogDescription>
+            Se crean numeradas seguidas y en filas, debajo de las que ya tenés. Después las podés
+            mover una por una.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-3">
+          {campo("varias-desde", "Desde el número", desde, setDesde)}
+          {campo("varias-cantidad", "Cuántas", cantidad, setCantidad)}
+          {campo("varias-fila", "Por fila", porFila, setPorFila)}
+          {campo("varias-lugares", "Lugares de cada una", lugares, setLugares)}
+          {campo("varias-tamanio", "Tamaño (cuadros)", tamanio, setTamanio)}
+          {campo("varias-separacion", "Separación (cuadros)", separacion, setSeparacion)}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Forma</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.keys(NOMBRE_FORMA) as Forma[]).map((f) => (
+              <Button
+                key={f}
+                type="button"
+                size="sm"
+                variant={forma === f ? "default" : "outline"}
+                onClick={() => setForma(f)}
+              >
+                {NOMBRE_FORMA[f]}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <p
+          className={`rounded-lg p-3 text-sm ${"error" in resultado ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}
+        >
+          {"error" in resultado
+            ? resultado.error
+            : `Se crean de la ${pedido.desde} a la ${pedido.desde + pedido.cantidad - 1}, en ${filas} ${filas === 1 ? "fila" : "filas"}.`}
+        </p>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCerrar}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={"error" in resultado}
+            onClick={() => {
+              if ("error" in resultado) return;
+              onCrear(resultado.nuevas, resultado.salon);
+            }}
+          >
+            Agregar {Number.isFinite(pedido.cantidad) ? pedido.cantidad : ""} {plural}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

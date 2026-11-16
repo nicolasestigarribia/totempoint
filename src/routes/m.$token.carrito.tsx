@@ -26,12 +26,17 @@ import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { SugerenciasCarrito } from "@/components/online/SugerenciasCarrito";
 import { recordarPedido } from "@/lib/pedidos-en-curso";
 import { useClaveEnvio } from "@/lib/clave-envio";
+import { nombreLugar } from "@/lib/lugar";
 
 export const Route = createFileRoute("/m/$token/carrito")({
   loader: ({ params }) => getMesaMenuCached(params.token),
   head: ({ loaderData }) => ({
     meta: [
-      { title: loaderData ? `Tu pedido — Mesa ${loaderData.mesa}` : "Tu pedido" },
+      {
+        title: loaderData
+          ? `Tu pedido — ${nombreLugar(loaderData.lugar, loaderData.mesa)}`
+          : "Tu pedido",
+      },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
     ],
   }),
@@ -80,6 +85,7 @@ function CarritoMesaPage() {
       sucursal={menu.locationName}
       logoUrl={menu.logoUrl}
       mesa={menu.mesa}
+      lugar={menu.lugar}
       accent={accent}
       volver="Volver al menú"
     />

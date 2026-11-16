@@ -40,6 +40,8 @@ export interface BusinessRow {
   online_ordering: boolean;
   /** El pedido en mesa: un QR por mesa del salón. */
   mesas_enabled: boolean;
+  /** Es un balneario: sus mesas pueden llamarse carpas o sombrillas. */
+  balneario: boolean;
   created_at: string;
   admin_user_id: number | null;
   admin_email: string | null;
@@ -116,6 +118,7 @@ export const listBusinesses = createServerFn({ method: "GET" })
         totem_enabled: c.totemEnabled,
         online_ordering: c.onlineOrdering,
         mesas_enabled: c.mesasEnabled,
+        balneario: c.balneario,
         created_at: c.createdAt.toISOString(),
         admin_user_id: admin?.id ?? null,
         admin_email: admin?.email ?? null,
@@ -222,6 +225,7 @@ export const createBusiness = createServerFn({ method: "POST" })
         totem_enabled: company.totemEnabled,
         online_ordering: company.onlineOrdering,
         mesas_enabled: company.mesasEnabled,
+        balneario: company.balneario,
         created_at: company.createdAt.toISOString(),
         admin_user_id: userId,
         admin_email: email,
@@ -451,12 +455,14 @@ const NOMBRE_MODULO = {
   totem: "el tótem",
   online: "el pedido online",
   mesas: "el pedido en mesa",
+  balneario: "el modo balneario (carpas y sombrillas)",
 } as const;
 
 const COLUMNA_MODULO = {
   totem: "totemEnabled",
   online: "onlineOrdering",
   mesas: "mesasEnabled",
+  balneario: "balneario",
 } as const;
 
 /**
@@ -474,7 +480,8 @@ export const setBusinessModule = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       id: z.number().int(),
-      modulo: z.enum(["totem", "online", "mesas"]),
+      // "balneario" no es un canal de venta: no cuenta para el mínimo de uno.
+      modulo: z.enum(["totem", "online", "mesas", "balneario"]),
       enabled: z.boolean(),
     }),
   )
@@ -484,6 +491,7 @@ export const setBusinessModule = createServerFn({ method: "POST" })
         totem: companies.totemEnabled,
         online: companies.onlineOrdering,
         mesas: companies.mesasEnabled,
+        balneario: companies.balneario,
       })
       .from(companies)
       .where(eq(companies.id, data.id))

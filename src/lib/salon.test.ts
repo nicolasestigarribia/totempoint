@@ -5,6 +5,7 @@ import {
   MESA_MAX,
   SALON_MAX,
   SALON_MIN,
+  crearVarias,
   errorDelPlano,
   libre,
   primerHueco,
@@ -129,5 +130,58 @@ describe("errorDelPlano", () => {
 
   test("achicar el salón con una mesa en el borde la deja afuera", () => {
     expect(errorDelPlano([mesa({ x: 20 })], { columnas: 20, filas: 16 })).toContain("afuera");
+  });
+});
+
+describe("crearVarias", () => {
+  const pedido = {
+    desde: 1,
+    cantidad: 25,
+    porFila: 10,
+    seats: 4,
+    shape: "cuadrada" as const,
+    w: 2,
+    h: 2,
+    separacion: 1,
+  };
+
+  test("numeradas seguidas, en filas, y el salón crece lo necesario", () => {
+    const r = crearVarias(pedido, [], SALON);
+    if ("error" in r) throw new Error(r.error);
+    expect(r.nuevas).toHaveLength(25);
+    expect(r.nuevas.map((m) => m.number)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
+    expect(r.nuevas[0]).toMatchObject({ x: 0, y: 0 });
+    expect(r.nuevas[9]).toMatchObject({ x: 27, y: 0 });
+    expect(r.nuevas[10]).toMatchObject({ x: 0, y: 3 });
+    // 10 de 2 con 9 pasillos = 29 columnas; 3 filas de 2 con 2 pasillos = 8 filas.
+    expect(r.salon).toEqual({ columnas: 29, filas: FILAS });
+    expect(errorDelPlano(r.nuevas, r.salon)).toBeNull();
+  });
+
+  test("van debajo de las que ya hay, sin pisarlas", () => {
+    const hay = [mesa({ number: 1, x: 3, y: 4, w: 2, h: 2 })];
+    const r = crearVarias({ ...pedido, desde: 2, cantidad: 5 }, hay, SALON);
+    if ("error" in r) throw new Error(r.error);
+    expect(r.nuevas[0].y).toBe(7);
+    expect(errorDelPlano([...hay, ...r.nuevas], r.salon)).toBeNull();
+  });
+
+  test("150 carpas de 1 cuadro entran", () => {
+    const r = crearVarias({ ...pedido, cantidad: 150, porFila: 15, w: 1, h: 1 }, [], SALON);
+    if ("error" in r) throw new Error(r.error);
+    expect(r.nuevas).toHaveLength(150);
+    expect(errorDelPlano(r.nuevas, r.salon)).toBeNull();
+  });
+
+  test("rechaza números repetidos, de más y planos que no entran", () => {
+    const hay = [mesa({ number: 3 })];
+    const r1 = crearVarias({ ...pedido, cantidad: 5 }, hay, SALON);
+    expect("error" in r1 && r1.error).toContain("Ya existen: 3");
+    const r2 = crearVarias({ ...pedido, desde: 990, cantidad: 20 }, [], SALON);
+    expect("error" in r2).toBe(true);
+    const r3 = crearVarias({ ...pedido, porFila: 40, cantidad: 40 }, [], SALON);
+    expect("error" in r3 && r3.error).toContain("No entran");
+    const r4 = crearVarias({ ...pedido, cantidad: 401 }, [], SALON);
+    expect("error" in r4).toBe(true);
   });
 });

@@ -68,6 +68,7 @@ import { linkAvisoRecibido } from "@/lib/aviso-cliente";
 import { horaArgentina } from "@/lib/jornada";
 import { imprimirHtml } from "@/lib/print/navegador";
 import { usePantallaEncendida } from "@/lib/pantalla-encendida";
+import { nombreLugar, sustantivo } from "@/lib/lugar";
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({
@@ -193,7 +194,7 @@ function ChipMesa({ o }: { o: KitchenOrder }) {
   if (o.channel !== "mesa" || o.tableNumber === null) return null;
   return (
     <span className="rounded-lg bg-violet-500 px-2.5 py-0.5 font-display text-2xl text-white">
-      Mesa {o.tableNumber}
+      {nombreLugar(o.lugar ?? "mesa", o.tableNumber)}
     </span>
   );
 }
@@ -204,7 +205,7 @@ function entregaLabel(o: KitchenOrder): string {
       ? `Envío · ${formatearDistancia(Number(o.deliveryDistanceKm))}`
       : "Envío";
   }
-  if (o.channel === "mesa") return "Llevar a la mesa";
+  if (o.channel === "mesa") return `Llevar a la ${sustantivo(o.lugar ?? "mesa")}`;
   if (o.deliveryMethod === "local") return "Comer en el local";
   return o.channel === "online" ? "Retira en el local" : "Retirar en mostrador";
 }
@@ -1320,7 +1321,8 @@ function Kitchen() {
         {llamados.length > 0 && (
           <section className="mb-6 rounded-3xl border-2 border-violet-500/70 bg-violet-500/10 p-4 md:p-5">
             <h2 className="mb-3 flex items-center gap-2 font-display text-2xl">
-              <Bell className="h-5 w-5 text-violet-300" /> Llaman de las mesas
+              <Bell className="h-5 w-5 text-violet-300" /> Llaman de las{" "}
+              {sustantivo(llamados[0]?.lugar ?? "mesa", true)}
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {llamados.map((l) => (
@@ -1329,7 +1331,7 @@ function Kitchen() {
                   className="flex items-center justify-between gap-3 rounded-2xl bg-card p-3"
                 >
                   <div>
-                    <p className="font-display text-2xl">Mesa {l.mesa}</p>
+                    <p className="font-display text-2xl">{nombreLugar(l.lugar, l.mesa)}</p>
                     <p className="text-sm font-bold text-violet-300">
                       {l.tipo === "cuenta" ? "Pide la cuenta" : "Llama al mozo"}
                       <span className="font-normal text-muted-foreground">

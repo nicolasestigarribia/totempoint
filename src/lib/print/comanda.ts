@@ -15,6 +15,7 @@
 
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { horaArgentina } from "@/lib/jornada";
+import { nombreLugar, type Lugar } from "@/lib/lugar";
 
 export interface ComandaItem {
   productName: string;
@@ -36,6 +37,8 @@ export interface ComandaPedido {
   etaMinutes: number | null;
   channel: "totem" | "online" | "mesa";
   tableNumber: number | null;
+  /** Mesa, carpa o sombrilla. Sin él (pedidos de antes), es mesa. */
+  lugar?: Lugar | null;
   deliveryMethod: "local" | "mostrador" | "envio";
   deliveryAddress: string | null;
   deliveryDetails: string | null;
@@ -60,7 +63,8 @@ const hora = (iso: string) => horaArgentina(iso);
 
 /** Dónde va el pedido, en mayúsculas: lo primero que se lee. */
 export function destinoComanda(p: ComandaPedido): string {
-  if (p.channel === "mesa" && p.tableNumber !== null) return `MESA ${p.tableNumber}`;
+  if (p.channel === "mesa" && p.tableNumber !== null)
+    return nombreLugar(p.lugar ?? "mesa", p.tableNumber).toUpperCase();
   if (p.deliveryMethod === "envio") return "ENVÍO";
   if (p.deliveryMethod === "local") return "COMER ACÁ";
   return "RETIRA";

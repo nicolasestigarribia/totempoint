@@ -7,6 +7,7 @@ import { PortadaCelular } from "@/components/online/PortadaCelular";
 import { useTotemTheme } from "@/components/totem/useTotemTheme";
 import { acentoDe } from "@/components/totem/portada-partes";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
+import { nombreLugar, sustantivo } from "@/lib/lugar";
 
 /**
  * Lo que abre el QR de una mesa: primero la portada del tótem en el teléfono,
@@ -19,7 +20,9 @@ export const Route = createFileRoute("/m/$token/")({
   head: ({ loaderData }) => ({
     meta: [
       {
-        title: loaderData ? `Mesa ${loaderData.mesa} — ${loaderData.name}` : "Pedí desde tu mesa",
+        title: loaderData
+          ? `${nombreLugar(loaderData.lugar, loaderData.mesa)} — ${loaderData.name}`
+          : "Pedí desde tu lugar",
       },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
     ],
@@ -96,7 +99,9 @@ function MesaPage({ token }: { token: string }) {
               {menu.mesa}
             </div>
             <div className="min-w-0">
-              <p className="font-display text-xl leading-tight">Estás en la mesa {menu.mesa}</p>
+              <p className="font-display text-xl leading-tight">
+                Estás en la {sustantivo(menu.lugar)} {menu.mesa}
+              </p>
               <p className="text-sm text-muted-foreground">
                 Pedí desde acá y te lo llevamos.{pago}
               </p>
@@ -114,6 +119,7 @@ function MesaPage({ token }: { token: string }) {
         tipo: "mesa",
         token,
         numero: menu.mesa,
+        lugar: menu.lugar,
         onInicio: () => {
           setEnPortada(true);
           window.scrollTo({ top: 0 });

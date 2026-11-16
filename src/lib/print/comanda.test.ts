@@ -38,6 +38,9 @@ describe("comanda de cocina", () => {
   test("dice a dónde va el pedido", () => {
     expect(destinoComanda(base)).toBe("RETIRA");
     expect(destinoComanda({ ...base, channel: "mesa", tableNumber: 7 })).toBe("MESA 7");
+    expect(destinoComanda({ ...base, channel: "mesa", tableNumber: 23, lugar: "carpa" })).toBe(
+      "CARPA 23",
+    );
     expect(destinoComanda({ ...base, deliveryMethod: "envio" })).toBe("ENVÍO");
   });
 

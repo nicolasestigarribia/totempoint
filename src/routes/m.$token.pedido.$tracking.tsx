@@ -23,6 +23,7 @@ import {
 } from "@/lib/aviso-pedido";
 import { CodigoPedido } from "@/components/online/CodigoPedido";
 import { useRecordarPedido } from "@/lib/pedidos-en-curso";
+import { sustantivo } from "@/lib/lugar";
 
 export const Route = createFileRoute("/m/$token/pedido/$tracking")({
   loader: ({ params }) =>
@@ -96,6 +97,7 @@ function SeguimientoMesaPage() {
         sucursal={pedido.locationName}
         logoUrl={pedido.logoUrl}
         mesa={pedido.tableNumber ?? 0}
+        lugar={pedido.lugar}
         accent={accent}
       />
 
@@ -218,7 +220,7 @@ function Estado({ pedido, accent }: { pedido: MesaOrderStatus; accent: string })
     return (
       <Tarjeta
         icono={<PackageCheck className="h-12 w-12 text-emerald-400" />}
-        titulo="¡En tu mesa!"
+        titulo={`¡En tu ${sustantivo(pedido.lugar)}!`}
       >
         Que lo disfrutes.
       </Tarjeta>
@@ -231,7 +233,7 @@ function Estado({ pedido, accent }: { pedido: MesaOrderStatus; accent: string })
         icono={<ChefHat className="h-12 w-12" style={{ color: accent }} />}
         titulo="Lo están preparando"
       >
-        Cuando esté listo te lo llevamos a la mesa.
+        Cuando esté listo te lo llevamos a la {sustantivo(pedido.lugar)}.
       </Tarjeta>
     );
   }

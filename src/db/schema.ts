@@ -50,6 +50,13 @@ export const companies = mysqlTable("companies", {
    * de mesa. Se vende aparte, como los otros dos.
    */
   mesasEnabled: boolean("mesas_enabled").notNull().default(false),
+  /**
+   * La empresa es un balneario: en el Salón puede llamar a sus lugares carpa o
+   * sombrilla y crearlos de a muchos. Lo prende el superadmin. Apagado, todo
+   * dice "Mesa" como siempre, aunque haya un lugar guardado
+   * (`dining_rooms.lugar`), para que ninguna otra empresa vea cambios.
+   */
+  balneario: boolean("balneario").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
 });
@@ -172,6 +179,12 @@ export const diningRooms = mysqlTable("dining_rooms", {
   locationId: int("location_id").primaryKey(),
   columns: int("grid_columns").notNull(),
   rows: int("grid_rows").notNull(),
+  /**
+   * Cómo se llama donde se sienta el cliente: mesa, o carpa / sombrilla en un
+   * balneario. Lo ven la cocina, el ticket y el cliente ("Carpa 23"). Sin
+   * fila, es mesa. Ver `src/lib/lugar.ts`.
+   */
+  lugar: mysqlEnum("lugar", ["mesa", "carpa", "sombrilla"]).notNull().default("mesa"),
 });
 
 /** Configuración del pedido en mesa, una fila por empresa. */

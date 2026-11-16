@@ -28,6 +28,7 @@ import {
   Monitor,
   Globe,
   Armchair,
+  Umbrella,
   Bug,
   Search,
   ExternalLink,
@@ -311,17 +312,21 @@ function SuperadminPage() {
     }
   };
 
-  const handleModulo = async (row: BusinessRow, modulo: "totem" | "online" | "mesas") => {
+  const handleModulo = async (
+    row: BusinessRow,
+    modulo: "totem" | "online" | "mesas" | "balneario",
+  ) => {
     const actual = {
       totem: row.totem_enabled,
       online: row.online_ordering,
       mesas: row.mesas_enabled,
+      balneario: row.balneario,
     }[modulo];
     setCambiandoModulo(`${row.id}-${modulo}`);
     try {
       await toggleModule({ data: { id: row.id, modulo, enabled: !actual } });
       toast.success(
-        `${actual ? "Quitado" : "Habilitado"}: ${{ totem: "Tótem", online: "Pedido online", mesas: "Mesas" }[modulo]} en ${row.name}`,
+        `${actual ? "Quitado" : "Habilitado"}: ${{ totem: "Tótem", online: "Pedido online", mesas: "Mesas", balneario: "Balneario" }[modulo]} en ${row.name}`,
       );
       await reload();
     } catch (err) {
@@ -663,6 +668,17 @@ function SuperadminPage() {
                             { id: "totem", label: "Tótem", icon: Monitor, on: b.totem_enabled },
                             { id: "online", label: "Online", icon: Globe, on: b.online_ordering },
                             { id: "mesas", label: "Mesas", icon: Armchair, on: b.mesas_enabled },
+                            // Solo tiene sentido con Mesas: carpas y sombrillas en vez de mesas.
+                            ...(b.mesas_enabled || b.balneario
+                              ? [
+                                  {
+                                    id: "balneario",
+                                    label: "Balneario",
+                                    icon: Umbrella,
+                                    on: b.balneario,
+                                  } as const,
+                                ]
+                              : []),
                           ] as const
                         ).map((m) => (
                           <button

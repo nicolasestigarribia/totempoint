@@ -15,12 +15,15 @@ import {
   FORMAS,
   LUGARES_MAX,
   LUGARES_MIN,
+  MAX_MESAS,
   MESA_MAX,
   SALON_MAX,
   SALON_MIN,
   errorDelPlano,
   type Forma,
 } from "@/lib/salon";
+import { LUGARES, sustantivo, type Lugar } from "@/lib/lugar";
+import { lugarEfectivo, lugarGuardado } from "@/lib/lugar-server";
 
 /**
  * El salón de cada sucursal: cuánto mide, dónde están las mesas, qué tamaño
@@ -46,6 +49,13 @@ export interface PlanoSalon {
   /** El tamaño del salón de esta sucursal, en celdas. */
   columnas: number;
   filas: number;
+  /** Cómo se llama donde se sienta el cliente en esta sucursal: mesa, carpa, sombrilla. */
+  lugar: Lugar;
+  /**
+   * La empresa es un balneario (lo prende el superadmin): solo entonces el
+   * editor ofrece carpa / sombrilla y "Agregar varias".
+   */
+  balneario: boolean;
   /** De la empresa, no de la sucursal: si los pedidos de mesa se aceptan solos. */
   autoAccept: boolean;
   /** De la empresa: si en la mesa se puede elegir pagar en efectivo. */
@@ -54,15 +64,16 @@ export interface PlanoSalon {
   mercadoPago: boolean;
 }
 
-async function assertModuloMesas(user: SessionUser): Promise<void> {
+async function assertModuloMesas(user: SessionUser): Promise<{ balneario: boolean }> {
   const [c] = await db
-    .select({ mesas: companies.mesasEnabled })
+    .select({ mesas: companies.mesasEnabled, balneario: companies.balneario })
     .from(companies)
     .where(eq(companies.id, companyIdOf(user)))
     .limit(1);
   if (!c?.mesas) {
     throw new Error("Tu empresa no tiene el módulo de mesas. Pedíselo a Totempoint para activarlo");
   }
+  return { balneario: c.balneario };
 }
 
 async function ajustesMesa(companyId: number) {
@@ -115,10 +126,14 @@ export const getSalon = createServerFn({ method: "GET" })
   .inputValidator(z.object({ locationId: z.number().int() }))
   .handler(async ({ context, data }): Promise<PlanoSalon> => {
     const user = context.user as SessionUser;
-    await assertModuloMesas(user);
+    const { balneario } = await assertModuloMesas(user);
     await assertLocationAccess(user, data.locationId);
     const [sala] = await db
-      .select({ columnas: diningRooms.columns, filas: diningRooms.rows })
+      .select({
+        columnas: diningRooms.columns,
+        filas: diningRooms.rows,
+        lugar: diningRooms.lugar,
+      })
       .from(diningRooms)
       .where(eq(diningRooms.locationId, data.locationId))
       .limit(1);
@@ -126,6 +141,8 @@ export const getSalon = createServerFn({ method: "GET" })
       mesas: await leerMesas(data.locationId),
       columnas: sala?.columnas ?? COLUMNAS,
       filas: sala?.filas ?? FILAS,
+      lugar: lugarEfectivo(balneario, sala?.lugar),
+      balneario,
       ...(await ajustesMesa(companyIdOf(user))),
     };
   });
@@ -155,14 +172,18 @@ export const saveSalon = createServerFn({ method: "POST" })
       locationId: z.number().int(),
       columnas: z.number().int().min(SALON_MIN.columnas).max(SALON_MAX.columnas),
       filas: z.number().int().min(SALON_MIN.filas).max(SALON_MAX.filas),
-      mesas: z.array(mesaInput).max(200),
+      // Opcional: un editor abierto desde antes no lo manda, y entonces no se
+      // toca (si no, volvería "carpa" a "mesa" sin que nadie lo pidiera).
+      lugar: z.enum(LUGARES).optional(),
+      // Un balneario puede tener cientos de carpas.
+      mesas: z.array(mesaInput).max(MAX_MESAS),
       /** Las mesas que había cuando se abrió el editor. */
-      idsConocidos: z.array(z.number().int()).max(200),
+      idsConocidos: z.array(z.number().int()).max(MAX_MESAS),
     }),
   )
   .handler(async ({ context, data }): Promise<MesaRow[]> => {
     const user = context.user as SessionUser;
-    await assertModuloMesas(user);
+    const { balneario } = await assertModuloMesas(user);
     await assertLocationAccess(user, data.locationId);
 
     const error = errorDelPlano(data.mesas, { columnas: data.columnas, filas: data.filas });
@@ -186,12 +207,46 @@ export const saveSalon = createServerFn({ method: "POST" })
     const quedan = new Set(data.mesas.flatMap((m) => (m.id === undefined ? [] : [m.id])));
     const borradas = actuales.filter((m) => !quedan.has(m.id));
     const nuevas = data.mesas.filter((m) => m.id === undefined);
+    // Solo un balneario cambia el lugar; otra empresa conserva lo guardado (y
+    // en pantalla dice "mesa" igual).
+    const guardado = await lugarGuardado(data.locationId);
+    const lugarAGuardar = balneario && data.lugar ? data.lugar : guardado;
+    const lugar = lugarEfectivo(balneario, lugarAGuardar);
+
+    const valoresDe = (m: z.infer<typeof mesaInput>) => ({
+      number: m.number,
+      seats: m.seats,
+      shape: m.shape,
+      x: m.x,
+      y: m.y,
+      w: m.w,
+      h: m.h,
+      active: m.active,
+    });
+    // Solo se escriben las que cambiaron: con cientos de carpas, reescribir
+    // todas en cada guardado dejaba la transacción abierta varios segundos.
+    const porId = new Map(actuales.map((m) => [m.id, m]));
+    const cambiadas = data.mesas.filter((m) => {
+      if (m.id === undefined) return false;
+      const antes = porId.get(m.id)!;
+      return (Object.keys(valoresDe(m)) as (keyof ReturnType<typeof valoresDe>)[]).some(
+        (k) => antes[k] !== m[k],
+      );
+    });
+    const renumeradas = cambiadas.filter((m) => porId.get(m.id!)!.number !== m.number);
 
     await db.transaction(async (tx) => {
       await tx
         .insert(diningRooms)
-        .values({ locationId: data.locationId, columns: data.columnas, rows: data.filas })
-        .onDuplicateKeyUpdate({ set: { columns: data.columnas, rows: data.filas } });
+        .values({
+          locationId: data.locationId,
+          columns: data.columnas,
+          rows: data.filas,
+          lugar: lugarAGuardar,
+        })
+        .onDuplicateKeyUpdate({
+          set: { columns: data.columnas, rows: data.filas, lugar: lugarAGuardar },
+        });
       if (borradas.length > 0) {
         await tx.delete(diningTables).where(
           inArray(
@@ -200,42 +255,46 @@ export const saveSalon = createServerFn({ method: "POST" })
           ),
         );
       }
-      // Números provisorios negativos: intercambiar la 1 con la 2 chocaría
-      // contra la unique key (sucursal, número) a mitad de camino.
-      await tx
-        .update(diningTables)
-        .set({ number: sql`-${diningTables.id}` })
-        .where(eq(diningTables.locationId, data.locationId));
-      for (const m of data.mesas) {
-        const valores = {
-          number: m.number,
-          seats: m.seats,
-          shape: m.shape,
-          x: m.x,
-          y: m.y,
-          w: m.w,
-          h: m.h,
-          active: m.active,
-        };
-        if (m.id === undefined) {
-          await tx.insert(diningTables).values({
-            ...valores,
+      // Números provisorios negativos para las que cambian de número:
+      // intercambiar la 1 con la 2 chocaría contra la unique key (sucursal,
+      // número) a mitad de camino. Las demás conservan el suyo, y el plano
+      // final no repite números (errorDelPlano), así que no chocan con ellas.
+      if (renumeradas.length > 0) {
+        await tx
+          .update(diningTables)
+          .set({ number: sql`-${diningTables.id}` })
+          .where(
+            and(
+              eq(diningTables.locationId, data.locationId),
+              inArray(
+                diningTables.id,
+                renumeradas.map((m) => m.id!),
+              ),
+            ),
+          );
+      }
+      for (const m of cambiadas) {
+        await tx
+          .update(diningTables)
+          .set(valoresDe(m))
+          .where(and(eq(diningTables.id, m.id!), eq(diningTables.locationId, data.locationId)));
+      }
+      // Las nuevas, en tandas: un insert por tanda y no uno por carpa.
+      for (let i = 0; i < nuevas.length; i += 100) {
+        await tx.insert(diningTables).values(
+          nuevas.slice(i, i + 100).map((m) => ({
+            ...valoresDe(m),
             locationId: data.locationId,
             token: randomBytes(12).toString("base64url"),
-          });
-        } else {
-          await tx
-            .update(diningTables)
-            .set(valores)
-            .where(and(eq(diningTables.id, m.id), eq(diningTables.locationId, data.locationId)));
-        }
+          })),
+        );
       }
     });
 
     if (nuevas.length > 0 || borradas.length > 0) {
       const sucursal = await nombreDeSucursal(data.locationId);
       const lista = (ms: { number: number }[]) =>
-        `${ms.length === 1 ? "la mesa" : "las mesas"} ${ms.map((m) => m.number).join(", ")}`;
+        `${ms.length === 1 ? "la" : "las"} ${sustantivo(lugar, ms.length > 1)} ${ms.map((m) => m.number).join(", ")}`;
       await registrarAuditoria(user, {
         category: "sucursales",
         action: "salon.mesas",

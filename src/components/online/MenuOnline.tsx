@@ -52,11 +52,12 @@ import {
 } from "@/lib/totem-cart";
 import { useLiberarDesplazamiento } from "@/lib/liberar-desplazamiento";
 import { AvisoPedidoEnCurso } from "@/components/online/AvisoPedidoEnCurso";
+import type { Lugar } from "@/lib/lugar";
 
 /** Por qué canal se abrió el menú. */
 export type CanalMenu =
   | { tipo: "online"; empresa: string; local: string; soloVer: boolean }
-  | { tipo: "mesa"; token: string; numero: number; onInicio?: () => void };
+  | { tipo: "mesa"; token: string; numero: number; lugar: Lugar; onInicio?: () => void };
 
 /** El link a "Tu pedido" de cada canal. */
 function IrAlPedido({
@@ -353,6 +354,7 @@ export function MenuOnline({ menu, canal }: { menu: OnlineMenu; canal: CanalMenu
               sucursal={menu.locationName}
               logoUrl={menu.logoUrl}
               mesa={canal.numero}
+              lugar={canal.lugar}
               accent={accent}
               onInicio={canal.onInicio}
             />

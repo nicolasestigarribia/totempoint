@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { eq, and, or, ne, desc, inArray, gte, lte, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { lugaresDe } from "@/lib/lugar-server";
+import type { Lugar } from "@/lib/lugar";
 import {
   orders,
   orderItems,
@@ -58,6 +60,8 @@ export interface KitchenOrder {
   channel: "totem" | "online" | "mesa";
   /** Mesa a la que hay que llevarlo, en un pedido del canal mesa. */
   tableNumber: number | null;
+  /** Si es una mesa, una carpa o una sombrilla (balnearios). Null fuera del canal mesa. */
+  lugar: Lugar | null;
   /**
    * Cuándo lo aceptó el local. Un pedido online sin aceptar no entra todavía
    * a las columnas de la cocina: espera en "Por aceptar".
@@ -348,6 +352,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
         : [],
     ]);
 
+    const lugares = await lugaresDe(locIds);
     return enCocina.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
@@ -358,6 +363,7 @@ export const listKitchenOrders = createServerFn({ method: "GET" })
       comments: o.comments,
       channel: o.channel,
       tableNumber: o.tableNumber,
+      lugar: o.channel === "mesa" ? (lugares.get(o.locationId) ?? "mesa") : null,
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       etaMinutes: o.etaMinutes,
       dispatchedAt: o.dispatchedAt?.toISOString() ?? null,
@@ -911,6 +917,8 @@ export interface PedidoPlanilla {
   sucursal: string;
   canal: "totem" | "online" | "mesa";
   mesa: number | null;
+  /** Mesa, carpa o sombrilla, en un pedido del canal mesa. */
+  lugar: Lugar | null;
   entrega: "local" | "mostrador" | "envio";
   cliente: string;
   telefono: string | null;
@@ -1013,6 +1021,7 @@ export const exportPedidos = createServerFn({ method: "GET" })
       hourCycle: "h23",
       timeZone: "America/Argentina/Buenos_Aires",
     });
+    const lugares = await lugaresDe(locs.map((l) => l.id));
     return filas.map((f) => ({
       jornada: f.businessDate,
       numero: f.orderNumber,
@@ -1020,6 +1029,7 @@ export const exportPedidos = createServerFn({ method: "GET" })
       sucursal: locs.find((l) => l.id === f.locationId)?.name ?? "",
       canal: f.channel,
       mesa: f.tableNumber,
+      lugar: f.channel === "mesa" ? (lugares.get(f.locationId) ?? "mesa") : null,
       entrega: f.deliveryMethod,
       cliente: f.customerName,
       telefono: f.customerPhone,
@@ -1037,6 +1047,8 @@ export const exportPedidos = createServerFn({ method: "GET" })
 export interface LlamadoMesa {
   id: number;
   mesa: number;
+  /** Mesa, carpa o sombrilla. */
+  lugar: Lugar;
   tipo: "mozo" | "cuenta";
   createdAt: string;
   locationName: string;
@@ -1070,9 +1082,11 @@ export const listLlamadosMesa = createServerFn({ method: "GET" })
         ),
       )
       .orderBy(tableCalls.createdAt);
+    const lugares = await lugaresDe(locs.map((l) => l.id));
     return filas.map((f) => ({
       id: f.id,
       mesa: f.mesa,
+      lugar: lugares.get(f.locationId) ?? "mesa",
       tipo: f.tipo,
       createdAt: f.createdAt.toISOString(),
       locationName: locs.find((l) => l.id === f.locationId)?.name ?? "",

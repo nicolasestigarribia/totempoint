@@ -29,7 +29,9 @@ import {
   diningTables,
   tableCalls,
   mesaSettings,
+  diningRooms,
 } from "@/db/schema";
+import { lugarEfectivo, nombreLugar, sustantivo, type Lugar } from "@/lib/lugar";
 import { destroySession } from "@/lib/auth/session";
 import {
   crearPreferencia,
@@ -3186,29 +3188,37 @@ async function resolverMesa(token: string) {
         name: companies.name,
         active: companies.active,
         mesasEnabled: companies.mesasEnabled,
+        balneario: companies.balneario,
       },
       autoAccept: mesaSettings.autoAccept,
       cashEnabled: mesaSettings.cashEnabled,
+      lugar: diningRooms.lugar,
     })
     .from(diningTables)
     .innerJoin(locations, eq(locations.id, diningTables.locationId))
     .innerJoin(companies, eq(companies.id, locations.companyId))
     .leftJoin(mesaSettings, eq(mesaSettings.companyId, companies.id))
+    .leftJoin(diningRooms, eq(diningRooms.locationId, diningTables.locationId))
     .where(eq(diningTables.token, token))
     .limit(1);
   if (!row) throw new Error("No encontramos esta mesa. Pedile al mozo que te ayude");
   if (!row.company.active) throw new Error("Este comercio no está disponible en este momento");
+  // Carpa o sombrilla solo en un balneario; cualquier otra empresa dice mesa.
+  const lugar = lugarEfectivo(row.company.balneario, row.lugar);
   // El pedido en mesa es un adicional, como el online.
   if (!row.company.mesasEnabled) {
-    throw new Error("Este comercio no está tomando pedidos desde la mesa");
+    throw new Error(`Este comercio no está tomando pedidos desde la ${sustantivo(lugar)}`);
   }
   if (!row.location.active || !row.mesa.active) {
-    throw new Error("Esta mesa no está tomando pedidos. Pedile al mozo que te ayude");
+    throw new Error(
+      `Esta ${sustantivo(lugar)} no está tomando pedidos. Pedile al mozo que te ayude`,
+    );
   }
   return {
     company: { id: row.company.id, name: row.company.name },
     location: row.location,
     mesa: { id: row.mesa.id, number: row.mesa.number },
+    lugar,
     autoAccept: row.autoAccept ?? true,
     cashEnabled: row.cashEnabled ?? true,
   };
@@ -3224,6 +3234,8 @@ const mesaAceptaEfectivo = (cashEnabled: boolean, mercadoPago: boolean) =>
 /** El menú de una mesa: el del online sin envío, mínimo ni horario, y su número. */
 export interface MesaMenu extends OnlineMenu {
   mesa: number;
+  /** Mesa, carpa o sombrilla: cómo se llama en esta sucursal. */
+  lugar: Lugar;
   /** La pantalla de inicio, la misma de la sección Portada. */
   portada: PortadaDatos;
 }
@@ -3252,6 +3264,7 @@ export const getMesaMenu = createServerFn({ method: "GET" })
       sucursalesOnline: 0,
       demoraHoy: null,
       mesa: r.mesa.number,
+      lugar: r.lugar,
     };
   });
 
@@ -3311,7 +3324,7 @@ export const createMesaOrder = createServerFn({ method: "POST" })
         throw new Error("Este comercio no está cobrando con Mercado Pago. Elegí pagar en efectivo");
       }
       if (data.paymentMethod === "efectivo" && !mesaAceptaEfectivo(r.cashEnabled, mp)) {
-        throw new Error("Desde la mesa se paga con Mercado Pago");
+        throw new Error(`Desde la ${sustantivo(r.lugar)} se paga con Mercado Pago`);
       }
       const tomado = await tomarPedido({
         company: r.company,
@@ -3319,7 +3332,7 @@ export const createMesaOrder = createServerFn({ method: "POST" })
         totemId: null,
         channel: "mesa",
         // El nombre es opcional: el mozo lo lleva a la mesa, no llama a nadie.
-        customerName: data.customerName?.trim() || `Mesa ${r.mesa.number}`,
+        customerName: data.customerName?.trim() || nombreLugar(r.lugar, r.mesa.number),
         deliveryMethod: "local",
         paymentMethod: data.paymentMethod,
         comments: data.comments,
@@ -3343,6 +3356,8 @@ export interface MesaOrderStatus {
   /** El código de verificación del pedido. Null en pedidos viejos. */
   codigo: string | null;
   tableNumber: number | null;
+  /** Mesa, carpa o sombrilla, para decirle al cliente adónde se lo llevan. */
+  lugar: Lugar;
   status: "recibido" | "preparacion" | "entregado" | "cancelado";
   /** Null mientras espera que el local lo acepte (sin aceptación automática). */
   acceptedAt: string | null;
@@ -3388,12 +3403,15 @@ export const getMesaOrder = createServerFn({ method: "GET" })
         theme: totemSettings.theme,
         fontTheme: totemSettings.fontTheme,
         corners: totemSettings.corners,
+        lugar: diningRooms.lugar,
+        balneario: companies.balneario,
       })
       .from(orders)
       .innerJoin(diningTables, eq(diningTables.id, orders.tableId))
       .innerJoin(locations, eq(locations.id, orders.locationId))
       .innerJoin(companies, eq(companies.id, locations.companyId))
       .leftJoin(totemSettings, eq(totemSettings.companyId, companies.id))
+      .leftJoin(diningRooms, eq(diningRooms.locationId, orders.locationId))
       .where(
         and(
           eq(orders.trackingToken, data.tracking),
@@ -3431,6 +3449,7 @@ export const getMesaOrder = createServerFn({ method: "GET" })
       orderNumber: o.orderNumber,
       codigo: o.codigo,
       tableNumber: o.tableNumber,
+      lugar: lugarEfectivo(row.balneario, row.lugar),
       status: o.status,
       acceptedAt: o.acceptedAt?.toISOString() ?? null,
       paymentMethod: o.paymentMethod,

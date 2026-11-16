@@ -24,6 +24,7 @@ import { mensajeDeError } from "@/lib/error-message";
 import { DateRangeFilter, hoyJornada } from "@/components/admin/DateRangeFilter";
 import { formatearNumeroPedido } from "@/lib/order-number";
 import { aCsv, descargarArchivo } from "@/lib/planilla";
+import { nombreLugar } from "@/lib/lugar";
 
 function pesos(n: number): string {
   return `$${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -124,7 +125,7 @@ export function CajaSection({ panelClass }: { panelClass: string }) {
           formatearNumeroPedido(p.jornada, p.numero),
           p.hora,
           p.sucursal,
-          p.mesa !== null ? `Mesa ${p.mesa}` : CANAL[p.canal],
+          p.mesa !== null ? nombreLugar(p.lugar ?? "mesa", p.mesa) : CANAL[p.canal],
           ENTREGA[p.entrega],
           p.cliente,
           p.telefono,
